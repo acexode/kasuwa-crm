@@ -55,8 +55,24 @@ const DEMO_FLAGS = [
   'crm_tickets',
   'crm_calls',
   'crm_reports',
+  // D-L194 placeholders (T-0135): on in the demo, off by default elsewhere.
+  'fx_display',
+  'pipeline_summary',
+  'pipeline_templates',
+  'whatsapp_recency',
+  'deal_products',
+  'deal_risk',
+  'deal_relationships',
+  'deal_quotes',
   // T-0131: P01/6's tour button, drawn disabled until a tour exists (D-L194).
   'product_tour',
+  // T-0133 (D-L194): the P04 placeholders.
+  'map_view',
+  'bulk_actions',
+  'saved_views',
+  'last_activity',
+  'quick_actions',
+  'more_filters',
   // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
   'crm_home',
   'ai_nba',
@@ -64,7 +80,6 @@ const DEMO_FLAGS = [
   'quota',
   'approvals',
   'home_kpis',
-  'fx_display',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

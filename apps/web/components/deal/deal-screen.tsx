@@ -2,17 +2,18 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   createBundleTranslator,
   type MessageBundle,
   type MessageId,
   type Translator,
 } from '@kasuwa/i18n/bundle';
+import { Button, initials } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
-import { LINK, PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { LINK } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { formatDateTime, zoneName } from '../record/record-core';
 import {
@@ -25,7 +26,7 @@ import { RecordTimeline, type TimelineVocabulary } from '../record/record-timeli
 import { useOnline } from '../script-builder/use-online';
 import { LazyCustomValuesPanel } from '../custom/lazy-panel';
 import { useCustomFields, useReadOnlyKeys, type CustomContext, type ReadOnlyStore } from '../custom/use-custom-fields';
-import { withheld, type MoveDealBody, type Pipeline } from '../../lib/pipelines-api';
+import { withheld, type MoveDealBody, type Pipeline, type PipelineStage } from '../../lib/pipelines-api';
 import {
   DEAL_TIMELINE_FIELDS,
   createDealActivity,
@@ -37,9 +38,12 @@ import {
 } from '../../lib/deal-detail-api';
 import {
   EMPTY_INPUT,
+  allowedTargets,
   errorMessage,
   fieldLabel,
-  formatCalendarDate,
+  formatLongDate,
+  formatPercent,
+  formatShortDate,
   isAllowed,
   rebaseViews,
   requirementViews,
@@ -48,7 +52,10 @@ import {
   type RequirementView,
 } from '../pipeline/pipeline-model';
 import { moveRefusalText } from '../pipeline/move-refusal';
-import { AmountValue, Locked, Money, OwnerValue } from '../pipeline/pipeline-parts';
+import { AmountValue, Locked, Money, OwnerValue, daysSince } from '../pipeline/pipeline-parts';
+import { NO_MODULES, type DealModules } from '../pipeline/deal-modules';
+import { choiceLabel, usePipelineChoices, type ChoicesState } from '../pipeline/pipeline-select';
+import { DealsBarActions } from '../pipeline/bar-actions';
 import type { RecordLinks } from '../pipeline/pipeline-board';
 import {
   activityTargets,
@@ -62,7 +69,6 @@ import {
   uuidHref,
 } from './deal-model';
 import { useDealDetail, type DealDetailModel } from './use-deal-detail';
-import { numberingLocale } from '../../lib/numbering';
 import { nameOrWithheld } from '../records/name';
 
 /**
@@ -135,6 +141,7 @@ export function DealScreen({
   live,
   links,
   customFields = false,
+  modules = NO_MODULES,
 }: {
   dealId: string;
   locale: string;
@@ -145,6 +152,8 @@ export function DealScreen({
   links: RecordLinks;
   /** Custom values are on in this process (read by the server page, T-0091): draw, edit and log them. */
   customFields?: boolean;
+  /** The D-L194 placeholders this process draws (read by the server page). */
+  modules?: DealModules;
 }) {
   const t = createBundleTranslator(locale, messages);
   const online = useOnline();
@@ -153,7 +162,14 @@ export function DealScreen({
   const activityKeys = useReadOnlyKeys();
 
   return (
-    <CrmShell t={t} locale={locale} locales={locales} current="deals" live={live}>
+    <CrmShell
+      t={t}
+      locale={locale}
+      locales={locales}
+      current="deals"
+      live={live}
+      appBar={{ title: t.t('deal.documentTitle'), back: (model.pipeline === null ? null : uuidHref('/pipelines', model.pipeline.id)) ?? '/pipelines', actions: <DealsBarActions t={t} live={live} /> }}
+    >
       <div
         data-screen="P06/05"
         data-record-state={model.phase}
@@ -185,6 +201,7 @@ export function DealScreen({
             custom={custom}
             customFields={customFields}
             activityKeys={activityKeys}
+            modules={modules}
           />
         ) : null}
       </div>
@@ -205,6 +222,7 @@ function Ready({
   custom,
   customFields,
   activityKeys,
+  modules,
 }: {
   t: Translator;
   locale: string;
@@ -219,7 +237,10 @@ function Ready({
   customFields: boolean;
   /** Read-only activity keys, owned here so they outlive the activity form. */
   activityKeys: ReadOnlyStore;
+  modules: DealModules;
 }) {
+  // The breadcrumb's pipeline is told apart from a namesake by its programme, as the board's dropdown is.
+  const choices: ChoicesState = usePipelineChoices();
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
   const [editing, setEditing] = useState(false);
@@ -385,84 +406,180 @@ function Ready({
     if (type !== null) logButtons.current[type]?.focus();
   };
 
-  const probability = stage === undefined ? null : percent(locale, stage.probabilityBp);
+  const probability = stage === undefined ? null : formatPercent(locale, stage.probabilityBp);
   const pipelineHref = uuidHref('/pipelines', pipeline.id);
+  const choice = choices.phase === 'ready' ? choices.choices.find((entry) => entry.id === pipeline.id) : undefined;
+  const pipelineLabel = choice === undefined ? pipeline.name : choiceLabel(t, choice);
+  const nowMs = Date.now();
+  const moves = stageMoves(pipeline, deal);
+  const unmetFor = (target: PipelineStage) => requirementViews(target, deal, deal.withheldFields).filter((view) => !view.met).length;
+  const nextCount = moves.next === null ? 0 : unmetFor(moves.next);
+  const closeDate = withheld(deal, 'expectedCloseDate') ? null : (deal.expectedCloseDate ?? null);
+  const closeDays = closeDate === null ? null : daysUntil(closeDate, nowMs);
+  const account = deal.account ?? null;
 
   return (
     <>
       {/* Behind an open dialog the screen is inert: focus cannot reach a second write. */}
-      <div inert={dialogOpen} className="flex min-w-0 flex-col gap-4">
-        <nav data-testid="deal-breadcrumb" aria-label={t.t('deal.breadcrumb')}>
-          <ol className="flex min-w-0 flex-wrap items-center gap-x-1 text-body-sm">
+      <div inert={dialogOpen} className="flex min-w-0 flex-col gap-3 md:gap-4">
+        <nav data-testid="deal-breadcrumb" aria-label={t.t('deal.breadcrumb')} className="hidden md:block">
+          <ol className="flex min-w-0 flex-wrap items-center gap-x-1 text-meta">
             <li className="inline-flex items-center">
-              <Link href="/pipelines" className={`inline-flex min-h-touch items-center ${LINK}`}>
+              <Link href="/pipelines" className={`inline-flex items-center underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
                 {t.t('records.nav.deals')}
               </Link>
             </li>
             <li className="inline-flex min-w-0 items-center gap-1">
-              <Icon name="chevron_right" size="sm" className="text-text-muted rtl:-scale-x-100" />
+              <Icon name="chevron_right" size={16} className="text-text-muted rtl:-scale-x-100" />
               {pipelineHref === null ? (
                 <span data-record-text="" className="break-words">
-                  {pipeline.name}
+                  {pipelineLabel}
                 </span>
               ) : (
-                <Link
-                  href={pipelineHref}
-                  className={`inline-flex min-h-touch min-w-0 items-center break-words ${LINK}`}
-                >
-                  <span data-record-text="">{pipeline.name}</span>
+                <Link href={pipelineHref} className={`inline-flex min-w-0 items-center break-words underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
+                  <span data-record-text="">{pipelineLabel}</span>
                 </Link>
               )}
+            </li>
+            <li className="inline-flex min-w-0 items-center gap-1">
+              <Icon name="chevron_right" size={16} className="text-text-muted rtl:-scale-x-100" />
+              <b aria-current="page" data-record-text="" className="break-words">
+                {deal.name}
+              </b>
             </li>
           </ol>
         </nav>
 
-        <section aria-labelledby={headings.stage} className={`${PANEL} gap-4`}>
-          <div className="flex min-w-0 flex-col gap-1">
-            <h1 data-record-text="" className="break-words text-h3 md:text-h2">
-              {deal.name}
-            </h1>
-            <p className="flex flex-wrap items-center gap-x-2 text-body-sm text-text-2">
-              <span id={headings.stage}>{t.t('pipeline.field.stageId')}</span>
-              <span data-field="stage" data-record-text="" className="font-semibold text-text">
-                {stage?.name ?? ''}
-              </span>
-            </p>
+        <section aria-labelledby={headings.stage} className="flex min-w-0 flex-col gap-3.5 rounded-lg border border-border bg-surface p-3.5 md:px-5 md:py-4.5">
+          <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+            <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-1.5">
+              <h1 id={headings.stage} data-record-text="" className="break-words text-h4 font-bold leading-tight md:text-title-sm md:font-bold">
+                {deal.name}
+              </h1>
+              <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-body-sm leading-[21px] text-text-2">
+                <span data-related="account" data-locked={withheld(deal, 'accountId') ? 'true' : undefined}>
+                  {withheld(deal, 'accountId') ? (
+                    <Locked t={t} />
+                  ) : account === null ? (
+                    <span className="text-text-muted">{t.t('deal.header.noAccount')}</span>
+                  ) : links.accounts && uuidHref('/accounts', account.id) !== null ? (
+                    <Link href={uuidHref('/accounts', account.id) ?? ''} prefetch={false} className={`font-semibold text-primary-text underline underline-offset-[3px] ${FOCUS}`}>
+                      <span data-record-text="">{account.name}</span>
+                    </Link>
+                  ) : (
+                    <span data-record-text="" className="font-semibold text-text">
+                      {account.name}
+                    </span>
+                  )}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {t.t('deal.header.owner')}{' '}
+                  <b data-field="owner" data-locked={withheld(deal, 'ownerUserId') ? 'true' : undefined} className="text-text">
+                    <OwnerValue t={t} deal={deal} />
+                  </b>
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-col items-start gap-px md:items-end">
+              <b className="text-h4 leading-[1.2] md:text-title-sm md:font-bold">
+                <AmountValue t={t} locale={locale} deal={deal} />
+              </b>
+              {closeDate === null || closeDays === null ? null : (
+                <span className="text-caption font-normal text-text-2">
+                  {t.t('deal.header.closes')} <b className="text-text">{formatShortDate(locale, closeDate)}</b>{' '}
+                  {closeDays >= 0 ? t.t('deal.header.daysLeft', { days: closeDays }) : t.t('deal.header.daysOverdue', { days: -closeDays })}
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* At 360 px the path scrolls inside itself, never the page; a scroller is a keyboard stop (WCAG 2.1.1). */}
-          <div
-            role="region"
-            aria-label={t.t('deal.path')}
-            tabIndex={0}
-            className={`min-w-0 overflow-x-auto rounded-md pb-1 ${FOCUS}`}
-          >
-            <ol
-              role="list"
-              data-testid="stage-path"
-              aria-label={t.t('deal.path')}
-              className="flex w-max min-w-0 gap-1"
-            >
-              {pathStages(pipeline).map((step) => {
-                const current = step.id === deal.stageId;
+          {/* The chevron path. At 360 px it scrolls inside itself, never the page; a scroller is a keyboard stop (WCAG 2.1.1). */}
+          <div role="region" aria-label={t.t('deal.path')} tabIndex={0} className={`-mx-3.5 min-w-0 overflow-x-auto px-3.5 md:mx-0 md:px-0 ${FOCUS}`}>
+            <ol role="list" data-testid="stage-path" aria-label={t.t('deal.path')} className="flex min-w-0 gap-0.5">
+              {pathStages(pipeline).map((step, index) => {
+                const state = stepState(pipeline, deal, step);
+                const unmet = state === 'allowed' ? unmetFor(step) : 0;
+                const tone =
+                  state === 'done'
+                    ? 'bg-success-soft text-success-text'
+                    : state === 'current'
+                      ? 'bg-primary text-on-primary'
+                      : state === 'allowed'
+                        ? 'bg-primary-soft text-primary-text'
+                        : 'bg-surface-sunken text-text-muted';
+                const icon = state === 'done' ? 'check' : state === 'current' ? 'radio_button_checked' : state === 'allowed' ? (unmet > 0 ? 'lock' : 'arrow_forward') : 'block';
+                const sub =
+                  state === 'done'
+                    ? t.t('deal.path.done')
+                    : state === 'current'
+                      ? t.t('deal.path.current', { days: daysSince(deal.stageEnteredAt, nowMs), percent: probability ?? '' })
+                      : state === 'allowed'
+                        ? unmet > 0
+                          ? t.t('deal.path.requirements', { count: unmet })
+                          : t.t('deal.path.allowed')
+                        : t.t('deal.path.notAllowed');
                 return (
                   <li
                     key={step.id}
                     data-stage-step={step.id}
-                    aria-current={current ? 'step' : undefined}
-                    className={`flex min-h-touch shrink-0 items-center gap-1 rounded-md px-3 text-body-sm font-semibold ${
-                      current ? 'bg-primary text-on-primary' : 'bg-surface-sunken text-text-2'
-                    }`}
+                    aria-current={state === 'current' ? 'step' : undefined}
+                    style={index === 0 ? CHEVRON_FIRST : CHEVRON}
+                    className={`flex min-h-[52px] min-w-[132px] flex-[1_0_132px] flex-col justify-center pe-5 ps-6 [clip-path:var(--chevron)] md:min-w-[120px] md:flex-[1_0_120px] rtl:[clip-path:var(--chevron-rtl)] ${tone}`}
                   >
-                    {step.requirements.length === 0 ? null : <Icon name="lock" size="sm" />}
-                    <span data-record-text="">{step.name}</span>
+                    <span className="flex items-center gap-1 whitespace-nowrap text-meta font-bold">
+                      <Icon name={icon} size={16} />
+                      <span data-record-text="" {...(state === 'current' ? { 'data-field': 'stage' } : {})}>
+                        {step.name}
+                      </span>
+                    </span>
+                    <span className="whitespace-nowrap text-micro font-semibold opacity-90">{sub}</span>
                   </li>
                 );
               })}
             </ol>
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {moves.next === null ? null : (
+              <Button
+                variant="primary"
+                icon="arrow_forward"
+                data-action="move-next"
+                data-requires-connection=""
+                disabled={!online || busy}
+                onClick={() => (moves.next === null ? undefined : requestMove(moves.next.id))}
+                className="px-4 !text-body-sm"
+              >
+                {t.t('deal.action.moveTo', { stage: moves.next.name })}
+                {nextCount > 0 ? <span className="rounded-full bg-primary-hover px-1.5 py-0.5 text-micro">{t.t('pipeline.move.toComplete', { count: nextCount })}</span> : null}
+              </Button>
+            )}
+            {moves.back === null ? null : (
+              <Button
+                icon="arrow_back"
+                data-action="move-back"
+                data-requires-connection=""
+                disabled={!online || busy}
+                onClick={() => (moves.back === null ? undefined : requestMove(moves.back.id))}
+                className="px-3.5 !text-body-sm"
+              >
+                {t.t('deal.action.backTo', { stage: moves.back.name })}
+              </Button>
+            )}
+            {moves.lost === null ? null : (
+              <button
+                type="button"
+                data-action="mark-lost"
+                data-requires-connection=""
+                disabled={!online || busy}
+                onClick={() => (moves.lost === null ? undefined : requestMove(moves.lost.id))}
+                className={`inline-flex h-control-base items-center gap-1.5 rounded-md px-3 text-body-sm font-semibold text-danger-text hover:bg-danger-soft disabled:cursor-not-allowed disabled:text-disabled-text ${FOCUS}`}
+              >
+                <Icon name="thumb_down" size={18} />
+                {t.t('deal.action.lost')}
+              </button>
+            )}
             <button
               type="button"
               data-action="move-deal"
@@ -470,53 +587,41 @@ function Ready({
               aria-haspopup="dialog"
               disabled={!online || busy}
               onClick={() => setMoving(true)}
-              className={`${PRIMARY_BUTTON} disabled:cursor-not-allowed`}
+              className={`inline-flex h-control-base items-center gap-1.5 rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-primary-soft disabled:cursor-not-allowed disabled:text-disabled-text ${FOCUS}`}
             >
-              <Icon name="arrow_forward" size="sm" className="rtl:-scale-x-100" />
-              {t.t('pipeline.card.move')}
+              <Icon name="open_with" size={18} />
+              {t.t('deal.action.allStages')}
             </button>
-            <button
-              type="button"
-              data-action="edit-deal"
-              data-requires-connection=""
-              aria-haspopup="dialog"
-              disabled={!online}
-              onClick={() => setEditing(true)}
-              className={`${SECONDARY_BUTTON} disabled:opacity-60`}
-            >
-              <Icon name="edit" size="sm" />
-              {t.t('deal.edit')}
-            </button>
-            {offersAssignToMe(deal, callerId) ? (
-              <button
-                type="button"
-                data-action="assign-to-me"
+            <span className="min-w-0 flex-[1_1_220px] text-caption font-normal leading-[17px] text-text-muted">{t.t('deal.action.hint')}</span>
+            <span className="flex flex-wrap gap-2">
+              <Button
+                size="compact"
+                icon="edit"
+                data-action="edit-deal"
                 data-requires-connection=""
-                disabled={!online || busy}
-                onClick={() => void assignToMe()}
-                className={`${SECONDARY_BUTTON} disabled:opacity-60`}
+                aria-haspopup="dialog"
+                disabled={!online}
+                onClick={() => setEditing(true)}
               >
-                <Icon name="person_add" size="sm" />
-                {t.t('deal.assignToMe')}
-              </button>
-            ) : null}
+                {t.t('deal.edit')}
+              </Button>
+              {offersAssignToMe(deal, callerId) ? (
+                <Button size="compact" icon="person_add" data-action="assign-to-me" data-requires-connection="" disabled={!online || busy} onClick={() => void assignToMe()}>
+                  {t.t('deal.assignToMe')}
+                </Button>
+              ) : null}
+            </span>
           </div>
         </section>
 
         {notice === null ? null : notice.tone === 'error' ? (
-          <p
-            role="alert"
-            className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
-          >
-            <Icon name="error" size="sm" />
+          <p role="alert" className="flex items-start gap-2 rounded-10 border-2 border-danger bg-danger-soft px-3.5 py-3 text-body-sm text-danger-text">
+            <Icon name="block" size={20} />
             <span>{notice.text}</span>
           </p>
         ) : (
-          <p
-            role="status"
-            className="flex items-center gap-2 text-body-sm font-semibold text-success-text"
-          >
-            <Icon name="check_circle" size="sm" />
+          <p role="status" className="flex items-center gap-2 text-body-sm font-semibold text-success-text">
+            <Icon name="check_circle" size={18} />
             {notice.text}
           </p>
         )}
@@ -526,26 +631,20 @@ function Ready({
 
         {custom.fields.length > 0 ? <LazyCustomValuesPanel t={t} locale={locale} fields={custom.fields} custom={deal.custom} withheldFields={deal.withheldFields} /> : null}
 
-        <div className="grid min-w-0 items-start gap-4 md:grid-cols-3">
+        <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div className="flex min-w-0 flex-col gap-4">
+            {modules.risk ? <RiskCard t={t} compact className="lg:hidden" /> : null}
+
             <section aria-labelledby={headings.fields} className={PANEL}>
-              <h2 id={headings.fields} className="text-h5">
+              <h2 id={headings.fields} className="text-card-title">
                 {t.t('deal.fields')}
               </h2>
-              <dl className="flex flex-col divide-y divide-border">
-                <Row
-                  label={t.t('pipeline.field.amount')}
-                  field="amount"
-                  locked={withheld(deal, 'amount')}
-                >
+              <dl className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-5 gap-y-3.5">
+                <Field label={t.t('pipeline.field.amount')} field="amount" locked={withheld(deal, 'amount')}>
                   <AmountValue t={t} locale={locale} deal={deal} />
-                </Row>
-                <Row
-                  label={
-                    probability === null
-                      ? t.t('deal.weighted.plain')
-                      : t.t('deal.weighted', { percent: probability })
-                  }
+                </Field>
+                <Field
+                  label={probability === null ? t.t('deal.weighted.plain') : t.t('deal.weighted.short', { percent: probability })}
                   field="weightedAmount"
                   locked={withheld(deal, 'amount')}
                 >
@@ -556,36 +655,17 @@ function Ready({
                   ) : (
                     <Money t={t} locale={locale} money={deal.weightedAmount} kind="weighted" />
                   )}
-                </Row>
-                <Row
-                  label={t.t('pipeline.field.expectedCloseDate')}
-                  field="expectedCloseDate"
-                  locked={withheld(deal, 'expectedCloseDate')}
-                >
+                </Field>
+                <Field label={t.t('deal.field.expectedClose')} field="expectedCloseDate" locked={withheld(deal, 'expectedCloseDate')}>
                   {withheld(deal, 'expectedCloseDate') ? (
                     <Locked t={t} />
                   ) : deal.expectedCloseDate === null || deal.expectedCloseDate === undefined ? (
                     <NotSet t={t} />
                   ) : (
-                    <time dateTime={deal.expectedCloseDate}>
-                      {formatCalendarDate(locale, deal.expectedCloseDate)}
-                    </time>
+                    <time dateTime={deal.expectedCloseDate}>{formatLongDate(locale, deal.expectedCloseDate)}</time>
                   )}
-                </Row>
-                <Row
-                  label={t.t('pipeline.field.owner')}
-                  field="owner"
-                  locked={withheld(deal, 'ownerUserId')}
-                >
-                  <OwnerValue t={t} deal={deal} />
-                </Row>
-                <Related t={t} kind="contact" deal={deal} link={links.contacts} />
-                <Related t={t} kind="account" deal={deal} link={links.accounts} />
-                <Row
-                  label={t.t('pipeline.field.nextStep')}
-                  field="nextStep"
-                  locked={withheld(deal, 'nextStep')}
-                >
+                </Field>
+                <Field label={t.t('pipeline.field.nextStep')} field="nextStep" locked={withheld(deal, 'nextStep')}>
                   {withheld(deal, 'nextStep') ? (
                     <Locked t={t} />
                   ) : deal.nextStep === null || deal.nextStep === undefined ? (
@@ -595,105 +675,107 @@ function Ready({
                       {deal.nextStep}
                     </span>
                   )}
-                </Row>
+                </Field>
+                <Related t={t} kind="contact" deal={deal} link={links.contacts} />
               </dl>
             </section>
 
-            <section aria-labelledby={headings.requirements} className={PANEL}>
-              <h2 id={headings.requirements} className="text-h5">
-                {t.t('deal.requirements')}
-              </h2>
-              <Requirements
+            {modules.products ? <ProductsCard t={t} /> : null}
+
+            <section aria-labelledby={headings.activity} className={PANEL}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id={headings.activity} className="flex-1 text-card-title">
+                  {t.t('record.section.activity')}
+                </h2>
+                <span className="text-caption font-normal text-text-muted">{t.t('record.timeline.zone', { zone: zoneName(locale) })}</span>
+              </div>
+              {targets === null ? (
+                <p data-testid="activity-no-target" className="flex items-start gap-2 rounded-md bg-surface-sunken p-3 text-body-sm text-text-2">
+                  <Icon name="info" size={18} />
+                  {t.t('deal.activity.noTarget')}
+                </p>
+              ) : (
+                <div role="group" aria-label={t.t('record.log.group')} className="flex flex-wrap gap-2">
+                  {LOG_TYPES.map((type) => (
+                    <Button
+                      key={type}
+                      ref={(element) => {
+                        logButtons.current[type] = element;
+                      }}
+                      size="compact"
+                      icon={type === 'note' ? 'edit_note' : type === 'task' ? 'add_task' : 'call'}
+                      data-action="log-activity"
+                      data-activity-type={type}
+                      data-requires-connection=""
+                      aria-expanded={logging === type}
+                      disabled={!online}
+                      onClick={() => setLogging(type)}
+                    >
+                      {t.t(`record.activity.type.${type}` as MessageId)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {logging === null || targets === null ? null : (
+                <ActivityForm
+                  key={logging}
+                  t={t}
+                  type={logging}
+                  offline={!online}
+                  onSave={log}
+                  onClose={closeLog}
+                  refusal={composerRefusal}
+                  customFields={customFields}
+                  readOnlyStore={activityKeys}
+                />
+              )}
+              <RecordTimeline
                 t={t}
-                views={
-                  stage === undefined ? [] : requirementViews(stage, deal, deal.withheldFields)
-                }
+                locale={locale}
+                timeline={model.timeline}
+                vocabulary={DEAL_TIMELINE}
+                loadingLabel="deal.loading"
+                versions={NO_VERSIONS}
+                completing={null}
+                offline={!online}
+                onRetry={model.retry}
+                onLoadOlder={model.loadOlder}
+                onComplete={ignore}
+                meetingTimes
               />
             </section>
+          </div>
 
+          <div className="flex min-w-0 flex-col gap-4">
+            {modules.risk ? <RiskCard t={t} className="hidden lg:flex" /> : null}
+            {modules.relationships ? <ContactRolesCard t={t} locale={locale} deal={deal} /> : null}
+            {modules.relationships ? <EmptyCard title={t.t('deal.competitors.title')} body={t.t('deal.competitors.empty')} icon="groups" /> : null}
+            {modules.quotes ? (
+              <EmptyCard
+                title={t.t('deal.quotes.title')}
+                body={t.t('deal.quotes.empty')}
+                icon="request_quote"
+                action={
+                  <button type="button" disabled className="h-control-sm rounded-6 px-2.5 text-meta font-bold text-disabled-text">
+                    {t.t('deal.quotes.new')}
+                  </button>
+                }
+              />
+            ) : null}
+            {modules.quotes ? <EmptyCard title={t.t('deal.approvals.title')} body={t.t('deal.approvals.empty')} icon="approval" /> : null}
+            <section aria-labelledby={headings.requirements} className={PANEL}>
+              <h2 id={headings.requirements} className="text-card-title">
+                {t.t('deal.requirements')}
+              </h2>
+              <Requirements t={t} views={stage === undefined ? [] : requirementViews(stage, deal, deal.withheldFields)} />
+            </section>
             <section aria-labelledby={headings.checks} className={PANEL}>
-              <h2 id={headings.checks} className="text-h5">
+              <h2 id={headings.checks} className="text-card-title">
                 {t.t('deal.checks')}
               </h2>
               <Checks t={t} locale={locale} deal={deal} pipeline={pipeline} />
             </section>
           </div>
-
-          <section aria-labelledby={headings.activity} className={`${PANEL} gap-4 md:col-span-2`}>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id={headings.activity} className="text-h5">
-                {t.t('record.section.activity')}
-              </h2>
-              <span className="text-caption text-text-muted">
-                {t.t('record.timeline.zone', { zone: zoneName(locale) })}
-              </span>
-            </div>
-            {targets === null ? (
-              <p
-                data-testid="activity-no-target"
-                className="flex items-start gap-2 rounded-md bg-surface-sunken p-3 text-body-sm text-text-2"
-              >
-                <Icon name="info" size="sm" />
-                {t.t('deal.activity.noTarget')}
-              </p>
-            ) : (
-              <div
-                role="group"
-                aria-label={t.t('record.log.group')}
-                className="flex flex-wrap gap-2"
-              >
-                {LOG_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    ref={(element) => {
-                      logButtons.current[type] = element;
-                    }}
-                    type="button"
-                    data-action="log-activity"
-                    data-activity-type={type}
-                    data-requires-connection=""
-                    aria-expanded={logging === type}
-                    disabled={!online}
-                    onClick={() => setLogging(type)}
-                    className={`${SECONDARY_BUTTON} disabled:opacity-60`}
-                  >
-                    <Icon
-                      name={type === 'note' ? 'edit_note' : type === 'task' ? 'add_task' : 'call'}
-                      size="sm"
-                    />
-                    {t.t(`record.activity.type.${type}` as MessageId)}
-                  </button>
-                ))}
-              </div>
-            )}
-            {logging === null || targets === null ? null : (
-              <ActivityForm
-                key={logging}
-                t={t}
-                type={logging}
-                offline={!online}
-                onSave={log}
-                onClose={closeLog}
-                refusal={composerRefusal}
-                customFields={customFields}
-                readOnlyStore={activityKeys}
-              />
-            )}
-            <RecordTimeline
-              t={t}
-              locale={locale}
-              timeline={model.timeline}
-              vocabulary={DEAL_TIMELINE}
-              loadingLabel="deal.loading"
-              versions={NO_VERSIONS}
-              completing={null}
-              offline={!online}
-              onRetry={model.retry}
-              onLoadOlder={model.loadOlder}
-              onComplete={ignore}
-              meetingTimes
-            />
-          </section>
         </div>
       </div>
 
@@ -716,9 +798,7 @@ function Ready({
           pipeline={pipeline}
           prompt={prompt}
           online={online}
-          onInput={(input) =>
-            setPrompt((current) => (current === null ? current : { ...current, input }))
-          }
+          onInput={(input) => setPrompt((current) => (current === null ? current : { ...current, input }))}
           onClose={() => setPrompt(null)}
           onConfirm={(body) => {
             if (prompt.sending) return;
@@ -756,29 +836,163 @@ function Ready({
   );
 }
 
+/**
+ * The chevron's shape (P06/12): a 14px point on the trailing edge, and a 14px
+ * notch on the leading edge after the first, mirrored for right-to-left.
+ */
+const CHEVRON = {
+  '--chevron': 'polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%,14px 50%)',
+  '--chevron-rtl': 'polygon(14px 0,100% 0,calc(100% - 14px) 50%,100% 100%,14px 100%,0 50%)',
+} as CSSProperties;
+const CHEVRON_FIRST = {
+  '--chevron': 'polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%)',
+  '--chevron-rtl': 'polygon(14px 0,100% 0,100% 100%,14px 100%,0 50%)',
+} as CSSProperties;
+
+type StepState = 'done' | 'current' | 'allowed' | 'blocked';
+
+/** A step on the path: behind the deal (done), where it is, a later stage the allow-list lets it reach, or not. */
+function stepState(pipeline: Pipeline, deal: DealDetail, step: PipelineStage): StepState {
+  if (step.id === deal.stageId) return 'current';
+  // Behind the deal is done, as P06/12 draws it, even where the allow-list lets it step back ("Back to …" is the way back).
+  const current = stageById(pipeline, deal.stageId);
+  if (current !== undefined && current.kind !== 'lost' && step.position < current.position) return 'done';
+  if (isAllowed(pipeline, deal.stageId, step.id)) return 'allowed';
+  return 'blocked';
+}
+
+/** The design's three moves: forward to the nearest allowed later stage, back to the nearest allowed earlier one, and lost. */
+function stageMoves(pipeline: Pipeline, deal: DealDetail): { next: PipelineStage | null; back: PipelineStage | null; lost: PipelineStage | null } {
+  const current = stageById(pipeline, deal.stageId);
+  const targets = allowedTargets(pipeline, deal.stageId);
+  const position = current?.position ?? 0;
+  const later = targets.filter((stage) => stage.kind !== 'lost' && stage.position > position);
+  const earlier = targets.filter((stage) => stage.kind === 'open' && stage.position < position);
+  return {
+    next: later[0] ?? null,
+    back: earlier[earlier.length - 1] ?? null,
+    lost: targets.find((stage) => stage.kind === 'lost') ?? null,
+  };
+}
+
+/** Whole days from today (the reader's zone) to a calendar date; negative once it has passed. */
+function daysUntil(date: string, nowMs: number): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const [year, month, day] = date.split('-').map(Number);
+  const now = new Date(nowMs);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1) - today) / 86_400_000);
+}
+
+/** A design card with a title, an empty state and an optional header action (D-L194). */
+function EmptyCard({ title, body, icon, action }: { title: string; body: string; icon: 'groups' | 'request_quote' | 'approval'; action?: ReactNode }) {
+  return (
+    <section className={`${PANEL} gap-1`}>
+      <div className="mb-1.5 flex items-center">
+        <h2 className="flex-1 text-card-title">{title}</h2>
+        {action}
+      </div>
+      <p className="flex items-start gap-2 border-t border-border py-2.5 text-caption font-normal text-text-2">
+        <Icon name={icon} size={16} className="text-text-muted" />
+        {body}
+      </p>
+    </section>
+  );
+}
+
+/** P06/12's Deal risk card, in its empty state: nothing scores deals yet (D-L194). Compact above the fields on a phone. */
+function RiskCard({ t, compact = false, className = '' }: { t: Translator; compact?: boolean; className?: string }) {
+  return (
+    <section aria-label={t.t('deal.risk.title')} className={`flex-col gap-2.5 rounded-lg border border-warning bg-surface ${compact ? 'p-3.5' : 'p-4'} ${className || 'flex'}`}>
+      <div className="flex items-center gap-2">
+        <Icon name="auto_awesome" size={20} className="text-primary-text" />
+        <h2 className="flex-1 text-card-title">{t.t('deal.risk.title')}</h2>
+        <span className="rounded-full bg-surface-sunken px-2.25 py-0.75 text-caption font-bold text-text-2">{t.t('deal.risk.notScored')}</span>
+      </div>
+      <p className="text-meta text-text-2">{t.t('deal.risk.empty')}</p>
+    </section>
+  );
+}
+
+/** Contact roles: the served primary contact, the one role the deal has; the rest is the design's empty state (D-L194). */
+function ContactRolesCard({ t, locale, deal }: { t: Translator; locale: string; deal: DealDetail }) {
+  const contact = withheld(deal, 'primaryContactId') ? null : (deal.contact ?? null);
+  const name = contact === null ? null : nameOrWithheld(t, contact.displayName);
+  return (
+    <section className={`${PANEL} gap-1`}>
+      <h2 className="mb-1.5 text-card-title">{t.t('deal.roles.title')}</h2>
+      {name === null ? null : (
+        <div className="flex min-h-[52px] items-center gap-2.5 border-t border-border">
+          <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft-strong text-caption font-bold text-primary-text">
+            {initials(name, locale)}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <b data-record-text="" className="text-body-sm">
+              {name}
+            </b>
+            <span className="text-caption font-normal text-text-2">{t.t('pipeline.field.primaryContactId')}</span>
+          </span>
+        </div>
+      )}
+      <p className="border-t border-border py-2.5 text-caption font-normal text-text-2">{t.t('deal.roles.empty')}</p>
+    </section>
+  );
+}
+
+/** P06/12's Products card in its empty state: the table's head, no lines, and the totals as dashes (D-L194). */
+function ProductsCard({ t }: { t: Translator }) {
+  const head = 'px-3 text-micro uppercase tracking-[0.05em] text-text-2';
+  return (
+    <section className={PANEL}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-card-title">{t.t('deal.products.title')}</h2>
+        <span className="flex-1" />
+        <Button size="compact" icon="add" disabled>
+          {t.t('deal.products.add')}
+        </Button>
+      </div>
+      <div className="overflow-hidden rounded-10 border border-border">
+        <div className="hidden grid-cols-[minmax(0,2.4fr)_100px_130px_56px_64px_140px] gap-2.5 bg-surface-sunken py-2.5 md:grid">
+          <span className={head}>{t.t('deal.products.product')}</span>
+          <span className={`${head} text-end`}>{t.t('deal.products.list')}</span>
+          <span className={`${head} text-end`}>{t.t('deal.products.unit')}</span>
+          <span className={`${head} text-end`}>{t.t('deal.products.qty')}</span>
+          <span className={`${head} text-end`}>{t.t('deal.products.discount')}</span>
+          <span className={`${head} text-end`}>{t.t('deal.products.total')}</span>
+        </div>
+        <p className="flex items-start gap-2 border-t border-border px-3 py-4 text-meta text-text-2 first:border-t-0 md:first:border-t">
+          <Icon name="inventory_2" size={18} className="text-text-muted" />
+          {t.t('deal.products.empty')}
+        </p>
+        <div className="flex flex-col gap-1 border-t border-border bg-surface-sunken px-3 py-2.5 text-meta">
+          {(['deal.products.subtotal', 'deal.products.vat'] as const).map((label) => (
+            <span key={label} className="flex justify-end gap-6">
+              <span className="text-text-2">{t.t(label)}</span>
+              <span className="min-w-[140px] text-end font-mono">{'—'}</span>
+            </span>
+          ))}
+          <span className="flex justify-end gap-6 text-label">
+            <b>{t.t('deal.products.total')}</b>
+            <b className="min-w-[140px] text-end font-mono">{'—'}</b>
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const NO_VERSIONS: Readonly<Record<string, number>> = {};
 
 /** Completing a task from the deal timeline is not T-0110's (R16): no version is offered, so no control is drawn. */
 function ignore(): void {}
 
-function percent(locale: string, basisPoints: number): string {
-  try {
-    return new Intl.NumberFormat(numberingLocale(locale), { style: 'percent', maximumFractionDigits: 2 }).format(
-      basisPoints / 10_000,
-    );
-  } catch {
-    return new Intl.NumberFormat('en', { style: 'percent', maximumFractionDigits: 2 }).format(
-      basisPoints / 10_000,
-    );
-  }
-}
 
 function NotSet({ t }: { t: Translator }) {
   return <span className="text-text-muted">{t.t('records.cell.empty')}</span>;
 }
 
-/** One field: its label, and the VALUE alone under `data-field` (R9). */
-function Row({
+/** One key field: its label (12/600 muted), and the VALUE alone under `data-field` (R9). */
+function Field({
   label,
   field,
   locked,
@@ -790,13 +1004,9 @@ function Row({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 py-2">
-      <dt className="text-caption text-text-muted">{label}</dt>
-      <dd
-        data-field={field}
-        data-locked={locked ? 'true' : undefined}
-        className="min-w-0 text-body-md"
-      >
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-caption font-semibold text-text-muted">{label}</dt>
+      <dd data-field={field} data-locked={locked ? 'true' : undefined} className="min-w-0 text-body-sm">
         {children}
       </dd>
     </div>
@@ -825,12 +1035,12 @@ function Related({
       ? null
       : uuidHref(kind === 'contact' ? '/contacts' : '/accounts', summary.id);
   return (
-    <div className="flex min-w-0 flex-col gap-1 py-2">
-      <dt className="text-caption text-text-muted">{t.t(dealFieldLabel(field))}</dt>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-caption font-semibold text-text-muted">{t.t(dealFieldLabel(field))}</dt>
       <dd
         data-related={kind}
         data-locked={locked ? 'true' : undefined}
-        className="flex min-w-0 items-center gap-1 text-body-md"
+        className="flex min-w-0 items-center gap-1 text-body-sm"
       >
         {locked ? (
           <Locked t={t} />
@@ -838,11 +1048,6 @@ function Related({
           <NotSet t={t} />
         ) : (
           <>
-            <Icon
-              name={kind === 'contact' ? 'person' : 'domain'}
-              size="sm"
-              className="text-text-muted"
-            />
             {href === null ? (
               <span data-record-text="" className="min-w-0 break-words">
                 {name}

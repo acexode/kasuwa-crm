@@ -198,6 +198,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmNotificationsEnabled(),
     ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
+  const listPlaceholders = await listPlaceholderFlags();
   return [
     // The rail's entries for unbuilt modules (T-0130, D-L194): drawn, disabled, only where their flag is on.
     ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
@@ -227,7 +228,27 @@ export async function crmLiveNav(): Promise<string[]> {
           ...(csvImport && contacts ? ['notifications:import'] : []),
         ]
       : []),
+    // Not nav items: the P04 lists' placeholders (T-0133, D-L194), by flag name.
+    ...listPlaceholders,
   ];
+}
+
+/** The P04 list placeholder flags (T-0133, D-L194) that are on in this process. */
+const LIST_PLACEHOLDER_FLAGS = ['map_view', 'bulk_actions', 'saved_views', 'last_activity', 'quick_actions', 'more_filters'] as const;
+
+/**
+ * `map_view`, `bulk_actions`, `saved_views`, `last_activity`,
+ * `quick_actions` and `more_filters` (T-0133, D-L194): designed P04 elements with no backend yet,
+ * drawn in the design's own empty or disabled state. Presentation only: none
+ * of them reaches an endpoint, and each grants nothing.
+ */
+async function listPlaceholderFlags(): Promise<string[]> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const on = await Promise.all(
+    LIST_PLACEHOLDER_FLAGS.map((flag) => client.getBooleanValue(flag, false, toEvaluationContext({ tenantId: CRM_SHELL }))),
+  );
+  return LIST_PLACEHOLDER_FLAGS.filter((_, index) => on[index] === true);
 }
 
 /**
@@ -374,6 +395,44 @@ export async function crmDuplicatesEnabled(): Promise<boolean> {
     false,
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
+}
+
+/**
+ * The P06 modules drawn as D-L194 placeholders (T-0135): each a design element
+ * with no backend yet, in the design's own empty or disabled state. Read on
+ * the server and passed down as booleans, like every flag here; no client
+ * module names a flag.
+ */
+export interface DealModules {
+  /** The disabled "Show US$" switch. */
+  readonly fxDisplay: boolean;
+  /** The board summary line, from the served totals and counts. */
+  readonly summary: boolean;
+  /** The first-pipeline template picker. */
+  readonly templates: boolean;
+  /** The last WhatsApp contact, an empty dash. */
+  readonly whatsapp: boolean;
+  readonly products: boolean;
+  readonly risk: boolean;
+  readonly relationships: boolean;
+  readonly quotes: boolean;
+}
+
+export async function dealModules(): Promise<DealModules> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const [fxDisplay, summary, templates, whatsapp, products, risk, relationships, quotes] = await Promise.all([
+    client.getBooleanValue('fx_display', false, context),
+    client.getBooleanValue('pipeline_summary', false, context),
+    client.getBooleanValue('pipeline_templates', false, context),
+    client.getBooleanValue('whatsapp_recency', false, context),
+    client.getBooleanValue('deal_products', false, context),
+    client.getBooleanValue('deal_risk', false, context),
+    client.getBooleanValue('deal_relationships', false, context),
+    client.getBooleanValue('deal_quotes', false, context),
+  ]);
+  return { fxDisplay, summary, templates, whatsapp, products, risk, relationships, quotes };
 }
 
 /**

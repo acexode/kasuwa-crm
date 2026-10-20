@@ -327,6 +327,92 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0135 (D-L194): the P06 "Show US$" switch. No FX module serves a rate,
+   * so the switch is drawn in the design's disabled state and no US$ figure
+   * is ever drawn. It comes alive with the FX module.
+   */
+  fx_display: {
+    description: 'The disabled Show US$ switch on the P06 board header until an FX rate is served (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135: the P06 board's summary line (open pipeline, weighted, won in the
+   * window, open deals). Every figure is the board read's own per-currency
+   * totals and exact counts (D-P19), added per currency and never converted.
+   * Off by default because R4 kept the board to per-column figures; the lead
+   * asked for the line in the D-L193 pass.
+   */
+  pipeline_summary: {
+    description: 'The P06 board summary line built from the served column totals and counts (T-0135).',
+    defaultValue: false,
+    owner: 'T-0135',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the P06 first-pipeline template picker. No operation
+   * creates a pipeline yet, so "Create pipeline" is drawn disabled.
+   */
+  pipeline_templates: {
+    description: 'The P06 first-pipeline template picker, with Create disabled until a pipeline can be created (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the last-WhatsApp-contact chip on P06 cards and the
+   * list's WhatsApp column. No deal read carries it, so every cell is the
+   * design's empty dash.
+   */
+  whatsapp_recency: {
+    description: 'The last WhatsApp contact on P06 cards and list rows, an empty dash until the inbox serves it (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Products card (line items, VAT 7.5%
+   * and totals), in its empty state: no product or price-book module exists.
+   */
+  deal_products: {
+    description: 'The P06 deal detail Products and VAT card, empty until products exist (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's AI Deal risk card, in its empty
+   * state: no scoring exists.
+   */
+  deal_risk: {
+    description: 'The P06 deal detail Deal risk card, empty until scoring exists (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Contact roles and Competitors cards.
+   * Contact roles shows the served primary contact; roles, engagement and
+   * competitors have no backend and show the design's empty state.
+   */
+  deal_relationships: {
+    description: 'The P06 deal detail Contact roles and Competitors cards (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0135 (D-L194): the deal detail's Quotes and Approval history cards, in
+   * their empty states: no quote or approval module exists.
+   */
+  deal_quotes: {
+    description: 'The P06 deal detail Quotes and Approval history cards, empty until those modules exist (T-0135, D-L194).',
+    defaultValue: false,
+    owner: 'T-0135 (placeholder)',
+    productionReady: false,
+  },
+  /**
    * D-L194, T-0131: the P01/6 "Take a 2-minute tour" button. There is no tour
    * yet, so with the flag on the button is drawn in the design's place in its
    * disabled state, never as a link to nothing. Presentation only.
@@ -336,6 +422,70 @@ export const FLAGS = {
     defaultValue: false,
     owner: 'T-0131 (placeholder), D-L194',
     // NOT production-ready: there is no tour behind the button.
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194, D-L195): the P04 lists' Map segment, drawn DISABLED in the
+   * view switcher with the design's tooltip. The Map view itself answers 501
+   * (D-L69, T-0039); the flag shows where it will be, and grants nothing.
+   */
+  map_view: {
+    description: 'The disabled Map segment in the P04 list view switchers (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), D-L69',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194, D-L195): the P04 lists' selection column and bulk action
+   * bar. No bulk endpoint exists, so every bar action is drawn disabled; on
+   * Accounts no action is allowed (T-0057), so only the column is drawn.
+   */
+  bulk_actions: {
+    description: 'Row selection and the bulk action bar on the P04 lists, actions disabled until built (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), T-0057, T-0058',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 saved-views menu. Saved views have no backend:
+   * the menu offers the one built-in view and a disabled "Save current
+   * filters as a view".
+   */
+  saved_views: {
+    description: 'The saved-views menu on the P04 lists, with only the built-in view (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 "Last activity" column. No list read carries a
+   * last activity, so every cell is the design's empty dash.
+   */
+  last_activity: {
+    description: 'The Last activity column on the P04 lists, empty until a list read serves it (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194, ADR-0003): the phone cards' swipe actions, Call, WhatsApp
+   * and SMS. Telephony and the inbox are not wired, so they are drawn disabled.
+   */
+  quick_actions: {
+    description: 'Call, WhatsApp and SMS swipe actions on the P04 phone cards, disabled until wired (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder), ADR-0003',
+    productionReady: false,
+  },
+  /**
+   * T-0133 (D-L194): the P04 filter chips the design draws for filters no list
+   * read declares (Preferred language, Consent status, and State/LGA, Source
+   * or DND where a list cannot filter on them), drawn disabled.
+   */
+  more_filters: {
+    description: 'Disabled P04 filter chips for filters the list reads do not declare yet (T-0133, D-L194).',
+    defaultValue: false,
+    owner: 'T-0133 (placeholder)',
     productionReady: false,
   },
   /**
@@ -385,12 +535,6 @@ export const FLAGS = {
       'The Home KPI widgets with no data source yet (tickets, queues, CSAT, programme stats, schedule, announcements, revenue, cost, profitability, SLA, pipeline by stage), in their empty state (T-0132, D-L194).',
     defaultValue: false,
     owner: 'T-0132 (placeholder), each module when it is built',
-    productionReady: false,
-  },
-  fx_display: {
-    description: 'The Home currency toggle, with US$ drawn disabled until FX conversion exists (T-0132, D-L194, D-L69).',
-    defaultValue: false,
-    owner: 'T-0132 (placeholder), M05 FX when it is built',
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;
