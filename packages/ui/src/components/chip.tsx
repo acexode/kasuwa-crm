@@ -16,6 +16,15 @@ export interface ChipProps extends Omit<ComponentPropsWithRef<'button'>, 'childr
   readonly active?: boolean;
   /** `data-*` for the leading glyph. */
   readonly iconAttributes?: DataAttributes;
+  /**
+   * `filter` is the P04 toolbar chip. `choice` is the P01 choice pill
+   * (T-0131: customer languages, employee size): 40px, 0 12px, 14px, a
+   * border-strong edge on the page, and when chosen a solid primary fill with
+   * on-primary text.
+   */
+  readonly variant?: 'filter' | 'choice';
+  /** A `choice` pill at 44px with a 600 label (P01/3's employee sizes). */
+  readonly large?: boolean;
   readonly children: ReactNode;
 }
 
@@ -33,11 +42,32 @@ export function Chip({
   trailingIcon,
   active = false,
   iconAttributes,
+  variant = 'filter',
+  large = false,
   children,
   className,
   type = 'button',
   ...rest
 }: ChipProps) {
+  if (variant === 'choice') {
+    return (
+      <button
+        type={type}
+        className={cx(
+          'relative inline-flex shrink-0 select-none items-center gap-1 whitespace-nowrap rounded-full border text-body-sm transition-colors duration-instant is-focus-visible:ring-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface disabled:text-disabled-text',
+          large ? 'h-control-base px-3.5 font-semibold' : 'h-control-md px-3',
+          active
+            ? 'border-primary bg-primary font-semibold text-on-primary is-hover:bg-primary-hover'
+            : 'border-border-strong bg-surface text-text is-hover:bg-surface-sunken',
+          className,
+        )}
+        {...rest}
+      >
+        {icon === undefined ? null : <Glyph name={icon} size={16} {...iconAttributes} />}
+        {children}
+      </button>
+    );
+  }
   return (
     <button
       type={type}

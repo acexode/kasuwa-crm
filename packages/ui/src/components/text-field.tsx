@@ -32,7 +32,19 @@ import { Spinner } from './spinner';
  * of the focus state reads.)
  */
 export const FIELD_CONTROL =
-  'h-control-base w-full min-w-0 rounded-md bg-surface ps-3 text-label font-normal text-text placeholder:text-text-muted is-focus:field-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text';
+  'w-full min-w-0 rounded-md bg-surface text-text placeholder:text-text-muted is-focus:field-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text';
+
+/**
+ * `default` is the v1.1 44px field with a 15px value. `large` is the P01
+ * auth and setup field (T-0131): 48px, 0 14px, a 16px value, which is also
+ * the size iOS needs to not zoom the page when the field takes focus.
+ */
+export type FieldSize = 'default' | 'large';
+
+export const FIELD_SIZE: Record<FieldSize, string> = {
+  default: 'h-control-base ps-3 text-label font-normal',
+  large: 'h-control-lg ps-3.5 text-body-md',
+};
 
 export const FIELD_EDGE = 'border border-border-strong is-hover:border-text-2';
 export const FIELD_EDGE_ERROR = 'border-2 border-danger';
@@ -45,6 +57,11 @@ export interface FieldFrameProps {
   readonly disabled?: boolean;
   readonly className?: string | undefined;
   readonly labelAttributes?: DataAttributes | undefined;
+  /**
+   * Something beside the label, at its end: "Forgot password?". A sibling of
+   * the <label>, never inside it, so it is not part of the field's name.
+   */
+  readonly labelAside?: ReactNode;
   readonly children: ReactNode;
 }
 
@@ -65,17 +82,28 @@ export function FieldFrame({
   disabled = false,
   className,
   labelAttributes,
+  labelAside,
   children,
 }: FieldFrameProps) {
+  const labelElement = (
+    <label
+      htmlFor={id}
+      className={cx('text-body-sm font-semibold', disabled ? 'text-disabled-text' : 'text-text')}
+      {...labelAttributes}
+    >
+      {label}
+    </label>
+  );
   return (
     <div className={cx('flex min-w-0 flex-col gap-1.5', className)}>
-      <label
-        htmlFor={id}
-        className={cx('text-body-sm font-semibold', disabled ? 'text-disabled-text' : 'text-text')}
-        {...labelAttributes}
-      >
-        {label}
-      </label>
+      {labelAside === undefined || labelAside === null ? (
+        labelElement
+      ) : (
+        <span className="flex items-baseline justify-between gap-3">
+          {labelElement}
+          {labelAside}
+        </span>
+      )}
       {children}
       {error === undefined || error === null ? null : (
         <p id={`${id}-error`} className="text-meta text-danger-text">
@@ -105,6 +133,20 @@ export interface TextFieldProps extends Omit<ComponentPropsWithRef<'input'>, 'si
   readonly labelAttributes?: DataAttributes;
   /** `data-*` for the trailing error glyph. */
   readonly statusIconAttributes?: DataAttributes;
+  readonly size?: FieldSize;
+  /**
+   * In error with no message of its own: the message is elsewhere, such as
+   * the one alert P01/1a shows for both credentials. Draws the danger edge
+   * and sets aria-invalid; `error` still wins when both are given.
+   */
+  readonly invalid?: boolean;
+  /**
+   * A control inside the field, at its end: the password reveal button. It
+   * replaces the error glyph, so the field shows its error by edge and
+   * message alone.
+   */
+  readonly trailing?: ReactNode;
+  readonly labelAside?: ReactNode;
   /** Classes for the outer wrapper (layout only: width, grid placement). */
   readonly className?: string;
 }
@@ -117,6 +159,10 @@ export function TextField({
   mono = false,
   labelAttributes,
   statusIconAttributes,
+  size = 'default',
+  invalid: invalidProp = false,
+  trailing: trailingControl,
+  labelAside,
   className,
   id,
   disabled,
@@ -125,8 +171,9 @@ export function TextField({
 }: TextFieldProps) {
   const generated = useId();
   const fieldId = id ?? generated;
-  const invalid = error !== undefined && error !== null;
-  const trailing = invalid || loading;
+  const invalid = (error !== undefined && error !== null) || invalidProp;
+  const hasControl = trailingControl !== undefined && trailingControl !== null;
+  const trailing = !hasControl && (invalid || loading);
 
   return (
     <FieldFrame
@@ -137,6 +184,7 @@ export function TextField({
       disabled={disabled === true}
       className={className}
       labelAttributes={labelAttributes}
+      labelAside={labelAside}
     >
       <span className="relative flex">
         <input
@@ -148,12 +196,16 @@ export function TextField({
           aria-describedby={describedBy(fieldId, hint, error)}
           className={cx(
             FIELD_CONTROL,
+            FIELD_SIZE[size],
             invalid ? FIELD_EDGE_ERROR : FIELD_EDGE,
-            trailing ? 'pe-10' : 'pe-3',
+            hasControl ? 'pe-12' : trailing ? 'pe-10' : size === 'large' ? 'pe-3.5' : 'pe-3',
             mono && 'font-mono',
           )}
           {...rest}
         />
+        {hasControl ? (
+          <span className="absolute inset-y-0 end-1 flex items-center">{trailingControl}</span>
+        ) : null}
         {trailing ? (
           <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center">
             {invalid ? (
