@@ -57,6 +57,9 @@ const NOT_DRAWN_HERE: ReadonlySet<string> = new Set([
   'pipeline.card.stale',
   'pipeline.card.inStage',
   'pipeline.card.overdue',
+  // T-0147: InStageChip's spoken state, the board's and the list's only.
+  'pipeline.rotting.stale',
+  'pipeline.rotting.rotting',
 ]);
 
 describe('the deal detail bundles every id it renders', () => {

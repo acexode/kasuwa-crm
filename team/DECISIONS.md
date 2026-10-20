@@ -4510,3 +4510,17 @@ e2e and any other testing, focus mainly on the ui, the e2e should come at the en
   - Failures found then are fixed before Phase 3.
 - Builders may run up to three at once. Only one `pnpm demo` runs at a time (fixed ports 3000–3002). Builders
   that only need `/design/*` pages run `next dev` on their own port.
+
+### D-L202 — The end-of-programme gate: who may amend which tests (lead, 2026-10-20)
+
+On main f0ac1bc, after the D-L193 UI work, the full e2e run gives 515 passed and 225 failed. Fixers sort each
+failure into one of two kinds:
+- **A real bug.** Fixed in code. Contract-conformance and axe failures are always bugs.
+- **An intended D-L193/D-L194/D-L195 change.** The builder may amend the e2e spec, with a comment citing the task.
+  No assertion about data, scope, security, privacy, contract, i18n or accessibility may be weakened.
+- **tests/acceptance** stays lead-only. Fixers list the amendments they need, and the lead makes them.
+
+E2e runs on the Mac are serialised through one lock, to keep Docker alive.
+
+**Byte budgets:** most CRM pages now transfer about 308–339 KB, above PRD 2.13's 300,000. The fix is to make the
+pages smaller, not to raise the limit. T-0145 finds and removes the weight, then re-pins under D-L182/D-L199.

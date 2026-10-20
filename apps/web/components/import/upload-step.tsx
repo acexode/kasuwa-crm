@@ -230,22 +230,32 @@ export function UploadStep({
         <h2 id={`${id}-object-title`} className={CARD_TITLE}>
           {t.t('import.object.title')}
         </h2>
-        <div role="radiogroup" aria-labelledby={`${id}-object-title`} className="flex flex-col gap-1.5">
-          <RadioCard name={`${id}-object`} checked icon="person" title={t.t('import.object.contacts')} body={t.t('import.object.contacts.body')} />
-          {designed
-            ? OTHER_OBJECTS.map(([object, icon]) => (
-                <RadioCard
-                  key={object}
-                  name={`${id}-object`}
-                  checked={false}
-                  disabled
-                  icon={icon}
-                  title={t.t(`import.object.${object}` as MessageId)}
-                  body={t.t('records.nav.soon')}
-                />
-              ))
-            : null}
-        </div>
+        {designed ? (
+          <div role="radiogroup" aria-labelledby={`${id}-object-title`} className="flex flex-col gap-1.5">
+            <RadioCard name={`${id}-object`} checked icon="person" title={t.t('import.object.contacts')} body={t.t('import.object.contacts.body')} />
+            {OTHER_OBJECTS.map(([object, icon]) => (
+              <RadioCard
+                key={object}
+                name={`${id}-object`}
+                checked={false}
+                disabled
+                icon={icon}
+                title={t.t(`import.object.${object}` as MessageId)}
+                body={t.t('records.nav.soon')}
+              />
+            ))}
+          </div>
+        ) : (
+          // At /contacts/import there is nothing to choose (D-L146): the one object is stated, in the
+          // chosen card's look, never offered as a one-option radio (T-0096's contract, T-0149).
+          <p className="m-0 flex min-h-control-xl items-center gap-3 rounded-10 border-2 border-primary bg-primary-soft px-3 py-1.5 text-text">
+            <Icon name="person" size={20} className="text-primary-text" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <b className="text-body-sm font-bold">{t.t('import.object.contacts')}</b>
+              <span className="text-caption font-normal text-text-2">{t.t('import.object.contacts.body')}</span>
+            </span>
+          </p>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-programme`} className="text-meta font-semibold">

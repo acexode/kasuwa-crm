@@ -769,6 +769,8 @@ test('the Contacts list links /contacts/import, it lands on the screen, and no l
   active = mock;
   const response = await page.goto(`${importUrl()}/contacts`);
   expect(response?.status(), '/contacts on the records process').toBe(200);
+  // T-0149 (T-0133): the Contacts list's import and duplicates links sit in its "Import / export" menu, as P04 draws it.
+  await shown(page.getByTestId('import-export')).first().click();
   const entry = shown(page.locator('a[href="/contacts/import"]')).first();
   await expect(entry, 'the Contacts list does not link the import screen').toBeVisible();
   expect(await entry.getAttribute('data-action'), 'the import action is no longer [data-action^="import"] (P04 holds that hook)').toMatch(/^import/);
