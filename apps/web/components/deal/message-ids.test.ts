@@ -51,6 +51,12 @@ const NOT_DRAWN_HERE: ReadonlySet<string> = new Set([
   'pipeline.sort.created',
   'pipeline.sort.name',
   'pipeline.sort.waiting',
+  // T-0135: pipeline-parts' InStageChip and CloseShort draw these on the board
+  // and list cards; the deal imports neither.
+  'pipeline.card.rotting',
+  'pipeline.card.stale',
+  'pipeline.card.inStage',
+  'pipeline.card.overdue',
 ]);
 
 describe('the deal detail bundles every id it renders', () => {

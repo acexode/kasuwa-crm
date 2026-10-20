@@ -82,6 +82,15 @@ describe('feature flags', () => {
       'script_programme_assignment',
       'script_preview',
       'script_version_changes',
+      // T-0142: the P18 Customisation Studio's D-L194 placeholders, all off by default.
+      'studio_objects',
+      'studio_layouts',
+      'studio_validation',
+      'studio_relationships',
+      'studio_record_types',
+      'custom_field_types_extended',
+      'studio_field_usage',
+      'studio_field_translations',
     ]);
   });
 

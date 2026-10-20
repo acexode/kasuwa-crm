@@ -96,7 +96,8 @@ describe('columns are Account properties (the contract wins over the design)', (
     expect(cellWithheld(locked, 'industry')).toBe(true);
     expect(cellWithheld(nulls, 'industry')).toBe(false);
     expect(cellWithheld(account(), 'industry')).toBe(false);
-    expect(lockedAccountColumns([account(), locked, nulls])).toEqual(['industry', 'phones']);
+    // T-0133 put Phone before Industry to follow P04/03's column order.
+    expect(lockedAccountColumns([account(), locked, nulls])).toEqual(['phones', 'industry']);
   });
 
   it('a 360 px card leaves out what nobody filled in, and always shows a lock', () => {
