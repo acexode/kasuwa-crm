@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from '@kasuwa/i18n';
-import { errorText } from './studio-text';
+import { errorText, modifiedDate } from './studio-text';
 
 const t = createTranslator('en');
 
@@ -30,5 +30,12 @@ describe('errorText', () => {
       t.t('admin.error.validation_failed'),
     );
     expect(errorText(t, { code: 'limit_reached' })).toBe(t.t('admin.error.limit_reached'));
+  });
+});
+
+describe('modifiedDate', () => {
+  it('writes English day first with "Sep", and nothing for a date that is not one (T-0149)', () => {
+    expect(modifiedDate('en', '2026-09-03T10:00:00Z')).toBe('3 Sep 2026');
+    expect(modifiedDate('en', 'not a date')).toBe('');
   });
 });
