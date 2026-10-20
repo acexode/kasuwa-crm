@@ -50,7 +50,12 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
-  // D-L194 placeholders: designed elements drawn in their empty or disabled state.
+  // T-0130: the rail's placeholders for unbuilt modules (D-L194).
+  'crm_inbox',
+  'crm_tickets',
+  'crm_calls',
+  'crm_reports',
+  // T-0131: P01/6's tour button, drawn disabled until a tour exists (D-L194).
   'product_tour',
 ];
 /** Flags added to the demo automatically once their task has merged. */

@@ -296,6 +296,37 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0130 (D-L193, D-L194): the CRM rail and phone bottom-bar entries for
+   * modules that are not built yet. Each is drawn as the design draws it, in
+   * its disabled state (a non-link announced "Not available yet"), only where
+   * its flag is on; off, the entry is not drawn. Each flag is the module's own,
+   * so the entry comes alive with the module. Presentation only: grants nothing.
+   */
+  crm_inbox: {
+    description: 'The Inbox entry in the CRM rail and bottom bar, a disabled placeholder until the P08 inbox is built (T-0130, D-L194).',
+    defaultValue: false,
+    owner: 'T-0130 (shell placeholder), the P08 inbox when it is built',
+    productionReady: false,
+  },
+  crm_tickets: {
+    description: 'The Tickets entry in the CRM rail, a disabled placeholder until tickets are built (T-0130, D-L194).',
+    defaultValue: false,
+    owner: 'T-0130 (shell placeholder), the tickets module when it is built',
+    productionReady: false,
+  },
+  crm_calls: {
+    description: 'The Calls entry in the CRM rail, a disabled placeholder until the P09 voice screens are built (T-0130, D-L194).',
+    defaultValue: false,
+    owner: 'T-0130 (shell placeholder), the P09 voice screens when they are built',
+    productionReady: false,
+  },
+  crm_reports: {
+    description: 'The Reports entry in the CRM rail, a disabled placeholder until reports are built (T-0130, D-L194).',
+    defaultValue: false,
+    owner: 'T-0130 (shell placeholder), the reports module when it is built',
+    productionReady: false,
+  },
+  /**
    * D-L194, T-0131: the P01/6 "Take a 2-minute tour" button. There is no tour
    * yet, so with the flag on the button is drawn in the design's place in its
    * disabled state, never as a link to nothing. Presentation only.

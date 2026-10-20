@@ -408,6 +408,9 @@
     "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
     "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale.",
     "design.components.heading.consent": "A word spelled the same in this language.",
+    "records.nav.calls": "A loanword used unchanged in Nigerian Pidgin.",
+    "records.nav.more": "Used unchanged in Nigerian Pidgin.",
+    "admin.shell.tenant": "\"Workspace\" is used unchanged in Nigerian Pidgin; the rest is a placeholder.",
     "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language.",
     "onboarding.skip.short": "Pidgin uses the English word."
   }

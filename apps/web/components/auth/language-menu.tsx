@@ -101,12 +101,7 @@ export function LanguageMenu({
     };
   }, [open]);
 
-  function choose(code: string) {
-    // A year, path-scoped to the app, and readable by the server so the very
-    // next render is in the chosen language rather than the default one.
-    document.cookie = `kasuwa_locale=${encodeURIComponent(code)}; path=/; max-age=31536000; samesite=lax`;
-    window.location.reload();
-  }
+  const choose = chooseLanguage;
 
   return (
     <div className="relative" ref={containerRef}>
@@ -206,10 +201,20 @@ export function LanguageMenu({
 }
 
 /**
+ * Switches the UI language: a year, path-scoped to the app, and readable by the
+ * server so the very next render is in the chosen language rather than the
+ * default one. Shared with the shells' account menu (T-0130).
+ */
+export function chooseLanguage(code: string): void {
+  document.cookie = `kasuwa_locale=${encodeURIComponent(code)}; path=/; max-age=31536000; samesite=lax`;
+  window.location.reload();
+}
+
+/**
  * The Beta badge (D-P1). Text, not colour alone, and in the UI's language: a
  * Hausa reader looking at the menu in Hausa reads "Gwaji", not "Beta".
  */
-function BetaBadge({ text, lang }: { text: string; lang: string }) {
+export function BetaBadge({ text, lang }: { text: string; lang: string }) {
   return (
     <span
       data-testid="language-beta"

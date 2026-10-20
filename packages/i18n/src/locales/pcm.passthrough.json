@@ -401,6 +401,9 @@
   "design.components.kbd.search",
   "design.components.kbd.escape",
   "design.components.heading.consent",
+  "records.nav.calls",
+  "records.nav.more",
+  "admin.shell.tenant",
   "auth.footer.compliance",
   "onboarding.skip.short"
 ]
