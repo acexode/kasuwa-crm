@@ -401,5 +401,6 @@
   "design.components.kbd.search",
   "design.components.kbd.escape",
   "design.components.heading.consent",
-  "auth.footer.compliance"
+  "auth.footer.compliance",
+  "onboarding.skip.short"
 ]

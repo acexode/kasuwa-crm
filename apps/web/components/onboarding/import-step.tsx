@@ -123,7 +123,7 @@ export function ImportStep({
                 onSource(value);
                 setCrmUnavailable(false);
               }}
-              className={`flex h-15 items-center gap-2.5 rounded-10 px-3 text-start text-body-sm font-semibold text-text focus-visible:ring-focus ${
+              className={`flex items-center gap-2.5 rounded-10 px-3 py-3.5 text-start text-body-sm font-semibold text-text focus-visible:ring-focus ${
                 checked ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface hover:bg-surface-sunken'
               }`}
             >

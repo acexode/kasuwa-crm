@@ -114,7 +114,7 @@ export function OnboardingWizard({
 
   if (stage === 'done') {
     return (
-      <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale}>
+      <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale} trustFooter={false}>
         <section
           ref={sectionRef}
           data-screen={SCREEN.done}
@@ -151,7 +151,12 @@ export function OnboardingWizard({
       }
       skip={
         skippable
-          ? { label: t.t('onboarding.skip'), onClick: () => go(STAGES[index + 1]), testId: 'onboarding-skip' }
+          ? {
+              label: t.t('onboarding.skip'),
+              shortLabel: t.t('onboarding.skip.short'),
+              onClick: () => go(STAGES[index + 1]),
+              testId: 'onboarding-skip',
+            }
           : undefined
       }
       next={{
@@ -283,7 +288,7 @@ function Checklist({
             key={item.key}
             data-item={item.key}
             data-state={item.state}
-            className="flex min-h-15 items-center gap-3 border-b border-border px-3.5 py-2.5 last:border-b-0"
+            className="flex items-center gap-3 border-b border-border px-3.5 py-2.5 last:border-b-0"
           >
             <span
               aria-hidden="true"

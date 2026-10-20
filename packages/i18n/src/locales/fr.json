@@ -679,6 +679,7 @@
   "onboarding.step.team": "Équipe",
   "onboarding.back": "Retour",
   "onboarding.skip": "Passer pour l'instant",
+  "onboarding.skip.short": "Passer",
   "onboarding.continue": "Continuer",
   "onboarding.finish": "Terminer la configuration",
   "region.title": "Où devons-nous stocker vos données ?",

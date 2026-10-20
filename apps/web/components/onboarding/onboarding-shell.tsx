@@ -31,6 +31,8 @@ export interface FooterAction {
   readonly label: string;
   readonly onClick: () => void;
   readonly testId?: string;
+  /** The phone top bar's one-word form ("Skip"). */
+  readonly shortLabel?: string;
   /** Drawn in place but not usable (Back to a step this tenant cannot reach). */
   readonly disabled?: boolean;
 }
@@ -79,9 +81,9 @@ export function OnboardingShell({
             <button
               type="button"
               onClick={skip.onClick}
-              className="h-control-base rounded-md px-2.5 text-body-sm font-semibold text-primary-text focus-visible:ring-focus md:hidden"
+              className="h-control-base whitespace-nowrap rounded-md px-2.5 text-body-sm font-semibold text-primary-text focus-visible:ring-focus md:hidden"
             >
-              {skip.label}
+              {skip.shortLabel ?? skip.label}
             </button>
           )
         }

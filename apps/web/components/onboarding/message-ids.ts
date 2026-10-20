@@ -95,6 +95,7 @@ const WIZARD_FRAME_IDS: readonly MessageId[] = [
   'onboarding.step.team',
   'onboarding.back',
   'onboarding.skip',
+  'onboarding.skip.short',
   'onboarding.continue',
   'onboarding.finish',
 ];

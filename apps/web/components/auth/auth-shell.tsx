@@ -53,12 +53,15 @@ export function AuthShell({
   locales,
   currentLocale,
   showPanel = true,
+  trustFooter = true,
   children,
 }: {
   strings: ShellStrings;
   locales: readonly LanguageOption[];
   currentLocale: string;
   showPanel?: boolean;
+  /** The phone trust strip. The success screen (P01/6) has none on the board. */
+  trustFooter?: boolean;
   children: ReactNode;
 }) {
   const { lite } = useLiteMode();
@@ -101,15 +104,17 @@ export function AuthShell({
         <div className="flex flex-1 flex-col items-center px-5 pb-10 pt-8">{children}</div>
 
         {/* The panel's trust lines, for every screen that does not draw the panel. */}
-        <ul
-          className={`m-0 list-none flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-border px-4 py-3 text-caption font-normal text-text-2 ${
-            withPanel ? 'flex lg:hidden' : 'flex'
-          }`}
-        >
-          <FooterTrust icon="lock" label={strings.footerEncryption} />
-          <FooterTrust icon="verified_user" label={strings.footerCompliance} />
-          <FooterTrust icon="public" label={strings.footerResidency} />
-        </ul>
+        {trustFooter ? (
+          <ul
+            className={`m-0 list-none flex-wrap items-center justify-center gap-x-4 gap-y-1.5 border-t border-border px-4 py-3 text-caption font-normal text-text-2 ${
+              withPanel ? 'flex lg:hidden' : 'flex'
+            }`}
+          >
+            <FooterTrust icon="lock" label={strings.footerEncryption} />
+            <FooterTrust icon="verified_user" label={strings.footerCompliance} />
+            <FooterTrust icon="public" label={strings.footerResidency} />
+          </ul>
+        ) : null}
       </div>
     </div>
   );
@@ -210,7 +215,13 @@ function Trust({ icon, label }: { icon: 'lock' | 'verified_user' | 'public'; lab
   );
 }
 
-function FooterTrust({ icon, label }: { icon: 'lock' | 'verified_user' | 'public'; label: string }) {
+function FooterTrust({
+  icon,
+  label,
+}: {
+  icon: 'lock' | 'verified_user' | 'public';
+  label: string;
+}) {
   return (
     <li className="inline-flex items-center gap-1">
       <Icon name={icon} size={15} className="text-success-text" />
