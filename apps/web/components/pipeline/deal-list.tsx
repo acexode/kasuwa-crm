@@ -379,7 +379,13 @@ function Row({
             className={`h-control-sm w-full cursor-pointer appearance-none truncate rounded-full border pe-7 text-meta font-bold disabled:cursor-not-allowed is-focus-visible:ring-focus ${gated ? 'ps-6.5' : 'ps-3'} ${tone.pill}`}
           >
             {stages.map((entry) => (
-              <option key={entry.id} value={entry.id} disabled={entry.id !== deal.stageId && !isAllowed(pipeline, deal.stageId, entry.id)} data-record-text="">
+              // "Proposal · 50%" is copy with a name in it: only a bare stage name is record text (the en-XA check, T-0147).
+              <option
+                key={entry.id}
+                value={entry.id}
+                disabled={entry.id !== deal.stageId && !isAllowed(pipeline, deal.stageId, entry.id)}
+                data-record-text={entry.kind === 'lost' ? '' : undefined}
+              >
                 {entry.kind === 'lost' ? entry.name : t.t('pipeline.list.stageOption', { stage: entry.name, percent: formatPercent(locale, entry.probabilityBp) })}
               </option>
             ))}
@@ -390,13 +396,13 @@ function Row({
         </label>
       </TableCell>
       <TableCell data-field="amount" {...lockedProps(deal, 'amount')} className={`${fill} px-3 text-end font-semibold`}>
-        <AmountValue t={t} locale={locale} deal={deal} shape="whole" />
+        <AmountValue t={t} locale={locale} deal={deal} />
       </TableCell>
       <TableCell data-field="weightedAmount" {...lockedProps(deal, 'amount')} className={`${fill} px-3 text-end text-text-2`}>
         {withheld(deal, 'amount') ? (
           <Locked t={t} />
         ) : deal.weightedAmount === null || deal.weightedAmount === undefined ? null : (
-          <Money t={t} locale={locale} money={deal.weightedAmount} kind="weighted" shape="whole" />
+          <Money t={t} locale={locale} money={deal.weightedAmount} kind="weighted" />
         )}
       </TableCell>
       <TableCell data-field="expectedCloseDate" {...lockedProps(deal, 'expectedCloseDate')} className={`${fill} px-3 font-semibold`}>

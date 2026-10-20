@@ -344,11 +344,11 @@ function StageColumn({
             {column.totals.map((total) => (
               <li key={total.currency} data-stage-total={total.currency} className="flex flex-wrap items-baseline gap-x-1.5">
                 <b className="text-label font-bold">
-                  <Money t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" shape="compact" />
+                  <Money t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} kind="amount" />
                 </b>
                 <span className="text-caption font-normal text-text-2">
                   {t.t('pipeline.column.weighted')}{' '}
-                  <Money t={t} locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" shape="compact" className="font-semibold" />
+                  <Money t={t} locale={locale} money={{ amountMinor: total.weightedAmountMinor, currency: total.currency }} kind="weighted" className="font-semibold" />
                 </span>
               </li>
             ))}
@@ -360,7 +360,11 @@ function StageColumn({
       </header>
 
       {won ? (
-        <div className="flex flex-col gap-0.5 rounded-10 bg-success-soft px-3 py-2.5 text-caption font-normal text-success-text">
+        // With no won deal yet, the green box is the column's empty state (T-0109's column-empty hook).
+        <div
+          data-testid={column.cards.length === 0 ? 'column-empty' : undefined}
+          className="flex flex-col gap-0.5 rounded-10 bg-success-soft px-3 py-2.5 text-caption font-normal text-success-text"
+        >
           <b className="text-meta font-bold">{t.t('pipeline.won.count', { count: column.count })}</b>
           {closedSince === null ? null : (
             <span data-testid="won-since">
@@ -370,7 +374,7 @@ function StageColumn({
           {amountWithheld || column.totals === undefined
             ? null
             : column.totals.map((total) => (
-                <Money key={total.currency} t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} shape="whole" />
+                <Money key={total.currency} t={t} locale={locale} money={{ amountMinor: total.amountMinor, currency: total.currency }} />
               ))}
           <span>{t.t('pipeline.won.drop')}</span>
         </div>
@@ -507,7 +511,7 @@ function DealCard({
       <Related t={t} deal={deal} links={links} />
       <p data-field="amount" {...lockedProps(deal, 'amount')} className="-mt-0.5 text-label font-semibold">
         <span className="sr-only">{t.t('pipeline.field.amount')} </span>
-        <AmountValue t={t} locale={locale} deal={deal} shape="whole" />
+        <AmountValue t={t} locale={locale} deal={deal} />
       </p>
       {nextWithheld ? (
         <p data-field="nextStep" data-locked="true" className="flex min-w-0 items-start gap-1.5 rounded-6 bg-surface-sunken px-2 py-1.5 text-caption font-semibold">
@@ -604,7 +608,8 @@ function Related({ t, deal, links }: { t: Translator; deal: Deal; links: RecordL
   const contact = deal.contact ?? null;
   if (account === null && contact === null) return null;
   return (
-    <p className="-mt-1 min-w-0 break-words text-meta font-normal text-text-2">
+    // No negative margin: the name link and these must sit 24px apart, centre to centre (WCAG 2.5.8, axe, T-0147).
+    <p className="min-w-0 break-words text-meta font-normal text-text-2">
       {account === null ? null : (
         <span data-related="account">
           <Summary href={links.accounts && isUuid(account.id) ? `/accounts/${account.id}` : null} text={account.name} />

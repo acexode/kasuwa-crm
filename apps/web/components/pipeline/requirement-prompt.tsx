@@ -108,7 +108,8 @@ export function RequirementPrompt({
         <span className="flex flex-wrap justify-between gap-x-3 text-meta">
           <b>{t.t('pipeline.prompt.progress', { done, total: views.length })}</b>
           <span className="text-text-2">
-            <span data-record-text="">{t.t('pipeline.prompt.rules', { pipeline: pipeline.name, stage: to?.name ?? '' })}</span>
+            {/* Copy with record names in it, not record data: never data-record-text (the en-XA check, T-0147). */}
+            <span>{t.t('pipeline.prompt.rules', { pipeline: pipeline.name, stage: to?.name ?? '' })}</span>
           </span>
         </span>
         <span role="progressbar" aria-valuemin={0} aria-valuemax={views.length} aria-valuenow={done} className="h-1.5 overflow-hidden rounded-sm bg-surface-sunken">
