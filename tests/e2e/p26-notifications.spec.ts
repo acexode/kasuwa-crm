@@ -155,7 +155,7 @@ const SCREEN = '[data-screen="P26"]';
  * builder's first green measurement (D-L118), as for T-0096 and T-0097; until
  * then the acceptance suite's budget check fails by design.
  */
-const NOTIFICATIONS_BUDGET_BYTES = 242_000;
+const NOTIFICATIONS_BUDGET_BYTES = 267_000;
 
 /**
  * What the bell may add to EVERY CRM screen's first load (I21): `/search`
