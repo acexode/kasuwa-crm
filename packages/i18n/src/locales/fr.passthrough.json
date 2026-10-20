@@ -126,5 +126,9 @@
   "home.widget.size.l",
   "home.widget.size.xl",
   "home.agenda.minutes",
-  "home.agenda.contactHidden"
+  "home.agenda.contactHidden",
+  "search.type.contact",
+  "search.palette.actions",
+  "search.key.slash",
+  "search.key.ctrl"
 ]

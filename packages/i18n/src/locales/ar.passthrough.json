@@ -34,5 +34,7 @@
   "home.widget.size.s",
   "home.widget.size.m",
   "home.widget.size.l",
-  "home.widget.size.xl"
+  "home.widget.size.xl",
+  "search.key.ctrl",
+  "search.key.slash"
 ]
