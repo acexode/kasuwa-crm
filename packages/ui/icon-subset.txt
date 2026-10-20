@@ -16,6 +16,7 @@ add_link
 add_task
 alarm
 alt_route
+alternate_email
 apartment
 approval
 archive
@@ -40,6 +41,7 @@ call
 call_end
 call_received
 campaign
+category
 chat
 check
 check_box
@@ -121,6 +123,7 @@ logout
 mail
 manage_search
 mark_email_read
+mark_email_unread
 menu
 menu_book
 mic
@@ -164,6 +167,8 @@ search_off
 send
 settings
 share
+shield
+shield_person
 signal_cellular_4_bar
 signal_cellular_alt
 signal_cellular_alt_1_bar

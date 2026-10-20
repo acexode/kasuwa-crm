@@ -338,6 +338,55 @@ export const FLAGS = {
     // NOT production-ready: there is no tour behind the button.
     productionReady: false,
   },
+  /**
+   * D-L194, T-0137: the P26 notification types that have no producer yet
+   * (mentions, approvals, SLA warnings, campaigns, payments, e-invoices,
+   * security). With the flag on, the centre's filter rail and the bell's chips
+   * draw them where the design does, disabled; off, they are not drawn. Each
+   * comes alive with the module that produces it. Presentation only.
+   */
+  notification_types: {
+    description: 'The P26 filter entries for notification types no module produces yet, drawn disabled (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), each producing module when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 D/D1, notification preferences at
+   * `/settings/notifications`, and the Preferences button, the bell's gear and
+   * B2's "Set preferences" that lead to it. There is no preferences API, so
+   * the screen is drawn in its disabled state and saves nothing. Off, the
+   * route is a 404 and nothing links to it.
+   */
+  notification_preferences: {
+    description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 C, the toast stack for notifications that arrive while
+   * a page is open. Nothing pushes a notification to the browser yet (the
+   * list is never read on a timer, T-0101 I5), so the stack is mounted and
+   * stays empty, the design's own empty state.
+   */
+  notification_toasts: {
+    description: 'The P26 notification toast stack, mounted empty until notifications are pushed to the browser (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the realtime push when it is built',
+    productionReady: false,
+  },
+  /**
+   * D-L194, T-0137: P26 A2, the critical security banner under the top bar
+   * and the pinned critical row. No module raises a security alert yet, so the
+   * banner is mounted and draws nothing until one does.
+   */
+  security_alerts: {
+    description: 'The P26 critical security banner, mounted empty until sign-in alerts are raised (T-0137, D-L194).',
+    defaultValue: false,
+    owner: 'T-0137 (placeholder), the sign-in alerting module when it is built',
+    productionReady: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagName = keyof typeof FLAGS;

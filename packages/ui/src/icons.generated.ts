@@ -12,6 +12,7 @@ export type IconName =
   | 'add_task'
   | 'alarm'
   | 'alt_route'
+  | 'alternate_email'
   | 'apartment'
   | 'approval'
   | 'archive'
@@ -36,6 +37,7 @@ export type IconName =
   | 'call_end'
   | 'call_received'
   | 'campaign'
+  | 'category'
   | 'chat'
   | 'check'
   | 'check_box'
@@ -117,6 +119,7 @@ export type IconName =
   | 'mail'
   | 'manage_search'
   | 'mark_email_read'
+  | 'mark_email_unread'
   | 'menu'
   | 'menu_book'
   | 'mic'
@@ -160,6 +163,8 @@ export type IconName =
   | 'send'
   | 'settings'
   | 'share'
+  | 'shield'
+  | 'shield_person'
   | 'signal_cellular_4_bar'
   | 'signal_cellular_alt'
   | 'signal_cellular_alt_1_bar'
@@ -214,6 +219,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'add_task',
   'alarm',
   'alt_route',
+  'alternate_email',
   'apartment',
   'approval',
   'archive',
@@ -238,6 +244,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'call_end',
   'call_received',
   'campaign',
+  'category',
   'chat',
   'check',
   'check_box',
@@ -319,6 +326,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'mail',
   'manage_search',
   'mark_email_read',
+  'mark_email_unread',
   'menu',
   'menu_book',
   'mic',
@@ -362,6 +370,8 @@ export const ICON_NAMES: readonly IconName[] = [
   'send',
   'settings',
   'share',
+  'shield',
+  'shield_person',
   'signal_cellular_4_bar',
   'signal_cellular_alt',
   'signal_cellular_alt_1_bar',

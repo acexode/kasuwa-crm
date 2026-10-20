@@ -333,6 +333,12 @@ export const SHELL = {
  *   columnWide     520  sign up (P01/3) and setup complete (P01/6)
  *   wizard         640  the setup wizard's step body (P01/5.x)
  *   wizardStepper  880  the setup wizard's stepper
+ *
+ * And from the P26 export (T-0137):
+ *
+ *   filterRail     240  the notification centre's filter card beside its list
+ *   pageWide      1180  the centre's page column, padding included
+ *   settingsAside  380  the preferences page's right column (quiet hours, digest)
  */
 export const LAYOUT = {
   authPanel: '520px',
@@ -342,6 +348,9 @@ export const LAYOUT = {
   columnWide: '520px',
   wizard: '640px',
   wizardStepper: '880px',
+  filterRail: '240px',
+  pageWide: '1180px',
+  settingsAside: '380px',
 } as const;
 
 /**
@@ -413,6 +422,8 @@ export const CONTROL_SHADOW = {
  *   emptyText      280  an empty state's centred body line (v1.1 Components)
  *   previewFrame   480  the Patterns page's drawer and modal specimen tiles,
  *                       and 560 for its phone specimens (/design/components-2)
+ *   notificationPanel  440  the bell's popover under the top bar (P26 A, T-0137)
+ *   notificationToast  380  a notification toast at the bottom-right (P26 C, T-0137)
  *
  * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
  * `h-overlay-table-footer`.
@@ -429,6 +440,8 @@ export const OVERLAY = {
   emptyText: '280px',
   previewFrame: '480px',
   previewFrameCompact: '560px',
+  notificationPanel: '440px',
+  notificationToast: '380px',
 } as const;
 
 /**

@@ -245,6 +245,8 @@ module.exports = {
     'overlay-empty-text': 'var(--k-overlay-empty-text)',
     'overlay-preview-frame': 'var(--k-overlay-preview-frame)',
     'overlay-preview-frame-compact': 'var(--k-overlay-preview-frame-compact)',
+    'overlay-notification-panel': 'var(--k-overlay-notification-panel)',
+    'overlay-notification-toast': 'var(--k-overlay-notification-toast)',
     'layout-auth-panel': 'var(--k-layout-auth-panel)',
     'layout-auth-header': 'var(--k-layout-auth-header)',
     'layout-column': 'var(--k-layout-column)',
@@ -252,6 +254,9 @@ module.exports = {
     'layout-column-wide': 'var(--k-layout-column-wide)',
     'layout-wizard': 'var(--k-layout-wizard)',
     'layout-wizard-stepper': 'var(--k-layout-wizard-stepper)',
+    'layout-filter-rail': 'var(--k-layout-filter-rail)',
+    'layout-page-wide': 'var(--k-layout-page-wide)',
+    'layout-settings-aside': 'var(--k-layout-settings-aside)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',
