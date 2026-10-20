@@ -600,6 +600,52 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0138 (D-L194, D-L195, D-L133 R19): P27's RECENT SEARCHES and RECENTLY
+   * VIEWED panel, in the design's empty state. Nothing is stored, on the device
+   * or the server, so the panel only ever says that searches will show there.
+   */
+  recent_searches: {
+    description: 'The P27 recent searches and recently viewed panel, empty until a store exists (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder), D-L133',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194, D-L87): the P27 programme scope pill and menu (B, B1), the
+   * programme tags on search hits and the palette's Switch programme step
+   * (D2). Search already covers every programme the session is assigned to;
+   * narrowing it is not served, so the scope reads "All my programmes" and the
+   * single programmes are drawn disabled. Grants nothing.
+   */
+  programme_scope_search: {
+    description: 'The P27 programme scope pill, scope menu and Switch programme step, narrowing disabled until served (T-0138, D-L194, D-L87).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder), D-L87',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194): the command palette's Ask AI row and "? Ask AI" hint
+   * (P27 D, D3), drawn disabled. No assistant exists.
+   */
+  ai_assistant: {
+    description: 'The P27 palette Ask AI row, disabled until an assistant exists (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194): P27's owner and date filters, and the owner and updated
+   * columns on the results page. Search serves neither an owner nor an update
+   * time, so only "Any owner" and "Any time" can be chosen and the columns
+   * show the design's empty dash.
+   */
+  search_filters: {
+    description: 'The P27 owner and date filters and the owner and updated columns, empty until search serves them (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder)',
+    productionReady: false,
+  },
+  /**
    * T-0132 (D-L196): the P03 Home route at `/home`, the rail and bottom-bar
    * Home entry, and Home as the signed-in landing. Off, `/home` is a real 404
    * and the browser lands on the first live CRM screen as before.

@@ -14,10 +14,11 @@ import {
   type ReactNode,
 } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
-import { Button, Kbd } from '@kasuwa/ui/components';
+import { Button } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import type { LanguageOption } from '../auth/language-menu';
 import { SHELL_SEARCH_STRINGS } from '../search/message-ids';
+import { CommandsButton, TopBarSearch, useShellShortcuts } from '../search/top-bar-search';
 import { AccountItems, AccountMenu, moveInMenu } from '../shell/account-menu';
 import { Brand, SHELL_FOCUS, ShellLiteToggle } from '../shell/shell-parts';
 import { useShellUserName } from '../shell/use-shell-user';
@@ -57,12 +58,13 @@ const NotificationBell = lazy(() => import('../notifications/bell'));
  * It is ONE header element at every width, restyled by breakpoint, so the
  * bell — its own chunk, poller and store — is mounted once.
  *
- * THE GLOBAL SEARCH (T-0087, P27). Where its flag is on in this process
- * (`live.includes('search')`), the bar's search field is a link to `/search`
- * that opens the command palette instead when pressed, and Control+K or
- * Meta+K opens it from anywhere in the shell, a text field included. The
- * palette's code is a dynamic `import()` made on the first open (R29). While it
- * is open, everything behind it is inert; when it closes, focus goes back.
+ * THE GLOBAL SEARCH (T-0087, P27; T-0138). Where its flag is on in this
+ * process (`live.includes('search')`), the bar holds the P27 search field
+ * (`TopBarSearch`: `/` focuses it, and its dropdown loads on first focus) and
+ * the Commands button. Control+K or Meta+K opens the command palette from
+ * anywhere in the shell, a text field included. The palette's code is a
+ * dynamic `import()` made on the first open (R29). While it is open,
+ * everything behind it is inert; when it closes, focus goes back.
  *
  * THE BELL (T-0101, P26), where `live.includes('notifications')`.
  *
@@ -91,6 +93,7 @@ interface PaletteProps {
   onClose: () => void;
   onRetry: () => void;
   dealsLive: boolean;
+  live: readonly string[];
 }
 
 /**
@@ -261,6 +264,9 @@ export function CrmShell({
     if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
   }, [paletteOpen]);
 
+  // The shortcuts the palette's rows show (G then a letter; Ctrl+Shift+L), where the palette exists.
+  useShellShortcuts(live, searchLive);
+
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const retryPalette = useCallback(() => setPalette(loadPalette()), []);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
@@ -320,28 +326,10 @@ export function CrmShell({
         <div className="hidden md:flex">
           <Brand t={t} href={home} />
         </div>
-        {searchLive ? (
-          <Link
-            href="/search"
-            prefetch={false}
-            aria-keyshortcuts="Control+K Meta+K"
-            aria-current={current === 'search' ? 'page' : undefined}
-            data-testid="shell-search"
-            onClick={(event) => {
-              // A plain press opens the palette; a modified one (a new tab) follows the link.
-              if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
-              event.preventDefault();
-              openPalette();
-            }}
-            className={`ms-5 hidden h-control-md min-w-0 shrink grow-0 basis-shell-search items-center gap-2 rounded-md bg-surface-sunken px-3 text-body-sm text-text-muted is-hover:bg-border md:flex ${SHELL_FOCUS}`}
-          >
-            <Icon name="search" size={20} />
-            <span className="min-w-0 flex-1 truncate">{t.t('shell.search.placeholder')}</span>
-            <Kbd aria-hidden="true">{t.t('design.components.kbd.search')}</Kbd>
-          </Link>
-        ) : null}
+        {searchLive ? <TopBarSearch t={t} live={live} current={current} onOpenPalette={openPalette} /> : null}
         <span className="hidden flex-1 md:block" />
         <ShellLiteToggle t={t} className="hidden md:inline-flex" />
+        {searchLive ? <CommandsButton t={t} onClick={openPalette} /> : null}
         {bellLive ? (
           <div className={appBar?.actions === undefined ? 'flex shrink-0' : 'hidden shrink-0 md:flex'}>
             <Suspense>
@@ -404,7 +392,7 @@ export function CrmShell({
 
       {searchLive && paletteOpen && Palette !== null ? (
         <Suspense fallback={<PaletteLoading t={t} onClose={closePalette} />}>
-          <Palette t={t} onClose={closePalette} onRetry={retryPalette} dealsLive={live.includes('deals')} />
+          <Palette t={t} onClose={closePalette} onRetry={retryPalette} dealsLive={live.includes('deals')} live={live} />
         </Suspense>
       ) : null}
     </div>

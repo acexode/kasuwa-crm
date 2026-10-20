@@ -235,3 +235,7 @@ warning
 where_to_vote
 work
 workspaces
+# P27 search and command palette (T-0138).
+calendar_today
+monitoring
+select_all

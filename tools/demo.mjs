@@ -88,6 +88,11 @@ const DEMO_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0138 (D-L194): the P27 placeholders.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
   // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
   'crm_home',
   'whatsapp_inbox',

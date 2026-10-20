@@ -245,6 +245,11 @@ const LIST_PLACEHOLDER_FLAGS = [
   'last_activity',
   'quick_actions',
   'more_filters',
+  // T-0138 (D-L194): the P27 search and palette placeholders, read the same way.
+  'recent_searches',
+  'programme_scope_search',
+  'ai_assistant',
+  'search_filters',
   // T-0139 (D-L194): the P10 placeholders, each drawn in the design's empty or disabled state.
   'call_bar',
   'ai_script_hints',

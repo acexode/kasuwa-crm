@@ -517,5 +517,18 @@
   "home.widget.size.m",
   "home.widget.size.l",
   "home.widget.size.xl",
-  "home.w.forecast.desc"
+  "home.w.forecast.desc",
+  "search.commands.label",
+  "search.footer.commands",
+  "search.phone.title",
+  "search.create.contactNamed",
+  "search.scope.all",
+  "search.palette.goTo",
+  "search.cmd.createTicket",
+  "search.cmd.switch.hint",
+  "search.ai.ask",
+  "search.switch.title",
+  "search.key.slash",
+  "search.key.ctrl",
+  "search.palette.ai"
 ]

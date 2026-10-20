@@ -59,6 +59,9 @@
     "home.widget.size.s": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "home.widget.size.m": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
     "home.widget.size.l": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
-    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words."
+    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "search.key.slash": "A keyboard key, not a word.",
+    "search.key.ctrl": "The Ctrl key keeps its keyboard label.",
+    "search.palette.ai": "AI is the term Hausa speakers use for the assistant."
   }
 }
