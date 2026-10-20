@@ -6,7 +6,7 @@ import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { Panel, errorMessageId } from './panel';
 import { useResource } from './use-resource';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { CARD, Notice, TABLE_HEAD, UnsavedBar } from './admin-ui';
 import {
   getSla,
   saveSla,
@@ -220,35 +220,37 @@ export function SlaTab({
   const mark = (field: string) =>
     changed.includes(field) ? 'border-accent bg-accent-soft' : 'border-border-strong bg-surface';
 
+  /** The export's 40px inline field and select: radius 8, 14px, a 1px edge (amber once edited). */
   const fieldClass = (field: string) =>
-    `min-h-touch w-full rounded-md border px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-[invalid=true]:border-danger ${mark(field)}`;
+    `h-control-md w-full min-w-0 rounded-md border px-3 text-body-sm text-text is-focus:field-focus aria-[invalid=true]:border-2 aria-[invalid=true]:border-danger ${mark(field)}`;
+  const selectClass = (field: string) => `${fieldClass(field)} cursor-pointer ps-2.5`;
 
   return (
-    <div data-screen="P02/B4" className="flex flex-col gap-4">
+    <div data-screen="P02/B4" className="flex flex-col gap-6">
       <Panel t={t} resource={policy} skeletonRows={5}>
         {(data) =>
           draft === null ? null : (
             <>
-              <section className="overflow-hidden rounded-lg border border-border bg-surface">
-                <div className="flex flex-col gap-1 border-b border-border p-5">
-                  <h2 className="text-h5">{t.t('admin.sla.title')}</h2>
-                  <p className="text-body-sm text-text-2">{t.t('admin.sla.subtitle')}</p>
+              <section className={`${CARD} overflow-hidden`}>
+                <div className="flex flex-col gap-1 border-b border-border px-5 py-4.5">
+                  <h2 className="m-0 text-card-title">{t.t('admin.sla.title')}</h2>
+                  <p className="m-0 text-meta text-text-2">{t.t('admin.sla.subtitle')}</p>
                 </div>
-                <div className="overflow-x-auto p-1">
+                <div className="overflow-x-auto">
                   <table className="w-full min-w-max border-collapse text-body-sm">
                     <caption className="sr-only">{t.t('admin.sla.title')}</caption>
-                    <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
-                      <tr>
-                        <th scope="col" className="p-3 text-start font-bold">
+                    <thead className={TABLE_HEAD}>
+                      <tr className="border-b border-border">
+                        <th scope="col" className="w-40 ps-5 pe-1.5 text-start font-bold">
                           {t.t('admin.sla.col.channel')}
                         </th>
-                        <th scope="col" className="p-3 text-start font-bold">
+                        <th scope="col" className="px-1.5 text-start font-bold">
                           {t.t('admin.sla.col.first')}
                         </th>
-                        <th scope="col" className="p-3 text-start font-bold">
+                        <th scope="col" className="px-1.5 text-start font-bold">
                           {t.t('admin.sla.col.resolution')}
                         </th>
-                        <th scope="col" className="p-3 text-start font-bold">
+                        <th scope="col" className="pe-5 ps-1.5 text-start font-bold">
                           {t.t('admin.sla.col.clock')}
                         </th>
                       </tr>
@@ -260,18 +262,14 @@ export function SlaTab({
                         const resolutionField = `resolution:${target.channel}`;
                         const clockField = `clock:${target.channel}`;
                         return (
-                          <tr key={target.channel} className="border-t border-border align-top">
-                            <th scope="row" className="p-3 text-start">
+                          <tr key={target.channel} className="border-b border-border last:border-b-0">
+                            <th scope="row" className="pe-1.5 ps-5 text-start">
                               <span className="flex items-center gap-2 font-semibold">
-                                <Icon
-                                  name={CHANNEL_ICON[target.channel]}
-                                  size="sm"
-                                  className="text-text-2"
-                                />
+                                <Icon name={CHANNEL_ICON[target.channel]} size={20} className="text-text-2" />
                                 {channelName}
                               </span>
                             </th>
-                            <td className="p-3">
+                            <td className="px-1.5 py-2.5">
                               <input
                                 value={draft.first[target.channel] ?? ''}
                                 aria-label={t.t('admin.sla.field.first', { channel: channelName })}
@@ -287,7 +285,7 @@ export function SlaTab({
                                 className={fieldClass(firstField)}
                               />
                             </td>
-                            <td className="p-3">
+                            <td className="px-1.5 py-2.5">
                               <input
                                 value={draft.resolution[target.channel] ?? ''}
                                 aria-label={t.t('admin.sla.field.resolution', {
@@ -306,10 +304,10 @@ export function SlaTab({
                                     },
                                   })
                                 }
-                                className={fieldClass(resolutionField)}
+                                className={`${fieldClass(resolutionField)} placeholder:text-text-muted`}
                               />
                             </td>
-                            <td className="p-3">
+                            <td className="py-2.5 pe-5 ps-1.5">
                               <select
                                 value={draft.clock[target.channel] ?? target.clock}
                                 aria-label={t.t('admin.sla.field.clock', { channel: channelName })}
@@ -323,7 +321,7 @@ export function SlaTab({
                                     },
                                   })
                                 }
-                                className={fieldClass(clockField)}
+                                className={selectClass(clockField)}
                               >
                                 {CLOCKS.map((clock) => (
                                   <option key={clock} value={clock}>
@@ -339,15 +337,15 @@ export function SlaTab({
                   </table>
                 </div>
                 {invalid.length > 0 ? (
-                  <p role="alert" className="p-4 text-body-sm text-danger-text">
+                  <p role="alert" className="m-0 border-t border-border px-5 py-3 text-meta text-danger-text">
                     {t.t('admin.sla.invalid')}
                   </p>
                 ) : null}
               </section>
 
-              <div className="grid gap-4 xl:grid-cols-2">
-                <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-                  <h2 className="text-h5">{t.t('admin.sla.clock.title')}</h2>
+              <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+                <section className={`${CARD} flex flex-col gap-1 p-5`}>
+                  <h2 className="m-0 mb-2.5 text-card-title">{t.t('admin.sla.clock.title')}</h2>
                   <Toggle
                     label={t.t('admin.sla.pauseHours')}
                     note={data.operatingHoursSummary ?? null}
@@ -370,9 +368,9 @@ export function SlaTab({
                   />
                 </section>
 
-                <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-                  <h2 className="text-h5">{t.t('admin.sla.escalation')}</h2>
-                  <div className="flex flex-wrap items-center gap-2 text-body-sm">
+                <section className={`${CARD} flex flex-col gap-3 p-5`}>
+                  <h2 className="m-0 mb-1 text-card-title">{t.t('admin.sla.escalation')}</h2>
+                  <div className="flex flex-wrap items-center gap-2.5 text-body-sm">
                     <span className="font-semibold">{t.t('admin.sla.warnAt')}</span>
                     <select
                       value={draft.warnAtPercentOfTarget}
@@ -381,7 +379,7 @@ export function SlaTab({
                       onChange={(event) =>
                         setDraft({ ...draft, warnAtPercentOfTarget: Number(event.target.value) })
                       }
-                      className={fieldClass('warnAtPercentOfTarget')}
+                      className={`${selectClass('warnAtPercentOfTarget')} w-auto`}
                     >
                       {WARN_PERCENTS.map((percent) => (
                         <option key={percent} value={percent}>
@@ -397,7 +395,7 @@ export function SlaTab({
                       onChange={(event) =>
                         setDraft({ ...draft, warnNotifyRole: event.target.value as SlaNotifyRole })
                       }
-                      className={fieldClass('warnNotifyRole')}
+                      className={`${selectClass('warnNotifyRole')} w-auto`}
                     >
                       {WARN_ROLES.map((role) => (
                         <option key={role} value={role}>
@@ -406,7 +404,7 @@ export function SlaTab({
                       ))}
                     </select>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-body-sm">
+                  <div className="flex flex-wrap items-center gap-2.5 text-body-sm">
                     <span className="font-semibold">{t.t('admin.sla.onBreach')}</span>
                     <span>{t.t('admin.sla.breachNotify')}</span>
                     <select
@@ -419,7 +417,7 @@ export function SlaTab({
                           breachNotifyRole: event.target.value as SlaNotifyRole,
                         })
                       }
-                      className={fieldClass('breachNotifyRole')}
+                      className={`${selectClass('breachNotifyRole')} w-auto`}
                     >
                       {BREACH_ROLES.map((role) => (
                         <option key={role} value={role}>
@@ -428,7 +426,7 @@ export function SlaTab({
                       ))}
                     </select>
                   </div>
-                  <p className="text-body-sm text-text-2">{t.t('admin.sla.credits')}</p>
+                  <p className="m-0 text-meta text-text-2">{t.t('admin.sla.credits')}</p>
                 </section>
               </div>
             </>
@@ -437,50 +435,41 @@ export function SlaTab({
       </Panel>
 
       {saveError === null ? null : (
-        <p role="alert" data-testid="sla-save-error" data-error-code={saveError.code} className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">
+        <Notice tone="danger" testId="sla-save-error" errorCode={saveError.code}>
           {t.t(errorMessageId(saveError))}
-        </p>
+        </Notice>
       )}
 
       {toast === null ? null : (
-        <p role="status" data-testid="sla-toast" className="rounded-md bg-success-soft p-3 text-body-sm text-success-text">
+        <Notice tone="success" testId="sla-toast">
           {toast}
-        </p>
+        </Notice>
       )}
 
       {changed.length === 0 ? null : (
-        <div
-          data-testid="unsaved-bar"
-          className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap items-center gap-3 border-t border-border bg-inverse p-4 text-on-inverse"
-        >
-          <Icon name="edit_note" className="text-accent" />
-          <b data-testid="unsaved-count" className="flex-1 text-body-sm">
-            {t.t('admin.unsaved.count', { count: changed.length })}
-          </b>
-          <button
-            type="button"
-            data-testid="discard-changes"
-            onClick={discard}
-            className={`${SECONDARY_BUTTON} border-border-strong bg-transparent text-on-inverse`}
-          >
-            {t.t('admin.unsaved.discard')}
-          </button>
-          <button
-            type="button"
-            data-testid="save-changes"
-            disabled={saving || invalid.length > 0}
-            onClick={() => void save()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-accent px-4 text-body-md font-bold text-on-accent disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {saving ? t.t('admin.unsaved.saving') : t.t('admin.unsaved.save')}
-          </button>
-        </div>
+        <UnsavedBar
+          label={t.t('admin.unsaved.region')}
+          count={t.t('admin.unsaved.count', { count: changed.length })}
+          detail={t.t('admin.sla.unsaved.detail', { count: changed.length })}
+          discardLabel={t.t('admin.unsaved.discard')}
+          saveLabel={t.t('admin.unsaved.save')}
+          savingLabel={t.t('admin.unsaved.saving')}
+          saving={saving}
+          saveDisabled={invalid.length > 0}
+          onDiscard={discard}
+          onSave={() => void save()}
+        />
       )}
     </div>
   );
 }
 
-function Toggle({
+/**
+ * A setting with a switch (`P02/B4` Clock, `P02/B7`): the label at 14/600, its
+ * note at 13 in text-2, and the v1.1 switch at the end, 44 by 26 with a 20px
+ * knob. An edited switch says so in words, not only in colour.
+ */
+export function Toggle({
   label,
   note,
   checked,
@@ -498,10 +487,10 @@ function Toggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 border-t border-border py-3">
-      <div className="flex flex-1 flex-col gap-1">
+    <div className="flex items-center gap-4 border-t border-border py-3.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <b className="text-body-sm font-semibold">{label}</b>
-        {note === null ? null : <span className="text-body-sm text-text-2">{note}</span>}
+        {note === null ? null : <span className="text-pretty text-meta text-text-2">{note}</span>}
         {changed ? <span className="text-caption font-bold text-accent-text">{changedLabel}</span> : null}
       </div>
       <button
@@ -512,16 +501,16 @@ function Toggle({
         data-testid={testId}
         data-changed={changed ? 'true' : 'false'}
         onClick={() => onChange(!checked)}
-        className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+        className={`flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-full outline-none is-focus-visible:ring-focus ${
           changed ? 'bg-accent-soft' : ''
         }`}
       >
         <span
-          className={`flex h-6 w-11 items-center rounded-full p-1 transition-colors duration-quick motion-reduce:transition-none ${
+          className={`flex h-6.5 w-11 items-center rounded-full p-0.75 transition-colors duration-quick motion-reduce:transition-none ${
             checked ? 'justify-end bg-primary' : 'justify-start bg-border-strong'
           }`}
         >
-          <span className="h-4 w-4 rounded-full bg-on-primary" />
+          <span className="size-5 rounded-full bg-on-primary shadow-knob" />
         </span>
       </button>
     </div>

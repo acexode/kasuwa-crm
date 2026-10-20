@@ -6,7 +6,8 @@ import { Icon } from '../icon';
 import { Panel, errorMessageId } from './panel';
 import { Dialog } from './dialog';
 import { useResource } from './use-resource';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { Pill, type PillTone } from '@kasuwa/ui/components';
+import { AdminButton, CARD, Notice, ROW_ICON_BUTTON, TABLE_HEAD } from './admin-ui';
 import {
   deactivateDisposition,
   deleteDisposition,
@@ -36,13 +37,23 @@ import { formatCount } from '../../lib/admin-format';
  * ---------------------------------------------------------------------------
  */
 
-const CATEGORY_TONE: Readonly<Record<DispositionCategory, string>> = {
-  promise_to_pay: 'bg-primary-soft text-primary-text',
-  resolved: 'bg-success-soft text-success-text',
-  callback: 'bg-info-soft text-info-text',
-  escalated: 'bg-warning-soft text-warning-text',
-  not_reached: 'bg-surface-sunken text-text-2',
+const CATEGORY_TONE: Readonly<Record<DispositionCategory, PillTone>> = {
+  promise_to_pay: 'primary',
+  resolved: 'success',
+  callback: 'info',
+  escalated: 'warning',
+  not_reached: 'neutral',
 };
+
+/** "Required" with a tick in success, "Optional" with a dash in muted, as the export draws them. */
+function Requirement({ required, label }: { required: boolean; label: string }) {
+  return (
+    <span className={`flex items-center gap-1 text-meta ${required ? 'text-success-text' : 'text-text-muted'}`}>
+      <Icon name={required ? 'check' : 'remove'} size={18} />
+      {label}
+    </span>
+  );
+}
 
 export function DispositionsTab({
   t,
@@ -86,112 +97,111 @@ export function DispositionsTab({
   };
 
   return (
-    <div data-screen="P02/B5" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="flex-1 text-body-sm text-text-2">{t.t('admin.disp.intro')}</p>
-        <span className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
-          <Icon name="add" size="sm" />
+    <div data-screen="P02/B5" className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-4">
+        <p className="m-0 min-w-0 flex-1 basis-80 text-label font-normal text-text-2">{t.t('admin.disp.intro')}</p>
+        <AdminButton variant="primary" icon="add" notReady>
           {t.t('admin.disp.add')}
-        </span>
+        </AdminButton>
       </div>
 
       <Panel t={t} resource={dispositions} skeletonRows={8}>
         {(data) => (
-          <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-            <table className="w-full min-w-max border-collapse text-body-sm">
-              <caption className="sr-only">{t.t('admin.prog.tab.dispositions')}</caption>
-              <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
-                <tr>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.code')}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.label')}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.category')}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.note')}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.followUp')}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    {t.t('admin.disp.col.used', { days: data.usageWindowDays })}
-                  </th>
-                  <th scope="col" className="p-3 text-start font-bold">
-                    <span className="sr-only">{t.t('admin.disp.delete', { label: '' })}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((disposition) => (
-                  <tr
-                    key={disposition.id}
-                    data-testid="disposition-row"
-                    data-disposition-code={disposition.code}
-                    className="border-t border-border"
-                  >
-                    <td className="p-3 font-mono text-mono">{disposition.code}</td>
-                    <th scope="row" className="p-3 text-start font-semibold">
-                      {disposition.label}
-                      {disposition.active ? null : (
-                        <span className="ms-2 rounded-full bg-surface-sunken px-2 text-caption font-bold text-text-muted">
-                          {t.t('admin.disp.inactive')}
-                        </span>
-                      )}
+          <div className={`${CARD} overflow-hidden`}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-max border-collapse text-body-sm">
+                <caption className="sr-only">{t.t('admin.prog.tab.dispositions')}</caption>
+                <thead className={TABLE_HEAD}>
+                  <tr className="border-b border-border">
+                    <th scope="col" className="w-24 ps-5 pe-2 text-start font-bold">
+                      {t.t('admin.disp.col.code')}
                     </th>
-                    <td className="p-3">
-                      <span
-                        className={`inline-flex rounded-full px-2 text-caption font-bold ${CATEGORY_TONE[disposition.category]}`}
-                      >
-                        {t.t(`admin.disp.cat.${disposition.category}` as MessageId)}
-                      </span>
-                    </td>
-                    <td className="p-3 text-text-2">
-                      {t.t(disposition.noteRequired ? 'admin.disp.required' : 'admin.disp.optional')}
-                    </td>
-                    <td className="p-3 text-text-2">
-                      {t.t(
-                        disposition.followUpRequired ? 'admin.disp.required' : 'admin.disp.optional',
-                      )}
-                    </td>
-                    <td className="p-3 text-text-2">
-                      {disposition.usageCount90d === null || disposition.usageCount90d === undefined
-                        ? t.t('admin.prog.unknown')
-                        : formatCount(locale, disposition.usageCount90d)}
-                    </td>
-                    <td className="p-3">
-                      <button
-                        type="button"
-                        aria-label={t.t('admin.disp.delete', { label: disposition.label })}
-                        data-testid="delete-disposition"
-                        onClick={() => {
-                          setError(null);
-                          setTarget(disposition);
-                        }}
-                        className="flex min-h-touch min-w-touch items-center justify-center rounded-md text-text-muted hover:bg-danger-soft hover:text-danger-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                      >
-                        <Icon name="delete" size="sm" />
-                      </button>
-                    </td>
+                    <th scope="col" className="px-2 text-start font-bold">
+                      {t.t('admin.disp.col.label')}
+                    </th>
+                    <th scope="col" className="px-2 text-start font-bold">
+                      {t.t('admin.disp.col.category')}
+                    </th>
+                    <th scope="col" className="px-2 text-start font-bold">
+                      {t.t('admin.disp.col.note')}
+                    </th>
+                    <th scope="col" className="px-2 text-start font-bold">
+                      {t.t('admin.disp.col.followUp')}
+                    </th>
+                    <th scope="col" className="px-2 text-start font-bold">
+                      {t.t('admin.disp.col.used', { days: data.usageWindowDays })}
+                    </th>
+                    <th scope="col" className="w-14">
+                      <span className="sr-only">{t.t('admin.disp.delete', { label: '' })}</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.items.map((disposition) => (
+                    <tr
+                      key={disposition.id}
+                      data-testid="disposition-row"
+                      data-disposition-code={disposition.code}
+                      className="border-b border-border last:border-b-0"
+                    >
+                      <td className="pe-2 ps-5 font-mono text-meta font-semibold">{disposition.code}</td>
+                      <th scope="row" className="px-2 text-start font-semibold">
+                        {disposition.label}
+                        {disposition.active ? null : (
+                          <Pill tone="neutral" className="ms-2">
+                            {t.t('admin.disp.inactive')}
+                          </Pill>
+                        )}
+                      </th>
+                      <td className="px-2">
+                        <Pill tone={CATEGORY_TONE[disposition.category]}>
+                          {t.t(`admin.disp.cat.${disposition.category}` as MessageId)}
+                        </Pill>
+                      </td>
+                      <td className="px-2">
+                        <Requirement
+                          required={disposition.noteRequired}
+                          label={t.t(disposition.noteRequired ? 'admin.disp.required' : 'admin.disp.optional')}
+                        />
+                      </td>
+                      <td className="px-2">
+                        <Requirement
+                          required={disposition.followUpRequired}
+                          label={t.t(disposition.followUpRequired ? 'admin.disp.required' : 'admin.disp.optional')}
+                        />
+                      </td>
+                      <td className="px-2 text-text-2">
+                        {disposition.usageCount90d === null || disposition.usageCount90d === undefined
+                          ? t.t('admin.prog.unknown')
+                          : formatCount(locale, disposition.usageCount90d)}
+                      </td>
+                      <td className="py-1.5 pe-2">
+                        <button
+                          type="button"
+                          aria-label={t.t('admin.disp.delete', { label: disposition.label })}
+                          data-testid="delete-disposition"
+                          onClick={() => {
+                            setError(null);
+                            setTarget(disposition);
+                          }}
+                          className={`${ROW_ICON_BUTTON} size-10 is-hover:bg-danger-soft is-hover:text-danger-text`}
+                        >
+                          <Icon name="delete" size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </Panel>
 
       {toast === null ? null : (
-        <p
-          role="status"
-          data-testid="disposition-toast"
-          className="rounded-md bg-success-soft p-3 text-body-sm text-success-text"
-        >
+        <Notice tone="success" testId="disposition-toast">
           {toast}
-        </p>
+        </Notice>
       )}
 
       {target === null ? null : (
@@ -205,47 +215,39 @@ export function DispositionsTab({
           onClose={() => setTarget(null)}
           footer={
             <>
-              <button
-                type="button"
-                onClick={() => setTarget(null)}
-                className={SECONDARY_BUTTON}
-                data-testid="delete-cancel"
-              >
+              <AdminButton onClick={() => setTarget(null)} data-testid="delete-cancel">
                 {t.t('admin.disp.delete.cancel')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
                 disabled={busy}
                 onClick={() => void run('deactivate')}
-                className={SECONDARY_BUTTON}
                 data-testid="deactivate-instead"
               >
                 {t.t('admin.disp.delete.alt')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
+                variant="danger"
                 disabled={busy}
                 onClick={() => void run('delete')}
                 data-testid="delete-confirm"
-                className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {t.t('admin.disp.delete.confirm')}
-              </button>
+              </AdminButton>
             </>
           }
         >
           {/* Null usage means the aggregate is unavailable. The sentence is
               omitted rather than rendered as zero — see the note at the top. */}
           {target.usageCount90d === null || target.usageCount90d === undefined ? null : (
-            <p data-testid="delete-usage" className="text-body-sm">
+            <p data-testid="delete-usage" className="m-0 text-body-relaxed text-text-2">
               {t.t('admin.disp.delete.usage', {
                 count: target.usageCount90d,
                 days: dispositions.data?.usageWindowDays ?? 90,
               })}
             </p>
           )}
-          <p className="flex gap-2 rounded-md bg-info-soft p-3 text-body-sm text-info-text">
-            <Icon name="lightbulb" size="sm" />
+          <p className="m-0 flex gap-2.5 rounded-10 bg-info-soft px-3.5 py-3 text-meta text-info-text">
+            <Icon name="lightbulb" size={18} className="shrink-0" />
             {t.t('admin.disp.delete.hint')}
           </p>
           {error === null ? null : (
@@ -253,7 +255,7 @@ export function DispositionsTab({
               role="alert"
               data-testid="delete-error"
               data-error-code={error.code}
-              className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
+              className="m-0 rounded-10 bg-danger-soft px-3.5 py-3 text-meta text-danger-text"
             >
               {t.t(errorMessageId(error))}
             </p>

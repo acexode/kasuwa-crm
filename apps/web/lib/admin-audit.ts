@@ -143,10 +143,14 @@ export function isLabelledObjectType(value: string): value is AuditObjectType {
 
 /**
  * A key a newer API writes before this catalogue knows it, made readable
- * ("sms_sender_id" → "Sms sender id"). A fallback only: the catalogue label,
+ * ("sms_sender_id" → "Sms sender id", "versionNumber" → "Version number"). A fallback only: the catalogue label,
  * then the server's own label, come first.
  */
 export function humaniseKey(key: string): string {
-  const words = key.replace(/[_-]+/g, ' ').trim();
+  const words = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase();
   return words === '' ? key : words.charAt(0).toUpperCase() + words.slice(1);
 }

@@ -5,7 +5,7 @@ import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { Panel } from './panel';
 import { useResource } from './use-resource';
-import { PRIMARY_BUTTON } from '../auth/button-classes';
+import { AdminButton, CARD } from './admin-ui';
 import { listPortalUsers, type ProgrammeDetail } from '../../lib/admin-api';
 import { formatDate } from '../../lib/admin-format';
 
@@ -58,66 +58,56 @@ export function PortalTab({
   const client = detail?.clientName;
 
   return (
-    <div data-screen="P02/B8" className="flex flex-col gap-4">
+    <div data-screen="P02/B8" className="flex flex-col gap-6">
       <Panel t={t} resource={users} skeletonRows={3}>
         {(data) =>
           data.items.length === 0 ? (
             <div
               data-testid="portal-empty"
-              className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-14 text-center"
+              className={`${CARD} flex flex-col items-center gap-2.5 px-6 py-14 text-center`}
             >
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-                <Icon name="co_present" size="xl" />
+              <span className="flex size-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+                <Icon name="co_present" size={32} />
               </span>
-              <h2 className="text-h4">{t.t('admin.portal.empty.title')}</h2>
+              <h2 className="m-0 text-h4 font-bold">{t.t('admin.portal.empty.title')}</h2>
               {/* The client's name when we have it; a generic sentence when we
                   do not. "Invite people from undefined" is how that reads if
                   the name is interpolated unconditionally. */}
-              <p className="max-w-prose text-body-md text-text-2">
+              <p className="m-0 max-w-md text-pretty text-label font-normal text-text-2">
                 {client === null || client === undefined || client === ''
                   ? t.t('admin.portal.empty.body.noClient')
                   : t.t('admin.portal.empty.body', { client })}
               </p>
               {/* M18. Visibly not ready, rather than live and answering 501. */}
-              <span
-                className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`}
-                aria-disabled
-                data-testid="portal-invite"
-              >
-                <Icon name="person_add" size="sm" />
+              <AdminButton variant="primary" icon="person_add" notReady data-testid="portal-invite" className="mt-1.5">
                 {t.t('admin.portal.invite')}
-              </span>
-              <span className="text-body-sm text-text-muted">
+              </AdminButton>
+              <span className="text-meta text-text-muted">
                 {t.t('admin.portal.notReady')}
               </span>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               <div className="flex justify-end">
-                <span
-                  className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`}
-                  aria-disabled
-                  data-testid="portal-invite"
-                >
-                  <Icon name="person_add" size="sm" />
+                <AdminButton variant="primary" icon="person_add" notReady data-testid="portal-invite">
                   {t.t('admin.portal.inviteAnother')}
-                </span>
+                </AdminButton>
               </div>
-              <ul className="flex flex-col rounded-lg border border-border bg-surface">
+              <ul className={`${CARD} m-0 flex list-none flex-col p-0`}>
                 {data.items.map((user) => (
                   <li
                     key={user.id}
                     data-testid="portal-row"
                     data-portal-status={user.status}
-                    className="flex flex-wrap items-center gap-3 border-b border-border p-4 last:border-b-0"
+                    className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3 last:border-b-0"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-caption font-bold text-accent-text">
-                      <Icon name="person" size="sm" />
+                    <span className="flex size-8 items-center justify-center rounded-full bg-accent-soft text-caption font-bold text-accent-text">
+                      <Icon name="person" size={18} />
                     </span>
                     <span className="flex min-w-48 flex-1 flex-col">
                       <b className="text-body-sm font-semibold">{user.displayName}</b>
                       {/* Masked, and only ever rendered as text. */}
-                      <span data-testid="portal-email" className="text-body-sm text-text-muted">
+                      <span data-testid="portal-email" className="text-meta text-text-muted">
                         {user.emailMasked}
                       </span>
                     </span>
@@ -125,7 +115,7 @@ export function PortalTab({
                       {t.t(`admin.portal.access.${user.access}` as MessageId)}
                     </span>
                     <span
-                      className={`inline-flex rounded-full px-2 text-caption font-bold ${STATUS_TONE[user.status] ?? 'bg-surface-sunken text-text-2'}`}
+                      className={`inline-flex h-5.5 items-center rounded-full px-2 text-caption font-bold ${STATUS_TONE[user.status] ?? 'bg-surface-sunken text-text-2'}`}
                     >
                       {t.t(`admin.portal.status.${user.status}` as MessageId)}
                     </span>

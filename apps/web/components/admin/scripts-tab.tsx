@@ -5,7 +5,8 @@ import { localeLabel, type MessageId, type Translator } from '@kasuwa/i18n/bundl
 import { Icon } from '../icon';
 import { Panel } from './panel';
 import { useResource } from './use-resource';
-import { PRIMARY_BUTTON } from '../auth/button-classes';
+import { Pill, type PillTone } from '@kasuwa/ui/components';
+import { AdminButton, CARD, TABLE_HEAD } from './admin-ui';
 import { listScripts, type ScriptStatus } from '../../lib/admin-api';
 import { formatDate } from '../../lib/admin-format';
 
@@ -34,11 +35,11 @@ import { formatDate } from '../../lib/admin-format';
  * "yo".
  */
 
-const STATUS_TONE: Readonly<Record<ScriptStatus, string>> = {
-  published: 'bg-success-soft text-success-text',
-  rejected_by_provider: 'bg-danger-soft text-danger-text',
-  draft: 'bg-surface-sunken text-text-2',
-  in_review: 'bg-info-soft text-info-text',
+const STATUS_TONE: Readonly<Record<ScriptStatus, PillTone>> = {
+  published: 'success',
+  rejected_by_provider: 'danger',
+  draft: 'neutral',
+  in_review: 'info',
 };
 
 export function ScriptsTab({
@@ -57,18 +58,13 @@ export function ScriptsTab({
 
   return (
     <div data-screen="P02/B6" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="flex-1 text-body-sm text-text-2">{t.t('admin.scripts.intro')}</p>
+      <div className="flex flex-wrap items-center gap-4">
+        <p className="m-0 min-w-0 flex-1 basis-80 text-label font-normal text-text-2">{t.t('admin.scripts.intro')}</p>
         {/* The script builder is M10. A control that looks live and answers
             501 is worse than one that is visibly not ready yet. */}
-        <span
-          className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`}
-          aria-disabled
-          data-testid="add-script"
-        >
-          <Icon name="add" size="sm" />
+        <AdminButton variant="primary" icon="add" notReady data-testid="add-script">
           {t.t('admin.scripts.add')}
-        </span>
+        </AdminButton>
       </div>
 
       <Panel t={t} resource={scripts} skeletonRows={6}>
@@ -76,11 +72,13 @@ export function ScriptsTab({
           data.items.length === 0 ? (
             <div
               data-testid="scripts-empty"
-              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface p-12 text-center"
+              className={`${CARD} flex flex-col items-center gap-2.5 px-6 py-16 text-center`}
             >
-              <Icon name="description" size="xl" className="text-text-muted" />
-              <h2 className="text-h5">{t.t('admin.scripts.empty.title')}</h2>
-              <p className="max-w-prose text-body-sm text-text-2">
+              <span className="flex size-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+                <Icon name="description" size={32} />
+              </span>
+              <h2 className="m-0 text-h5 font-bold">{t.t('admin.scripts.empty.title')}</h2>
+              <p className="m-0 max-w-md text-pretty text-body-sm text-text-2">
                 {t.t('admin.scripts.empty.body')}
               </p>
             </div>
@@ -94,28 +92,28 @@ export function ScriptsTab({
               role="region"
               aria-label={t.t('admin.prog.tab.scripts')}
               tabIndex={0}
-              className="overflow-x-auto rounded-lg border border-border bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className={`${CARD} overflow-x-auto outline-none is-focus-visible:ring-focus`}
             >
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.prog.tab.scripts')}</caption>
-                <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
-                  <tr>
-                    <th scope="col" className="p-3 text-start font-bold">
+                <thead className={TABLE_HEAD}>
+                  <tr className="border-b border-border">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.name')}
                     </th>
-                    <th scope="col" className="p-3 text-start font-bold">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.channel')}
                     </th>
-                    <th scope="col" className="p-3 text-start font-bold">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.languages')}
                     </th>
-                    <th scope="col" className="p-3 text-start font-bold">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.version')}
                     </th>
-                    <th scope="col" className="p-3 text-start font-bold">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.status')}
                     </th>
-                    <th scope="col" className="p-3 text-start font-bold">
+                    <th scope="col" className="px-2 text-start font-bold first:ps-5 last:pe-5">
                       {t.t('admin.scripts.col.updated')}
                     </th>
                   </tr>
@@ -126,32 +124,30 @@ export function ScriptsTab({
                       key={script.id}
                       data-testid="script-row"
                       data-script-status={script.status}
-                      className="border-t border-border align-top"
+                      className="border-b border-border last:border-b-0"
                     >
-                      <th scope="row" className="p-3 text-start font-semibold">
+                      <th scope="row" className="py-3.5 pe-2 ps-5 text-start font-semibold">
                         {script.name}
                       </th>
-                      <td className="p-3 text-text-2">
+                      <td className="px-2 text-text-2">
                         {(script.channels ?? []).length === 0
                           ? t.t('admin.prog.unknown')
                           : (script.channels ?? [])
                               .map((channel) => t.t(`admin.channel.${channel}` as MessageId))
                               .join(' · ')}
                       </td>
-                      <td className="p-3 text-text-2">
+                      <td className="px-2 text-text-2">
                         {(script.languages ?? []).length === 0
                           ? t.t('admin.prog.unknown')
                           : (script.languages ?? []).map(localeLabel).join(', ')}
                       </td>
-                      <td className="p-3 font-mono text-mono">
+                      <td className="px-2 font-mono text-meta">
                         {t.t('admin.scripts.version', { version: script.version })}
                       </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 text-caption font-bold ${STATUS_TONE[script.status]}`}
-                        >
+                      <td className="px-2 py-2">
+                        <Pill tone={STATUS_TONE[script.status]}>
                           {t.t(`admin.scripts.status.${script.status}` as MessageId)}
-                        </span>
+                        </Pill>
                         {/* The provider's own words, rendered and never parsed.
                             Null is normal: a draft has not been to one. */}
                         {script.providerName === null || script.providerName === undefined ? null : (
@@ -172,7 +168,7 @@ export function ScriptsTab({
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-text-muted">
+                      <td className="pe-5 ps-2 text-meta text-text-2">
                         {formatDate(locale, script.updatedAt)}
                       </td>
                     </tr>

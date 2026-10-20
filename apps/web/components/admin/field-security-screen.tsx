@@ -21,7 +21,8 @@ import {
   type CellDraft,
 } from './field-security-model';
 import type { LanguageOption } from '../auth/language-menu';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { Checkbox } from '@kasuwa/ui/components';
+import { AdminButton, CARD, ChipCount, Notice, PageHeader, SearchField, TEXT_ACTION, UnsavedBar, chipClass } from './admin-ui';
 import {
   getFieldSecurityMatrix,
   listFieldSecurityObjects,
@@ -70,11 +71,27 @@ import { formatCount } from '../../lib/admin-format';
  * exists to prevent, and the client renders nothing that is not in the schema.
  */
 
+/** PII is information (info), sensitive is a risk (danger), as the export tags them. */
 const CLASSIFICATION_TONE: Readonly<Record<FieldClassification, string>> = {
   none: '',
-  pii: 'bg-warning-soft text-warning-text',
+  pii: 'bg-info-soft text-info-text',
   sensitive: 'bg-danger-soft text-danger-text',
 };
+
+/**
+ * The matrix's two toggles, 36 by 32 at radius 6 (`P02/D`). Read on is the
+ * soft primary; edit on is SOLID primary, so the two read apart at a glance;
+ * off is a bare border with a muted glyph. Admin's locked cells keep their
+ * colours (no fade) and refuse the pointer.
+ */
+function accessToggleClass(on: boolean, strong: boolean): string {
+  const tone = !on
+    ? 'border-border bg-transparent text-text-muted is-hover:bg-surface-sunken'
+    : strong
+      ? 'border-primary bg-primary text-on-primary'
+      : 'border-primary-soft-strong bg-primary-soft text-primary-text';
+  return `flex h-8 w-9 items-center justify-center rounded-6 border outline-none is-focus-visible:ring-focus disabled:cursor-not-allowed ${tone}`;
+}
 
 const BULK_LEVELS: readonly FieldAccessLevel[] = ['none', 'read', 'edit'];
 
@@ -196,25 +213,34 @@ export function FieldSecurityScreen({
   const allSelected = rows.length > 0 && rows.every((row) => selected.has(row.fieldApiName));
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} bell={bell} activeSettingId="fls">
-      <div data-screen="P02/D" className="flex flex-col gap-4 pb-24">
-        <div className="flex flex-col gap-2">
-          <span className="text-body-sm font-semibold text-text-muted">
-            {t.t('admin.fls.eyebrow')}
-          </span>
-          <h1 className="text-h2">{t.t('admin.fls.title')}</h1>
-          <p className="max-w-prose text-body-md text-text-2">{t.t('admin.fls.intro')}</p>
-          {/* The decision made visible. An admin looking for a programme
-              selector has to be told where programme scoping lives, or they
-              will conclude the screen is unfinished. */}
-          <p data-testid="fls-scope-note" className="max-w-prose text-body-sm text-text-muted">
-            {t.t('admin.fls.scope.note')}
-          </p>
-        </div>
+    <AdminShell
+      locale={locale}
+      messages={messages}
+      locales={locales}
+      linkedSettings={linkedSettings}
+      bell={bell}
+      activeSettingId="fls"
+    >
+      <div data-screen="P02/D" className="flex flex-col gap-6 pb-24">
+        <PageHeader
+          eyebrow={t.t('admin.fls.eyebrow')}
+          title={t.t('admin.fls.title')}
+          intro={
+            <>
+              <p className="m-0">{t.t('admin.fls.intro')}</p>
+              {/* The decision made visible. An admin looking for a programme
+                  selector has to be told where programme scoping lives, or
+                  they will conclude the screen is unfinished. */}
+              <p data-testid="fls-scope-note" className="m-0 mt-1 text-meta text-text-muted">
+                {t.t('admin.fls.scope.note')}
+              </p>
+            </>
+          }
+        />
 
         <Panel t={t} resource={objects} skeletonRows={1}>
           {(objectList) => (
-            <div role="tablist" aria-label={t.t('admin.fls.objects')} className="flex flex-wrap gap-2">
+            <div role="tablist" aria-label={t.t('admin.fls.objects')} className="-mt-2 flex flex-wrap gap-1.5">
               {objectList.items.map((object) => {
                 const active = object.objectApiName === activeObject;
                 return (
@@ -229,16 +255,10 @@ export function FieldSecurityScreen({
                       setObjectApiName(object.objectApiName);
                       setSelected(new Set());
                     }}
-                    className={`flex min-h-touch items-center gap-2 rounded-md border px-3 text-body-md font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                      active
-                        ? 'border-primary bg-primary-soft text-primary-text'
-                        : 'border-border bg-surface text-text'
-                    }`}
+                    className={chipClass(active, 'tab')}
                   >
                     {object.label}
-                    <span className="text-body-sm font-normal text-text-muted">
-                      {formatCount(locale, object.fieldCount)}
-                    </span>
+                    <ChipCount small>{formatCount(locale, object.fieldCount)}</ChipCount>
                   </button>
                 );
               })}
@@ -246,44 +266,45 @@ export function FieldSecurityScreen({
           )}
         </Panel>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="fls-search" className="sr-only">
-            {t.t('admin.fls.search')}
-          </label>
-          <input
+        <div className="-mt-2 flex flex-wrap items-center gap-3">
+          <SearchField
             id="fls-search"
-            type="search"
+            label={t.t('admin.fls.search')}
             data-testid="fls-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t.t('admin.fls.search')}
-            className="min-h-touch min-w-0 flex-[0_1_280px] rounded-md border border-border-strong bg-surface px-3 text-body-md text-text placeholder:text-text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="w-full sm:w-72"
           />
           <button
             type="button"
             data-testid="fls-sensitive-only"
             aria-pressed={sensitiveOnly}
             onClick={() => setSensitiveOnly((value) => !value)}
-            className={`flex min-h-touch items-center gap-2 rounded-md border px-3 text-body-md font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-              sensitiveOnly
-                ? 'border-primary bg-primary-soft text-primary-text'
-                : 'border-border bg-surface text-text'
-            }`}
+            className="inline-flex h-control-md items-center gap-2 rounded-md border border-border bg-surface px-3 text-body-sm font-semibold text-text outline-none is-hover:bg-surface-sunken is-focus-visible:ring-focus"
           >
-            <Icon name={sensitiveOnly ? 'check' : 'visibility'} size="sm" />
+            <span
+              aria-hidden="true"
+              className={`flex size-4.5 items-center justify-center rounded-sm border-2 ${
+                sensitiveOnly ? 'border-primary bg-primary text-on-primary' : 'border-text-2'
+              }`}
+            >
+              {sensitiveOnly ? <Icon name="check" size={14} /> : null}
+            </span>
             {t.t('admin.fls.sensitiveOnly')}
           </button>
-          <span className="flex flex-wrap items-center gap-3 text-body-sm text-text-2">
+          <span className="hidden flex-1 lg:block" />
+          <span className="flex flex-wrap items-center gap-3.5 text-meta text-text-2">
             <span className="inline-flex items-center gap-1">
-              <Icon name="visibility" size="sm" />
+              <Icon name="visibility" size={18} />
               {t.t('admin.fls.legend.read')}
             </span>
             <span className="inline-flex items-center gap-1">
-              <Icon name="edit" size="sm" />
+              <Icon name="edit" size={18} />
               {t.t('admin.fls.legend.edit')}
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span aria-hidden="true" className="h-3 w-3 rounded-sm border border-accent bg-accent-soft" />
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3.5 rounded-sm border border-accent bg-accent-soft" />
               {t.t('admin.fls.legend.changed')}
             </span>
           </span>
@@ -294,12 +315,12 @@ export function FieldSecurityScreen({
             role="region"
             aria-label={t.t('admin.fls.bulk.region')}
             data-testid="fls-bulk"
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-primary bg-primary-soft p-3"
+            className="-mt-2 flex flex-wrap items-center gap-2.5 rounded-10 border border-primary-soft-strong bg-primary-soft py-2.5 pe-3 ps-4"
           >
-            <b className="text-body-md text-primary-text">
+            <b className="text-body-sm font-bold text-primary-text">
               {t.t('admin.fls.bulk.selected', { count: selected.size })}
             </b>
-            <label htmlFor="fls-bulk-set" className="text-body-md">
+            <label htmlFor="fls-bulk-set" className="text-body-sm">
               {t.t('admin.fls.bulk.setFor')}
             </label>
             <select
@@ -307,7 +328,7 @@ export function FieldSecurityScreen({
               data-testid="fls-bulk-set"
               value={bulkSet}
               onChange={(event) => setBulkSet(event.target.value)}
-              className="min-h-touch rounded-md border border-border-strong bg-surface px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className="h-control-sm cursor-pointer rounded-md border border-border-strong bg-surface ps-2.5 pe-2 text-body-sm text-text is-focus:field-focus"
             >
               <option value="*">{t.t('admin.fls.bulk.allUnlocked')}</option>
               {columns
@@ -318,24 +339,25 @@ export function FieldSecurityScreen({
                   </option>
                 ))}
             </select>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {BULK_LEVELS.map((level) => (
                 <button
                   key={level}
                   type="button"
                   data-testid={`fls-bulk-${level}`}
                   onClick={() => bulk(level)}
-                  className={SECONDARY_BUTTON}
+                  className="inline-flex h-control-sm items-center rounded-md border border-border bg-surface px-3 text-meta font-semibold text-text outline-none is-hover:bg-surface-sunken is-focus-visible:ring-focus"
                 >
                   {t.t(`admin.fls.bulk.${level}` as MessageId)}
                 </button>
               ))}
             </div>
+            <span className="flex-1" />
             <button
               type="button"
               data-testid="fls-bulk-clear"
               onClick={() => setSelected(new Set())}
-              className={`${SECONDARY_BUTTON} border-0 bg-transparent text-primary-text`}
+              className={`${TEXT_ACTION} h-control-sm`}
             >
               {t.t('admin.fls.bulk.clear')}
             </button>
@@ -344,18 +366,22 @@ export function FieldSecurityScreen({
 
         <Panel t={t} resource={matrix} skeletonRows={10}>
           {(loadedMatrix) => (
-            <div className="overflow-auto rounded-lg border border-border bg-surface">
+            <div className={`${CARD} overflow-auto`}>
               <table className="w-full min-w-max border-collapse text-body-sm">
                 <caption className="sr-only">{t.t('admin.fls.title')}</caption>
-                <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
-                  <tr>
-                    <th scope="col" className="p-3 text-start font-bold">
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
+                <thead className="bg-surface-sunken">
+                  <tr className="border-b border-border">
+                    <th
+                      scope="col"
+                      className="sticky start-0 z-10 min-w-72 border-e border-border bg-surface-sunken py-1 pe-4 ps-2 text-start"
+                    >
+                      <span className="flex items-center gap-1">
+                        <Checkbox
+                          size="compact"
                           data-testid="fls-select-all"
                           aria-label={t.t('admin.fls.selectAll')}
                           checked={allSelected}
+                          indeterminate={!allSelected && selected.size > 0}
                           onChange={(event) =>
                             setSelected(
                               event.target.checked
@@ -363,24 +389,25 @@ export function FieldSecurityScreen({
                                 : new Set(),
                             )
                           }
-                          className="h-5 w-5 accent-primary"
                         />
-                        {t.t('admin.fls.col.field')}
+                        <span className="text-caption font-bold uppercase tracking-wider text-text-muted">
+                          {t.t('admin.fls.col.field')}
+                        </span>
                       </span>
                     </th>
                     {columns.map((column) => (
                       <th
                         key={column.permissionSetId}
                         scope="col"
-                        className="border-s border-border p-3 text-center font-bold"
+                        className="min-w-28 border-s border-border px-2 py-2.5 text-center"
                       >
-                        <span className="flex items-center justify-center gap-1 text-body-sm">
+                        <span className="flex items-center justify-center gap-1 text-meta font-bold text-text">
                           {column.label}
                           {column.locked ? (
-                            <Icon name="lock" size="sm" className="text-text-muted" />
+                            <Icon name="lock" size={15} className="text-text-muted" />
                           ) : null}
                         </span>
-                        <span className="block font-normal normal-case text-text-muted">
+                        <span className="block text-caption font-normal text-text-muted">
                           {column.userCount === null || column.userCount === undefined
                             ? t.t('admin.prog.unknown')
                             : t.t('admin.fls.users', { count: column.userCount })}
@@ -390,20 +417,27 @@ export function FieldSecurityScreen({
                   </tr>
                 </thead>
                 <tbody>
-                  {loadedMatrix.rows.map((row) => (
+                  {loadedMatrix.rows.map((row) => {
+                    const rowSelected = selected.has(row.fieldApiName);
+                    return (
                     <tr
                       key={row.fieldApiName}
                       data-testid="fls-row"
                       data-field={row.fieldApiName}
-                      className="border-t border-border"
+                      className={`border-b border-border last:border-b-0 ${rowSelected ? 'bg-primary-soft' : ''}`}
                     >
-                      <th scope="row" className="p-3 text-start font-normal">
-                        <span className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
+                      <th
+                        scope="row"
+                        className={`sticky start-0 border-e border-border py-1.5 pe-4 ps-2 text-start font-normal ${
+                          rowSelected ? 'bg-primary-soft' : 'bg-surface'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1">
+                          <Checkbox
+                            size="compact"
                             data-testid="fls-select-row"
                             aria-label={t.t('admin.fls.select', { label: row.label })}
-                            checked={selected.has(row.fieldApiName)}
+                            checked={rowSelected}
                             onChange={(event) =>
                               setSelected((current) => {
                                 const next = new Set(current);
@@ -412,20 +446,19 @@ export function FieldSecurityScreen({
                                 return next;
                               })
                             }
-                            className="h-5 w-5 accent-primary"
                           />
-                          <span className="flex min-w-0 flex-col">
-                            <span className="flex items-center gap-2 font-semibold">
+                          <span className="flex min-w-0 flex-col gap-px">
+                            <span className="flex items-center gap-1.5 font-semibold">
                               {row.label}
                               {row.classification === 'none' ? null : (
                                 <span
-                                  className={`inline-flex rounded-sm px-2 text-caption font-bold ${CLASSIFICATION_TONE[row.classification]}`}
+                                  className={`inline-flex h-5 items-center rounded-sm px-1.5 text-micro ${CLASSIFICATION_TONE[row.classification]}`}
                                 >
                                   {t.t(`admin.fls.class.${row.classification}` as MessageId)}
                                 </span>
                               )}
                             </span>
-                            <span className="font-mono text-mono text-text-muted">
+                            <span className="font-mono text-caption font-normal text-text-muted">
                               {row.fieldApiName}
                             </span>
                           </span>
@@ -445,7 +478,7 @@ export function FieldSecurityScreen({
                             data-set={cell.permissionSetId}
                             data-level={level}
                             data-changed={changed}
-                            className={`border-s border-border p-2 ${changed ? 'bg-accent-soft' : ''}`}
+                            className={`border-s border-border px-2 ${changed ? 'bg-accent-soft' : ''}`}
                           >
                             <span className="flex items-center justify-center gap-1">
                               <button
@@ -464,13 +497,9 @@ export function FieldSecurityScreen({
                                     toggleRead(level),
                                   )
                                 }
-                                className={`flex h-9 w-10 items-center justify-center rounded-md border disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                                  canRead(level)
-                                    ? 'border-primary bg-primary-soft text-primary-text'
-                                    : 'border-border bg-surface text-text-muted'
-                                }`}
+                                className={accessToggleClass(canRead(level), false)}
                               >
-                                <Icon name="visibility" size="sm" />
+                                <Icon name="visibility" size={18} />
                               </button>
                               <button
                                 type="button"
@@ -488,48 +517,46 @@ export function FieldSecurityScreen({
                                     toggleEdit(level),
                                   )
                                 }
-                                className={`flex h-9 w-10 items-center justify-center rounded-md border disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                                  canEdit(level)
-                                    ? 'border-primary bg-primary-soft text-primary-text'
-                                    : 'border-border bg-surface text-text-muted'
-                                }`}
+                                className={accessToggleClass(canEdit(level), true)}
                               >
-                                <Icon name="edit" size="sm" />
+                                <Icon name="edit" size={18} />
                               </button>
                             </span>
                           </td>
                         );
                       })}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 
               {loadedMatrix.rows.length > 0 ? null : (
                 <div
                   data-testid="fls-no-results"
-                  className="flex flex-col items-center gap-3 p-12 text-center"
+                  className="flex flex-col items-center gap-2.5 px-6 py-14 text-center"
                 >
-                  <Icon name="search_off" size="xl" className="text-text-muted" />
-                  <b className="text-body-lg">{t.t('admin.fls.noResults')}</b>
-                  <button
-                    type="button"
+                  <span className="flex size-16 items-center justify-center rounded-full bg-surface-sunken text-text-2">
+                    <Icon name="search_off" size={32} />
+                  </span>
+                  <b className="text-h5 font-bold">{t.t('admin.fls.noResults')}</b>
+                  <AdminButton
                     data-testid="fls-clear-search"
                     onClick={() => {
                       setQuery('');
                       setSensitiveOnly(false);
                     }}
-                    className={SECONDARY_BUTTON}
+                    className="mt-1.5"
                   >
                     {t.t('admin.fls.clearSearch')}
-                  </button>
+                  </AdminButton>
                 </div>
               )}
             </div>
           )}
         </Panel>
 
-        <p data-testid="fls-footer" className="text-body-sm text-text-muted">
+        <p data-testid="fls-footer" className="-mt-2 m-0 text-meta text-text-muted">
           {t.t('admin.fls.footer', {
             shown: rows.length,
             total: data?.totalFieldCount ?? rows.length,
@@ -537,57 +564,33 @@ export function FieldSecurityScreen({
         </p>
 
         {saveError === null ? null : (
-          <p
-            role="alert"
-            data-testid="fls-save-error"
-            data-error-code={saveError.code}
-            className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
-          >
+          <Notice tone="danger" testId="fls-save-error" errorCode={saveError.code}>
             {t.t(errorMessageId(saveError))}
-          </p>
+          </Notice>
         )}
 
         {toast === null ? null : (
-          <p
-            role="status"
-            data-testid="fls-toast"
-            className="rounded-md bg-success-soft p-3 text-body-sm text-success-text"
-          >
+          <Notice tone="success" testId="fls-toast">
             {toast}
-          </p>
+          </Notice>
         )}
       </div>
 
       {changes.length === 0 ? null : (
-        <div
-          data-testid="unsaved-bar"
-          className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap items-center gap-3 border-t border-border bg-inverse p-4 text-on-inverse"
-        >
-          <Icon name="edit_note" className="text-accent" />
-          <b data-testid="unsaved-count" className="flex-1 text-body-sm">
-            {t.t('admin.fls.unsaved', { count: changes.length })}
-          </b>
-          <button
-            type="button"
-            data-testid="discard-changes"
-            onClick={() => {
-              setDraft(new Map());
-              setToast(t.t('admin.unsaved.discarded'));
-            }}
-            className={`${SECONDARY_BUTTON} border-border-strong bg-transparent text-on-inverse`}
-          >
-            {t.t('admin.unsaved.discard')}
-          </button>
-          <button
-            type="button"
-            data-testid="save-changes"
-            disabled={saving}
-            onClick={() => void save()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-accent px-4 text-body-md font-bold text-on-accent disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {saving ? t.t('admin.unsaved.saving') : t.t('admin.unsaved.save')}
-          </button>
-        </div>
+        <UnsavedBar
+          label={t.t('admin.unsaved.region')}
+          count={t.t('admin.unsaved.count', { count: changes.length })}
+          detail={t.t('admin.fls.unsaved', { count: changes.length })}
+          discardLabel={t.t('admin.unsaved.discard')}
+          saveLabel={t.t('admin.unsaved.save')}
+          savingLabel={t.t('admin.unsaved.saving')}
+          saving={saving}
+          onDiscard={() => {
+            setDraft(new Map());
+            setToast(t.t('admin.unsaved.discarded'));
+          }}
+          onSave={() => void save()}
+        />
       )}
 
       {pendingHref === null ? null : (
@@ -601,16 +604,11 @@ export function FieldSecurityScreen({
           onClose={() => setPendingHref(null)}
           footer={
             <>
-              <button
-                type="button"
-                data-testid="leave-cancel"
-                onClick={() => setPendingHref(null)}
-                className={SECONDARY_BUTTON}
-              >
+              <AdminButton data-testid="leave-cancel" onClick={() => setPendingHref(null)}>
                 {t.t('admin.leave.cancel')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
+                variant="danger"
                 data-testid="leave-confirm"
                 onClick={() => {
                   const destination = pendingHref;
@@ -618,14 +616,13 @@ export function FieldSecurityScreen({
                   setDraft(new Map());
                   router.push(destination);
                 }}
-                className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {t.t('admin.leave.confirm')}
-              </button>
+              </AdminButton>
             </>
           }
         >
-          <p className="rounded-md bg-surface-sunken p-3 text-body-sm">
+          <p className="m-0 rounded-10 bg-surface-sunken px-3.5 py-3 text-meta">
             {t.t('admin.fls.unsaved', { count: changes.length })}
           </p>
         </Dialog>

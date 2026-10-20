@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
 import type { IconName } from '@kasuwa/ui';
@@ -9,14 +10,15 @@ import { AdminShell } from './admin-shell';
 import { Panel } from './panel';
 import { useResource } from './use-resource';
 import type { LanguageOption } from '../auth/language-menu';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { Pill, type PillTone } from '@kasuwa/ui/components';
+import { AdminButton, CARD, ChipCount, PageHeader, SearchField, TABLE_HEAD, chipClass } from './admin-ui';
 import {
   listProgrammes,
   type Programme,
   type ProgrammeChannel,
   type ProgrammeStatus,
 } from '../../lib/admin-api';
-import { formatCount, formatPercent } from '../../lib/admin-format';
+import { formatCount, formatCountry, formatPercent } from '../../lib/admin-format';
 
 /**
  * `P02/B` — the programmes list — and `P02/B1`, the first-run empty state.
@@ -49,11 +51,11 @@ const CHANNEL_ICON: Readonly<Record<ProgrammeChannel, IconName>> = {
   ussd: 'dialpad',
 };
 
-const STATUS_TONE: Readonly<Record<ProgrammeStatus, string>> = {
-  active: 'bg-success-soft text-success-text',
-  paused: 'bg-warning-soft text-warning-text',
-  draft: 'bg-surface-sunken text-text-2',
-  archived: 'bg-surface-sunken text-text-muted',
+export const STATUS_TONE: Readonly<Record<ProgrammeStatus, PillTone>> = {
+  active: 'success',
+  paused: 'warning',
+  draft: 'neutral',
+  archived: 'neutral',
 };
 
 /**
@@ -62,18 +64,18 @@ const STATUS_TONE: Readonly<Record<ProgrammeStatus, string>> = {
  * scanning eight rows needs "which of these is in trouble", not a hue.
  */
 function slaTone(value: number): { bar: string; text: string } {
+  // The bands the design draws: 96.2 green, 88.7-94.0 amber, 79.5 red.
   if (value >= 95) return { bar: 'bg-success', text: 'text-success-text' };
-  if (value >= 90) return { bar: 'bg-warning', text: 'text-warning-text' };
+  if (value >= 85) return { bar: 'bg-warning', text: 'text-warning-text' };
   return { bar: 'bg-danger', text: 'text-danger-text' };
 }
 
-const STATUS_FILTERS: readonly (ProgrammeStatus | 'all')[] = [
-  'all',
-  'active',
-  'paused',
-  'draft',
-  'archived',
-];
+/**
+ * The design's chips are All, Active, Paused and Draft. Archived is offered
+ * only once something is archived: it is the only way back to an archived
+ * programme from this list, and a chip reading "Archived 0" is noise.
+ */
+const STATUS_FILTERS: readonly (ProgrammeStatus | 'all')[] = ['all', 'active', 'paused', 'draft'];
 
 export function ProgrammesScreen({
   locale,
@@ -114,43 +116,44 @@ export function ProgrammesScreen({
       activeSettingId="programmes"
     >
       <div data-screen="P02/B" className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <span className="text-h6 text-text-muted">{t.t('admin.prog.eyebrow')}</span>
-            <h1 className="text-h2">{t.t('admin.prog.title')}</h1>
-            <p className="max-w-2xl text-body-md text-text-2">{t.t('admin.prog.intro')}</p>
-          </div>
-          <span className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
-            <Icon name="add" size="sm" />
-            {t.t('admin.prog.new')}
-          </span>
-        </div>
+        <PageHeader
+          eyebrow={t.t('admin.prog.eyebrow')}
+          title={t.t('admin.prog.title')}
+          intro={t.t('admin.prog.intro')}
+          actions={
+            <AdminButton variant="primary" icon="add" notReady>
+              {t.t('admin.prog.new')}
+            </AdminButton>
+          }
+        />
 
         <Panel t={t} resource={programmes} skeletonRows={6}>
           {(data) =>
             data.items.length === 0 && !filtered ? (
               <EmptyState t={t} />
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="sr-only" htmlFor="programme-search">
-                    {t.t('admin.prog.search')}
-                  </label>
-                  <input
+                  <SearchField
                     id="programme-search"
-                    type="search"
+                    label={t.t('admin.prog.search')}
                     value={query}
                     data-testid="programme-search"
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder={t.t('admin.prog.search')}
-                    className="min-h-touch w-full rounded-md border border-border-strong bg-surface px-3 text-body-md text-text placeholder:text-text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:w-80"
+                    className="w-full sm:w-80"
                   />
                   <div
                     role="group"
                     aria-label={t.t('admin.prog.filter.label')}
-                    className="flex flex-wrap gap-2"
+                    className="flex flex-wrap gap-1.5"
                   >
-                    {STATUS_FILTERS.map((value) => {
+                    {[
+                      ...STATUS_FILTERS,
+                      ...((data.statusCounts.archived ?? 0) > 0 || status === 'archived'
+                        ? (['archived'] as const)
+                        : []),
+                    ].map((value) => {
                       const selected = status === value;
                       const count =
                         value === 'all'
@@ -163,14 +166,10 @@ export function ProgrammesScreen({
                           aria-pressed={selected}
                           data-testid={`status-${value}`}
                           onClick={() => setStatus(value)}
-                          className={`flex min-h-touch items-center gap-2 rounded-full border px-4 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                            selected
-                              ? 'border-primary bg-primary-soft text-primary-text'
-                              : 'border-border bg-surface text-text hover:bg-surface-sunken'
-                          }`}
+                          className={chipClass(selected)}
                         >
                           {t.t(`admin.prog.status.${value}` as MessageId)}
-                          <span className="font-normal">{formatCount(locale, count)}</span>
+                          <ChipCount>{formatCount(locale, count)}</ChipCount>
                         </button>
                       );
                     })}
@@ -180,60 +179,66 @@ export function ProgrammesScreen({
                 {data.items.length === 0 ? (
                   <div
                     data-testid="programmes-no-results"
-                    className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface p-10 text-center"
+                    className={`${CARD} flex flex-col items-center gap-2.5 px-6 py-16 text-center`}
                   >
-                    <Icon name="search_off" size="xl" className="text-text-muted" />
-                    <b className="text-body-md">{t.t('admin.prog.noResults.title')}</b>
-                    <p className="text-body-sm text-text-2">{t.t('admin.prog.noResults.body')}</p>
-                    <button
-                      type="button"
+                    <span className="flex size-16 items-center justify-center rounded-full bg-surface-sunken text-text-2">
+                      <Icon name="search_off" size={32} />
+                    </span>
+                    <b className="text-h5 font-bold">{t.t('admin.prog.noResults.title')}</b>
+                    <p className="m-0 text-body-sm text-text-2">{t.t('admin.prog.noResults.body')}</p>
+                    <AdminButton
                       data-testid="clear-filters"
                       onClick={() => {
                         setQuery('');
                         setStatus('all');
                       }}
-                      className={SECONDARY_BUTTON}
+                      className="mt-1.5"
                     >
                       {t.t('admin.prog.noResults.clear')}
-                    </button>
+                    </AdminButton>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-border bg-surface">
-                    <table className="w-full min-w-max border-collapse text-body-sm">
-                      <caption className="sr-only">{t.t('admin.prog.title')}</caption>
-                      <thead className="bg-surface-sunken text-caption uppercase text-text-muted">
-                        <tr>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.programme')}
-                          </th>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.channels')}
-                          </th>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.agents')}
-                          </th>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.sla')}
-                          </th>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.retention')}
-                          </th>
-                          <th scope="col" className="p-3 text-start font-bold">
-                            {t.t('admin.prog.col.status')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.items.map((programme) => (
-                          <ProgrammeRow
-                            key={programme.id}
-                            programme={programme}
-                            locale={locale}
-                            t={t}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className={`${CARD} overflow-hidden`}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-max border-collapse text-body-sm">
+                        <caption className="sr-only">{t.t('admin.prog.title')}</caption>
+                        <thead className={TABLE_HEAD}>
+                          <tr className="border-b border-border">
+                            <th scope="col" className="ps-5 pe-2 text-start font-bold">
+                              {t.t('admin.prog.col.programme')}
+                            </th>
+                            <th scope="col" className="w-28 px-2 text-start font-bold">
+                              {t.t('admin.prog.col.channels')}
+                            </th>
+                            <th scope="col" className="w-24 px-2 text-start font-bold">
+                              {t.t('admin.prog.col.agents')}
+                            </th>
+                            <th scope="col" className="w-40 px-2 text-start font-bold">
+                              {t.t('admin.prog.col.sla')}
+                            </th>
+                            <th scope="col" className="w-24 px-2 text-start font-bold">
+                              {t.t('admin.prog.col.retention')}
+                            </th>
+                            <th scope="col" className="w-24 px-2 text-start font-bold">
+                              {t.t('admin.prog.col.status')}
+                            </th>
+                            <th scope="col" className="w-12">
+                              <span className="sr-only">{t.t('admin.prog.col.open')}</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.items.map((programme) => (
+                            <ProgrammeRow
+                              key={programme.id}
+                              programme={programme}
+                              locale={locale}
+                              t={t}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -254,60 +259,80 @@ function ProgrammeRow({
   locale: string;
   t: Translator;
 }) {
+  const router = useRouter();
   const sla = programme.slaAttainment7d ?? null;
   const tone = sla === null ? null : slaTone(sla);
+  const href = `/admin/programmes/${encodeURIComponent(programme.id)}`;
+  const country = formatCountry(locale, programme.countryCode);
+  const subline = [programme.clientName ?? null, country]
+    .filter((part): part is string => part !== null && part !== '')
+    .join(' · ');
 
   return (
-    <tr data-testid="programme-row" className="border-t border-border hover:bg-surface-sunken">
-      <th scope="row" className="p-3 text-start font-normal">
+    <tr
+      data-testid="programme-row"
+      onClick={(event) => {
+        // The whole row opens the programme, as the design's rows do; the
+        // name stays the one real link, for keyboards and new tabs.
+        if ((event.target as HTMLElement).closest('a') === null) router.push(href);
+      }}
+      className="cursor-pointer border-b border-border last:border-b-0 is-hover:bg-surface-sunken"
+    >
+      <th scope="row" className="py-2.5 pe-2 ps-5 text-start font-normal">
         <Link
-          href={`/admin/programmes/${encodeURIComponent(programme.id)}`}
-          className="flex flex-col rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          href={href}
+          className="flex min-w-0 flex-col gap-0.5 rounded-sm outline-none is-focus-visible:ring-focus"
         >
-          <b className="text-body-sm">{programme.name}</b>
-          <span className="text-body-sm text-text-muted">{programme.clientName ?? ''}</span>
+          <b className="text-body-sm font-bold text-text">{programme.name}</b>
+          {subline === '' ? null : <span className="text-meta text-text-muted">{subline}</span>}
         </Link>
       </th>
-      <td className="p-3">
+      <td className="px-2">
         <span className="flex gap-1">
           {(programme.channels ?? []).map((channel) => (
             <span
               key={channel}
               title={t.t(`admin.channel.${channel}` as MessageId)}
-              className="flex h-7 w-7 items-center justify-center rounded-sm bg-surface-sunken text-text-2"
+              className="flex size-7 items-center justify-center rounded-6 bg-surface-sunken text-text-2"
             >
-              <Icon name={CHANNEL_ICON[channel]} size="sm" />
+              <Icon name={CHANNEL_ICON[channel]} size={18} />
               <span className="sr-only">{t.t(`admin.channel.${channel}` as MessageId)}</span>
             </span>
           ))}
         </span>
       </td>
-      <td className="p-3">
+      <td className="px-2">
         {programme.agentCount === null || programme.agentCount === undefined
-          ? t.t('admin.prog.noData')
+          ? t.t('admin.prog.noneYet')
           : formatCount(locale, programme.agentCount)}
       </td>
-      <td className="p-3" data-testid="sla-cell">
-        {sla === null || tone === null ? (
-          <span className="text-text-muted">{t.t('admin.prog.noData')}</span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <span className="h-2 w-14 overflow-hidden rounded-full bg-surface-sunken">
-              <span className={`block h-full ${tone.bar}`} style={{ inlineSize: `${sla}%` }} />
-            </span>
-            <span className={`font-semibold ${tone.text}`}>{formatPercent(locale, sla)}</span>
+      <td className="px-2" data-testid="sla-cell">
+        <span className="flex items-center gap-2">
+          <span className="relative h-1.5 w-14 overflow-hidden rounded-full bg-surface-sunken">
+            {sla === null || tone === null ? null : (
+              <span
+                className={`absolute inset-y-0 start-0 ${tone.bar}`}
+                style={{ inlineSize: `${sla}%` }}
+              />
+            )}
           </span>
-        )}
+          {sla === null || tone === null ? (
+            <span className="font-semibold text-text">{t.t('admin.prog.noData')}</span>
+          ) : (
+            <span className={`font-semibold ${tone.text}`}>{formatPercent(locale, sla)}</span>
+          )}
+        </span>
       </td>
-      <td className="p-3 text-text-2">
+      <td className="px-2 text-text-2">
         {programme.retentionSummary ?? t.t('admin.prog.notSet')}
       </td>
-      <td className="p-3">
-        <span
-          className={`inline-flex rounded-full px-2 text-caption font-bold ${STATUS_TONE[programme.status]}`}
-        >
+      <td className="px-2">
+        <Pill tone={STATUS_TONE[programme.status]}>
           {t.t(`admin.prog.status.${programme.status}` as MessageId)}
-        </span>
+        </Pill>
+      </td>
+      <td className="pe-3 text-end">
+        <Icon name="chevron_right" size={20} className="text-text-muted rtl:-scale-x-100" />
       </td>
     </tr>
   );
@@ -318,25 +343,25 @@ function EmptyState({ t }: { t: Translator }) {
     <div
       data-screen="P02/B1"
       data-testid="programmes-empty"
-      className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-12 text-center"
+      className={`${CARD} flex flex-col items-center gap-3.5 px-6 py-16 text-center`}
     >
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-        <Icon name="support_agent" size="xl" />
+      <span className="flex size-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+        <Icon name="support_agent" size={32} />
       </span>
-      <h2 className="text-h3">{t.t('admin.prog.empty.title')}</h2>
-      <p className="max-w-xl text-body-md text-text-2">{t.t('admin.prog.empty.body')}</p>
+      <h2 className="m-0 text-h4 font-bold">{t.t('admin.prog.empty.title')}</h2>
+      <p className="m-0 max-w-lg text-pretty text-label font-normal text-text-2">
+        {t.t('admin.prog.empty.body')}
+      </p>
       <div className="flex flex-wrap justify-center gap-2">
-        <span className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
-          <Icon name="add" size="sm" />
+        <AdminButton variant="primary" icon="add" notReady>
           {t.t('admin.prog.new')}
-        </span>
-        <span className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`} aria-disabled>
-          <Icon name="upload_file" size="sm" />
+        </AdminButton>
+        <AdminButton icon="upload_file" notReady>
           {t.t('admin.prog.empty.import')}
-        </span>
+        </AdminButton>
       </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <span className="text-body-sm text-text-muted">{t.t('admin.prog.empty.templates')}</span>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <span className="text-meta text-text-muted">{t.t('admin.prog.empty.templates')}</span>
         {(
           [
             'admin.prog.template.collections',
@@ -346,7 +371,7 @@ function EmptyState({ t }: { t: Translator }) {
         ).map((id) => (
           <span
             key={id}
-            className="rounded-full bg-surface-sunken px-3 py-1 text-body-sm font-semibold"
+            className="inline-flex h-7 items-center rounded-full bg-surface-sunken px-2.5 text-meta font-semibold"
           >
             {t.t(id)}
           </span>

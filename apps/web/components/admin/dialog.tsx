@@ -22,12 +22,13 @@ import { Icon } from '../icon';
  * every width rather than dropping the secondary ones.
  */
 
-export type DialogTone = 'danger' | 'warning' | 'info';
+export type DialogTone = 'danger' | 'warning' | 'info' | 'primary';
 
 const TONE_CLASS: Readonly<Record<DialogTone, string>> = {
   danger: 'bg-danger-soft text-danger-text',
   warning: 'bg-warning-soft text-warning-text',
   info: 'bg-info-soft text-info-text',
+  primary: 'bg-primary-soft text-primary-text',
 };
 
 export function Dialog({

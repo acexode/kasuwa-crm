@@ -67,6 +67,7 @@ export const ADMIN_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'admin.error.internal_error',
   'admin.error.network',
   'admin.dialog.close',
+  'admin.unsaved.region',
   ...NAV_MESSAGE_IDS,
 ];
 
@@ -201,6 +202,8 @@ export const ADMIN_PROGRAMMES_MESSAGE_IDS: readonly MessageId[] = [
   'admin.prog.col.status',
   'admin.prog.noData',
   'admin.prog.notSet',
+  'admin.prog.noneYet',
+  'admin.prog.col.open',
   'admin.prog.open',
   'admin.prog.noResults.title',
   'admin.prog.noResults.body',
@@ -311,6 +314,7 @@ export const ADMIN_PROGRAMME_MESSAGE_IDS: readonly MessageId[] = [
   'admin.prog.card.channels',
   'admin.prog.card.people',
   'admin.prog.card.edit',
+  'admin.prog.field.client',
   'admin.prog.field.reference',
   'admin.prog.field.started',
   'admin.prog.field.renews',
@@ -378,6 +382,8 @@ export const ADMIN_PROGRAMME_MESSAGE_IDS: readonly MessageId[] = [
   'admin.sla.credits',
   'admin.sla.edited',
   'admin.unsaved.count',
+  'admin.sla.unsaved.detail',
+  'admin.ret.unsaved.detail',
   'admin.unsaved.discard',
   'admin.unsaved.save',
   'admin.unsaved.saving',
@@ -417,6 +423,7 @@ export const ADMIN_PROGRAMME_MESSAGE_IDS: readonly MessageId[] = [
 
 /** The unsaved-changes bar and the "leave without saving?" dialog. */
 const UNSAVED_MESSAGE_IDS: readonly MessageId[] = [
+  'admin.unsaved.count',
   'admin.unsaved.discard',
   'admin.unsaved.save',
   'admin.unsaved.saving',
@@ -438,6 +445,9 @@ export const ADMIN_ROLES_MESSAGE_IDS: readonly MessageId[] = [
   'admin.roles.expandAll',
   'admin.roles.collapseAll',
   'admin.roles.add',
+  'admin.roles.empty.title',
+  'admin.roles.empty.body',
+  'admin.roles.viewPeople',
   'admin.roles.tree',
   'admin.roles.dragHint',
   'admin.roles.expand',
@@ -527,6 +537,10 @@ export const ADMIN_AUDIT_MESSAGE_IDS: readonly MessageId[] = [
   'admin.audit.filter.ip',
   'admin.audit.filter.ip.hint',
   'admin.audit.clearAll',
+  'admin.audit.summary',
+  'admin.audit.chip',
+  'admin.audit.chip.remove',
+  ...AUDIT_OBJECT_MESSAGE_IDS,
   'admin.audit.count',
   'admin.audit.col.time',
   'admin.audit.col.actor',
