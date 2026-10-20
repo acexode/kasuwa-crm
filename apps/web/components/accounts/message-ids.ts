@@ -2,6 +2,7 @@ import type { MessageId } from '@kasuwa/i18n/bundle';
 import { AccountTier } from '../../lib/accounts-api';
 import { RecordsErrorCode } from '../../lib/records-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
+import { P04_CHROME_MESSAGE_IDS } from '../records/list-message-ids';
 import { ACCOUNT_COLUMNS, ACCOUNT_FILTERS, ACCOUNT_SORTS, sortLabel, tierLabel } from './accounts-model';
 
 /**
@@ -62,7 +63,11 @@ export const ACCOUNT_CREATE_ONLY_MESSAGE_IDS: readonly MessageId[] = [
 
 export const ACCOUNTS_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
+  ...P04_CHROME_MESSAGE_IDS,
   'accounts.title',
+  'accounts.views.all',
+  'accounts.search.placeholderWide',
+  'accounts.filter.show',
   'records.search.numberHint',
   'records.search.useSearch',
   'accounts.programme.note',

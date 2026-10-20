@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Banner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { StillConnecting } from '../admin/panel';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
@@ -19,29 +20,69 @@ import { formatSyncedAt } from './list-model';
  * offline, loading, error, columns and lock copy under `records.*`.
  */
 
-/** P04/06 offline: the list is still here (in memory, D-L64), and says when it was read. */
-export function OfflineBanner({ t, locale, syncedAt }: { t: Translator; locale: string; syncedAt: Date | null }) {
+/**
+ * P04/06 offline (T-0133): the design's inverse banner, above the header —
+ * cloud_off, "You're offline.", when the list was last read with its zone in
+ * mono, and Retry. The rows are still here (in memory, D-L64). No count of
+ * cached rows (D-P13), and no promise of queued edits: there are none (D-P21).
+ * On a phone it is the one-line strip.
+ */
+export function OfflineBanner({
+  t,
+  locale,
+  syncedAt,
+  onRetry,
+}: {
+  t: Translator;
+  locale: string;
+  syncedAt: Date | null;
+  onRetry?: () => void;
+}) {
+  const time = syncedAt === null ? null : formatSyncedAt(locale, syncedAt);
   return (
-    <div
-      role="status"
-      data-testid="offline-banner"
-      className="flex items-start gap-3 rounded-lg border border-warning bg-warning-soft p-3 text-body-sm text-warning-text"
-    >
-      <Icon name="cloud_off" size="sm" />
-      <p>
-        <b>{t.t('records.offline.title')}</b>{' '}
-        {syncedAt === null
-          ? t.t('records.offline.never')
-          : t.t('records.offline.synced', { time: formatSyncedAt(locale, syncedAt) })}
+    <div data-testid="offline-banner" className="-mx-4 -mt-4 md:mx-0 md:mt-0">
+      <Banner
+        tone="offline"
+        icon="cloud_off"
+        title={t.t('records.offline.title')}
+        className="max-md:hidden"
+        {...(onRetry === undefined ? {} : { action: { label: t.t('records.retry'), onClick: onRetry } })}
+      >
+        {time === null ? (
+          t.t('records.offline.never')
+        ) : (
+          <>
+            {t.t('records.offline.cached')} <span className="font-mono">{time}</span>
+            {'. '}
+            {t.t('records.offline.after')}
+          </>
+        )}
+      </Banner>
+      <p role="status" className="flex items-center gap-2 bg-inverse px-4 py-2 text-caption text-on-inverse md:hidden">
+        <Icon name="cloud_off" size={16} />
+        <span className="flex-1">
+          <b>{t.t('records.offline.short')}</b>
+          {time === null ? null : (
+            <>
+              {' · '}
+              {t.t('records.offline.cachedShort')} <span className="font-mono">{time}</span>
+            </>
+          )}
+        </span>
       </p>
     </div>
   );
 }
 
+/** Skeleton bar widths, cycled so the rows read as text of different lengths, never as a pattern. */
+const BARS = ['w-28', 'w-36', 'w-44', 'w-32', 'w-40'] as const;
+
 /**
- * P04/06 loading: skeleton rows, then — on a slow link — the "still
- * connecting" offer of low-bandwidth mode. Never a bare spinner, and never the
- * empty state while a request is in flight.
+ * P04/06 loading (T-0133): skeletons that keep the table's geometry — the
+ * selection square, the avatar circle, a two-line name, the phone, the WA
+ * disc, the email, a pill — and "Loading leads…" in the footer; on a phone,
+ * card-shaped rows. On a slow link the "still connecting" offer of
+ * low-bandwidth mode comes first. Never a bare spinner, never the empty state.
  */
 export function ListLoading({ t, slow, label }: { t: Translator; slow: boolean; label: MessageId }) {
   return (
@@ -50,16 +91,38 @@ export function ListLoading({ t, slow, label }: { t: Translator; slow: boolean; 
       <span role="status" className="sr-only">
         {t.t(label)}
       </span>
-      <div aria-hidden="true" className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} data-testid="skeleton-row" className="flex items-center gap-3 py-2">
-            <span className="h-8 w-8 shrink-0 rounded-full bg-surface-sunken" />
-            <span className="h-4 w-40 rounded-sm bg-surface-sunken" />
-            <span className="hidden h-4 w-32 rounded-sm bg-surface-sunken sm:block" />
-            <span className="hidden h-4 flex-1 rounded-sm bg-surface-sunken md:block" />
+      <div aria-hidden="true" className="hidden overflow-hidden rounded-lg border border-border bg-surface md:block">
+        <div className="h-10 border-b border-border bg-surface-sunken" />
+        {Array.from({ length: 12 }, (_, index) => (
+          <div key={index} data-testid="skeleton-row" className="flex h-control-xl items-center gap-3 border-b border-border px-3">
+            <span className="size-4 shrink-0 rounded-sm bg-surface-sunken" />
+            <span className="ms-4 size-8 shrink-0 rounded-full bg-surface-sunken" />
+            <span className="flex w-44 flex-col gap-1.5">
+              <span className={`h-2.5 rounded-sm bg-surface-sunken ${BARS[index % BARS.length]}`} />
+              <span className="h-2 w-28 rounded-sm bg-surface-sunken" />
+            </span>
+            <span className="ms-6 h-2.5 w-44 rounded-sm bg-surface-sunken" />
+            <span className="ms-12 size-6 shrink-0 rounded-full bg-surface-sunken" />
+            <span className={`ms-6 hidden h-2.5 rounded-sm bg-surface-sunken lg:block ${BARS[(index + 2) % BARS.length]}`} />
+            <span className="ms-6 hidden h-2.5 w-24 rounded-sm bg-surface-sunken xl:block" />
+            <span className="flex-1" />
+            <span className={`h-5 rounded-sm bg-surface-sunken ${index % 2 === 0 ? 'w-16' : 'w-24'}`} />
           </div>
         ))}
+        <p className="px-4 py-4 text-meta text-text-2">{t.t(label)}</p>
       </div>
+      <ul aria-hidden="true" className="-mx-4 flex flex-col md:hidden">
+        {Array.from({ length: 7 }, (_, index) => (
+          <li key={index} data-testid="skeleton-row" className="flex items-start gap-3 border-b border-border bg-surface px-4 py-4">
+            <span className="size-touch shrink-0 rounded-full bg-surface-sunken" />
+            <span className="flex flex-1 flex-col gap-2.5 pt-1">
+              <span className={`h-3 rounded-sm bg-surface-sunken ${BARS[index % BARS.length]}`} />
+              <span className="h-3 w-56 rounded-sm bg-surface-sunken" />
+              <span className={`h-3 rounded-sm bg-surface-sunken ${BARS[(index + 3) % BARS.length]}`} />
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

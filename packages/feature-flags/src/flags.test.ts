@@ -28,6 +28,17 @@ describe('feature flags', () => {
       'crm_import',
       'crm_notifications',
       'crm_duplicates',
+      'crm_inbox',
+      'crm_tickets',
+      'crm_calls',
+      'crm_reports',
+      'product_tour',
+      'map_view',
+      'bulk_actions',
+      'saved_views',
+      'last_activity',
+      'quick_actions',
+      'more_filters',
     ]);
   });
 

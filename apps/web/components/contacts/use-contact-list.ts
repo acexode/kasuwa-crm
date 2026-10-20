@@ -15,7 +15,7 @@ export type ContactList = KeysetList<Contact, ContactView>;
 
 /** Module-level, so the list's effect sees one stable function. */
 function fetchContacts(q: string, view: ContactView, cursor?: string) {
-  return listContacts(toListQuery(q, view.filters, cursor, view.custom, view.importId));
+  return listContacts(toListQuery(q, view.filters, cursor, view.custom, view.importId, view.pageSize));
 }
 
 export function useContactList(q: string, view: ContactView): ContactList {
