@@ -7,6 +7,7 @@ import { Icon } from '../icon';
 import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { FOCUS } from '../records/list-classes';
 import { nameOrWithheld } from '../records/name';
+import { TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from '@kasuwa/ui/components';
 import { appendPage } from '../records/list-model';
 import {
   DEAL_SORTS,
@@ -212,7 +213,7 @@ export function DealList({
         )
       ) : (
         <div role="region" aria-label={t.t('pipeline.list.label')} tabIndex={0} className={`max-h-[620px] min-w-0 overflow-auto rounded-lg border border-border bg-surface ${FOCUS}`}>
-          <table data-testid="deal-list" className="w-full min-w-[1170px] table-fixed text-start text-meta">
+          <table data-testid="deal-list" className="w-full min-w-[1170px] table-fixed border-separate border-spacing-0 text-start text-meta">
             <colgroup>
               <col className="w-[22%]" />
               <col className="w-[170px]" />
@@ -224,8 +225,8 @@ export function DealList({
               <col />
               {whatsapp ? <col className="w-24" /> : null}
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-surface-sunken shadow-1">
-              <tr className="border-b border-border">
+            <TableHead>
+              <TableRow>
                 <Header column="name" label={t.t('pipeline.list.deal')} sort={sort === 'name' ? 'ascending' : 'none'} onSort={() => setSort(sort === 'name' ? DEFAULT_DEAL_SORT : 'name')} />
                 <Header column="stage" label={t.t('pipeline.list.stage')} />
                 <Header column="amount" label={t.t('pipeline.field.amount')} end />
@@ -240,9 +241,9 @@ export function DealList({
                 />
                 <Header column="nextStep" label={t.t('pipeline.field.nextStep')} />
                 {whatsapp ? <Header column="whatsapp" label={t.t('pipeline.list.whatsapp')} /> : null}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {rows.map((deal) => (
                 <Row
                   key={deal.id}
@@ -258,7 +259,7 @@ export function DealList({
                   onMove={onMove}
                 />
               ))}
-            </tbody>
+            </TableBody>
           </table>
         </div>
       )}
@@ -286,7 +287,7 @@ export function DealList({
   );
 }
 
-/** A column header: 11/700 caps on sunken. Deal and In stage sort, by the contract's keys (R13); none else does. */
+/** A column header (@kasuwa/ui's TableHeaderCell). Deal and In stage sort, by the contract's keys (R13); none else does. */
 function Header({
   column,
   label,
@@ -300,18 +301,10 @@ function Header({
   sort?: 'ascending' | 'none';
   onSort?: () => void;
 }) {
-  const caps = 'text-micro uppercase tracking-[0.05em]';
   return (
-    <th role="columnheader" scope="col" data-column={column} aria-sort={sort} className={`h-11 px-3 font-bold text-text-2 ${end ? 'text-end' : 'text-start'}`}>
-      {onSort === undefined ? (
-        <span className={caps}>{label}</span>
-      ) : (
-        <button type="button" onClick={onSort} className={`inline-flex h-9 items-center gap-1 rounded-6 ${caps} ${sort === 'ascending' ? 'text-text' : ''} ${FOCUS}`}>
-          {label}
-          {sort === 'ascending' ? <Icon name="arrow_upward" size={16} /> : null}
-        </button>
-      )}
-    </th>
+    <TableHeaderCell role="columnheader" data-column={column} align={end ? 'end' : 'start'} sort={sort} onSort={onSort} className="h-11">
+      {label}
+    </TableHeaderCell>
   );
 }
 
@@ -347,9 +340,11 @@ function Row({
   // Every stage in position order, lost last: the pill offers what the allow-list allows and shows the rest disabled.
   const stages = [...pipeline.stages].sort((a, b) => (a.kind === 'lost' ? 1 : 0) - (b.kind === 'lost' ? 1 : 0) || a.position - b.position);
   const next = deal.nextStep ?? null;
+  // A 60px row (P06/03); the row P06/07's banner names is tinted danger; others take the sunken hover.
+  const fill = `h-[60px] ${blocked ? '!bg-danger-soft' : 'group-hover/row:bg-surface-sunken'}`;
   return (
-    <tr data-deal-row={deal.id} aria-busy={pending ? 'true' : undefined} className={`h-[60px] border-b border-border ${blocked ? 'bg-danger-soft' : 'hover:bg-surface-sunken'}`}>
-      <td data-field="name" className="px-3 py-2">
+    <TableRow data-deal-row={deal.id} aria-busy={pending ? 'true' : undefined}>
+      <TableCell data-field="name" className={`${fill} px-3 py-2`}>
         <span className="flex min-w-0 flex-col gap-px">
           {isUuid(deal.id) ? (
             <Link href={`/deals/${deal.id}`} prefetch={false} data-record-text="" className={`truncate rounded-sm text-body-sm font-bold text-primary-text hover:underline ${FOCUS}`}>
@@ -366,8 +361,8 @@ function Row({
             </span>
           )}
         </span>
-      </td>
-      <td className="px-2">
+      </TableCell>
+      <TableCell className={`${fill} px-2`}>
         <label className="relative flex items-center">
           <span className="sr-only">{t.t('pipeline.list.stageFor', { deal: deal.name })}</span>
           {gated ? (
@@ -393,27 +388,27 @@ function Row({
             <Icon name="expand_more" size={16} />
           </span>
         </label>
-      </td>
-      <td data-field="amount" {...lockedProps(deal, 'amount')} className="px-3 text-end font-semibold">
+      </TableCell>
+      <TableCell data-field="amount" {...lockedProps(deal, 'amount')} className={`${fill} px-3 text-end font-semibold`}>
         <AmountValue t={t} locale={locale} deal={deal} shape="whole" />
-      </td>
-      <td data-field="weightedAmount" {...lockedProps(deal, 'amount')} className="px-3 text-end text-text-2">
+      </TableCell>
+      <TableCell data-field="weightedAmount" {...lockedProps(deal, 'amount')} className={`${fill} px-3 text-end text-text-2`}>
         {withheld(deal, 'amount') ? (
           <Locked t={t} />
         ) : deal.weightedAmount === null || deal.weightedAmount === undefined ? null : (
           <Money t={t} locale={locale} money={deal.weightedAmount} kind="weighted" shape="whole" />
         )}
-      </td>
-      <td data-field="expectedCloseDate" {...lockedProps(deal, 'expectedCloseDate')} className="px-3 font-semibold">
+      </TableCell>
+      <TableCell data-field="expectedCloseDate" {...lockedProps(deal, 'expectedCloseDate')} className={`${fill} px-3 font-semibold`}>
         <CloseShort t={t} locale={locale} deal={deal} nowMs={nowMs} withIcon={false} />
-      </td>
-      <td data-field="owner" {...lockedProps(deal, 'ownerUserId')} className="px-3">
+      </TableCell>
+      <TableCell data-field="owner" {...lockedProps(deal, 'ownerUserId')} className={`${fill} px-3`}>
         <OwnerAvatar t={t} deal={deal} locale={locale} size="row" />
-      </td>
-      <td className="px-3">
+      </TableCell>
+      <TableCell className={`${fill} px-3`}>
         <InStageChip t={t} deal={deal} nowMs={nowMs} />
-      </td>
-      <td data-field="nextStep" {...lockedProps(deal, 'nextStep')} className="px-3 py-2">
+      </TableCell>
+      <TableCell data-field="nextStep" {...lockedProps(deal, 'nextStep')} className={`${fill} px-3 py-2`}>
         {withheld(deal, 'nextStep') ? (
           <Locked t={t} />
         ) : next !== null ? (
@@ -429,16 +424,16 @@ function Row({
             {t.t('pipeline.card.noNextStep')}
           </span>
         )}
-      </td>
+      </TableCell>
       {whatsapp ? (
-        <td className="px-3 text-caption text-text-muted" title={t.t('pipeline.card.whatsappNone')}>
+        <TableCell className={`${fill} px-3 text-caption text-text-muted`} title={t.t('pipeline.card.whatsappNone')}>
           <span className="inline-flex items-center gap-1">
             <Icon name="chat" size={16} />
             <span aria-hidden="true">{'—'}</span>
             <span className="sr-only">{t.t('pipeline.card.whatsappNone')}</span>
           </span>
-        </td>
+        </TableCell>
       ) : null}
-    </tr>
+    </TableRow>
   );
 }

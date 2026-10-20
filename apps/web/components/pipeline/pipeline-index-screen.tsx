@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
-import { Button } from '@kasuwa/ui/components';
+import { Button, EmptyState } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -133,12 +133,8 @@ export function PipelineIndexScreen({
           modules.templates ? (
             <TemplatePicker t={t} />
           ) : (
-            <div data-testid="pipeline-index-empty" className="flex max-w-[960px] flex-col items-start gap-1.5 rounded-xl border border-border bg-surface p-7">
-              <span className="mb-1.5 flex size-12 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-                <Icon name="view_kanban" size={24} />
-              </span>
-              <h2 className="text-h4 font-bold">{t.t('pipeline.index.empty.title')}</h2>
-              <p className="text-label font-normal text-text-2">{t.t('pipeline.index.empty.body')}</p>
+            <div data-testid="pipeline-index-empty" className="max-w-[960px] rounded-xl border border-border bg-surface p-7">
+              <EmptyState icon="view_kanban" title={t.t('pipeline.index.empty.title')} body={t.t('pipeline.index.empty.body')} />
             </div>
           )
         ) : (

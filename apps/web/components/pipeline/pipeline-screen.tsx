@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
-import { Button, SegmentedControl, Switch, initials } from '@kasuwa/ui/components';
+import { Banner, Button, EmptyState, SegmentedControl, Switch, initials } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -513,16 +513,10 @@ export function PipelineScreen({
 
           {blocked === null ? null : <BlockedBanner t={t} blocked={blocked} onDismiss={() => setBlocked(null)} />}
           {model.refreshFailed ? (
-            <div
-              role="status"
-              data-testid="board-refresh-failed"
-              className="flex flex-wrap items-center gap-2 rounded-10 border border-warning bg-warning-soft px-3.5 py-3 text-body-sm text-warning-text"
-            >
-              <Icon name="warning" size={20} />
-              <span className="flex-1">{t.t('pipeline.board.refreshFailed')}</span>
-              <button type="button" data-requires-connection="" disabled={!online} onClick={model.reload} className={QUIET_BUTTON}>
-                {t.t('records.retry')}
-              </button>
+            <div data-testid="board-refresh-failed">
+              <Banner tone="warning" action={online ? { label: t.t('records.retry'), onClick: model.reload } : undefined}>
+                {t.t('pipeline.board.refreshFailed')}
+              </Banner>
             </div>
           ) : null}
           <p role="status" className="sr-only">
@@ -606,15 +600,17 @@ export function PipelineScreen({
               onClearFilters={() => setFilterState(NO_FILTERS)}
             />
           ) : empty ? (
-            <div data-testid="board-empty" className="flex max-w-[960px] flex-col items-start gap-3 rounded-xl border border-border bg-surface p-7">
-              <span className="mb-1.5 flex size-12 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-                <Icon name="view_kanban" size={24} />
-              </span>
-              <h2 className="text-h4 font-bold">{t.t('pipeline.board.empty.title')}</h2>
-              <p className="text-body-sm text-text-2">{t.t('pipeline.board.empty.body')}</p>
-              <Button variant="primary" icon="add" data-requires-connection="" disabled={!online} onClick={newDeal}>
-                {t.t('pipeline.newDeal')}
-              </Button>
+            <div data-testid="board-empty" className="max-w-[960px] rounded-xl border border-border bg-surface p-7">
+              <EmptyState
+                icon="view_kanban"
+                title={t.t('pipeline.board.empty.title')}
+                body={t.t('pipeline.board.empty.body')}
+                action={
+                  <Button variant="primary" icon="add" data-requires-connection="" disabled={!online} onClick={newDeal}>
+                    {t.t('pipeline.newDeal')}
+                  </Button>
+                }
+              />
             </div>
           ) : (
             <PipelineBoard
