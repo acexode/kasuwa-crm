@@ -320,8 +320,15 @@ async function main() {
     'utf8',
   );
 
+  // FILL is fetched as the axis 0..1 (T-0127), not the static 0: the design
+  // fills the active bottom-tab icon, the bell and the security banner's
+  // `gpp_maybe` with `font-variation-settings: 'FILL' 1` (`.k-icon-filled`
+  // below). The axis costs about a third more bytes than the static face; a
+  // second family for the few filled glyphs would be smaller, but would also
+  // be a second list whose missing names render as blank boxes.
+  // opsz, wght and GRAD stay pinned: the design uses 24/400/0 only.
   const iconCssUrl =
-    'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0' +
+    'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0' +
     `&icon_names=${iconNames.join(',')}&display=block`;
 
   const iconCss = await fetchText(iconCssUrl);
@@ -329,6 +336,33 @@ async function main() {
   if (iconFaces.length === 0) {
     throw new Error('Material Symbols subset returned no @font-face.');
   }
+
+  // The icon face is used through ligatures alone, so it needs only the
+  // characters the names are spelled with, plus the space (the "first
+  // available font" for an element's line metrics must cover U+0020, or the
+  // icon's baseline would come from a fallback font). Google sends no
+  // unicode-range for it, which made the face claim every code point,
+  // including the naira and cedi signs D-L44 keeps on small files only. Since
+  // T-0127 the subset is larger than D-L44's small-file ceiling, so the claim
+  // is now stated: these characters, and nothing else.
+  const iconRange = formatRange(
+    [
+      ...new Set([
+        0x20,
+        ...iconNames
+          .join('')
+          .split('')
+          .map((char) => char.codePointAt(0)),
+      ]),
+    ]
+      .sort((a, b) => a - b)
+      .reduce((ranges, point) => {
+        const last = ranges[ranges.length - 1];
+        if (last !== undefined && last[1] === point - 1) last[1] = point;
+        else ranges.push([point, point]);
+        return ranges;
+      }, []),
+  );
 
   blocks.push(
     `/* Material Symbols Rounded — subset to the ${iconNames.length} icons the design uses */`,
@@ -343,7 +377,7 @@ async function main() {
         localPath: `/fonts/${fileName}`,
         style: face.style,
         weight: face.weight,
-        unicodeRange: face.unicodeRange,
+        unicodeRange: face.unicodeRange !== '' ? face.unicodeRange : iconRange,
         // Icons carry meaning; a fallback glyph would be a wrong symbol, so
         // block briefly rather than flash the wrong thing.
         display: 'block',
@@ -354,9 +388,15 @@ async function main() {
   blocks.push(
     '',
     '/* Ligature setup for the icon font. */',
+    '/*',
+    ' * The subset ships weight 400 only. A heavier weight on the element (a type',
+    ' * utility, font-bold) would make the browser draw a faux-bold glyph, so',
+    ' * synthesis is off and the weight is pinned (T-0127).',
+    ' */',
     '.k-icon {',
     "  font-family: 'Material Symbols Rounded';",
-    '  font-weight: normal;',
+    '  font-weight: 400;',
+    '  font-synthesis: none;',
     '  font-style: normal;',
     '  line-height: 1;',
     '  letter-spacing: normal;',
@@ -365,7 +405,13 @@ async function main() {
     '  word-wrap: normal;',
     '  direction: ltr;',
     "  font-feature-settings: 'liga';",
+    "  font-variation-settings: 'FILL' 0;",
     '  -webkit-font-smoothing: antialiased;',
+    '}',
+    '',
+    '/* The filled variant: active bottom-tab icons, the bell, gpp_maybe. */',
+    '.k-icon-filled {',
+    "  font-variation-settings: 'FILL' 1;",
     '}',
     '',
   );
