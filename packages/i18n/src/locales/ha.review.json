@@ -48,6 +48,7 @@
     "design.components.tag.p1": "A priority code (P1), used unchanged in every locale.",
     "design.components.segmented.kanban": "Kanban is a loanword, used unchanged in this locale.",
     "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
-    "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale."
+    "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale.",
+    "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language."
   }
 }

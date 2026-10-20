@@ -2,8 +2,8 @@
 
 import { useId, useRef, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Select } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { FIELD, SECONDARY_BUTTON } from '../auth/button-classes';
 import { splitAddresses, type InviteAddress } from '../../lib/invite-emails';
 import { directionOf, rovingIndex } from '../../lib/roving';
 import { StepHeading } from './onboarding-shell';
@@ -73,7 +73,7 @@ export function InviteStep({
         role="tablist"
         aria-label={t.t('invite.tabs')}
         onKeyDown={onTabKey}
-        className="flex gap-1 rounded-lg bg-surface-sunken p-1"
+        className="flex gap-1 rounded-10 bg-surface-sunken p-1"
       >
         {TABS.map((value) => {
           const selected = value === tab;
@@ -88,11 +88,11 @@ export function InviteStep({
               tabIndex={selected ? 0 : -1}
               data-tab={value}
               onClick={() => setTab(value)}
-              className={`flex min-h-touch flex-1 items-center justify-center gap-2 rounded-md text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                selected ? 'bg-surface text-text shadow-1' : 'text-text-2'
+              className={`flex h-control-base flex-1 items-center justify-center gap-1.5 rounded-6 text-body-sm font-semibold text-text focus-visible:ring-focus ${
+                selected ? 'bg-surface shadow-1' : ''
               }`}
             >
-              <Icon name={value === 'email' ? 'mail' : 'chat'} size="sm" />
+              <Icon name={value === 'email' ? 'mail' : 'link'} size={18} />
               {t.t(`invite.tab.${value}` as MessageId)}
             </button>
           );
@@ -104,39 +104,46 @@ export function InviteStep({
           role="tabpanel"
           id={`${id}-panel-email`}
           aria-labelledby={`${id}-tab-email`}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-3"
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <label htmlFor={`${id}-emails`} className="text-body-sm font-semibold">
               {t.t('invite.emails.label')}
             </label>
-            {invites.length > 0 ? (
-              <ul data-testid="invite-chips" className="flex list-none flex-wrap gap-2 p-0">
-                {invites.map((entry) => (
-                  <li
-                    key={entry.address}
-                    data-invalid={entry.problem !== null}
-                    className={`inline-flex items-center gap-1 rounded-full ps-3 text-body-sm ${
-                      entry.problem === null
-                        ? 'bg-surface-sunken text-text'
-                        : 'border border-danger bg-danger-soft text-danger-text'
-                    }`}
-                  >
-                    {entry.problem === null ? null : <Icon name="error" size="sm" />}
-                    <span dir="ltr">{entry.address}</span>
-                    <button
-                      type="button"
-                      aria-label={t.t('invite.emails.remove', { address: entry.address })}
-                      onClick={() => onInvites(invites.filter((other) => other.address !== entry.address))}
-                      className="flex min-h-touch min-w-touch items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            {/* The board's tag box: addresses become chips inside the field,
+                and the caret stays after the last one. Enter, a comma, a paste
+                or leaving the field adds what was typed. */}
+            <div
+              className="flex min-h-24 cursor-text flex-wrap content-start items-center gap-1.5 rounded-md border border-border-strong bg-surface p-2 focus-within:field-focus"
+              onClick={() => inputRef.current?.focus()}
+            >
+              {invites.length > 0 ? (
+                <ul data-testid="invite-chips" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                  {invites.map((entry) => (
+                    <li
+                      key={entry.address}
+                      data-invalid={entry.problem !== null}
+                      className={`inline-flex h-8 items-center gap-1 rounded-6 pe-0.5 text-meta font-semibold ${
+                        entry.problem === null
+                          ? 'bg-primary-soft ps-2.5 text-primary-text'
+                          : 'border border-danger bg-danger-soft ps-2 text-danger-text'
+                      }`}
                     >
-                      <Icon name="close" size="sm" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div className="flex gap-2">
+                      {entry.problem === null ? null : <Icon name="error" size={16} />}
+                      <span dir="ltr">{entry.address}</span>
+                      <button
+                        type="button"
+                        aria-label={t.t('invite.emails.remove', { address: entry.address })}
+                        onClick={() => onInvites(invites.filter((other) => other.address !== entry.address))}
+                        // 28px drawn, a 44px target: the band around it is part of the button.
+                        className="relative flex size-7 items-center justify-center rounded-6 before:absolute before:-inset-2 focus-visible:ring-focus"
+                      >
+                        <Icon name="close" size={18} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <input
                 ref={inputRef}
                 id={`${id}-emails`}
@@ -155,60 +162,66 @@ export function InviteStep({
                     commit(draft);
                   }
                 }}
+                onBlur={() => {
+                  if (draft.trim() !== '') commit(draft);
+                }}
                 aria-invalid={firstProblem !== undefined}
                 aria-describedby={`${id}-emails-help${firstProblem === undefined ? '' : ` ${id}-emails-error`}`}
-                className={`${FIELD} min-w-0 flex-1`}
+                className="h-8 min-w-40 flex-1 border-0 bg-transparent px-1 text-body-sm text-text outline-none placeholder:text-text-muted"
               />
-              <button type="button" onClick={() => commit(draft)} className={SECONDARY_BUTTON}>
-                {t.t('invite.emails.add')}
-              </button>
             </div>
-            <span id={`${id}-emails-help`} className="text-caption text-text-muted">
-              {t.t('invite.emails.help')}
-            </span>
-            {firstProblem !== undefined ? (
-              <span id={`${id}-emails-error`} data-testid="invite-error" className="text-body-sm text-danger-text">
-                {t.t(
-                  firstProblem.problem === 'missing_ending' ? 'invite.emails.missingEnding' : 'invite.emails.invalid',
-                  { address: firstProblem.address },
-                )}
-              </span>
-            ) : null}
+            <p className="m-0 text-meta text-text-muted">
+              <span id={`${id}-emails-help`}>{t.t('invite.emails.help')}</span>
+              {firstProblem !== undefined ? (
+                <>
+                  {' '}
+                  <span id={`${id}-emails-error`} data-testid="invite-error" className="text-danger-text">
+                    {t.t(
+                      firstProblem.problem === 'missing_ending' ? 'invite.emails.missingEnding' : 'invite.emails.invalid',
+                      { address: firstProblem.address },
+                    )}
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
 
-          <label className="flex flex-col gap-2">
-            <span className="text-body-sm font-semibold">{t.t('invite.role')}</span>
-            <select value={role} onChange={(event) => onRole(event.target.value as InviteRole)} className={FIELD}>
-              {INVITE_ROLES.map((value) => (
-                <option key={value} value={value}>
-                  {t.t(`invite.role.${value}` as MessageId)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            size="large"
+            label={t.t('invite.role')}
+            value={role}
+            onChange={(event) => onRole(event.target.value as InviteRole)}
+            className="sm:max-w-64"
+          >
+            {INVITE_ROLES.map((value) => (
+              <option key={value} value={value}>
+                {t.t(`invite.role.${value}` as MessageId)}
+              </option>
+            ))}
+          </Select>
         </div>
       ) : (
         <div
           role="tabpanel"
           id={`${id}-panel-link`}
           aria-labelledby={`${id}-tab-link`}
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
         >
           <p className="text-body-sm text-text-2">{t.t('invite.link.body')}</p>
-          <p role="status" className="rounded-lg bg-info-soft p-3 text-body-sm text-info-text">
+          <p role="status" className="rounded-10 bg-info-soft px-3.5 py-3 text-body-sm text-info-text">
             {t.t('invite.link.unavailable')}
           </p>
         </div>
       )}
 
-      <div data-testid="invite-summary" className="flex flex-col gap-1 rounded-lg border border-dashed border-border-strong p-4 text-center">
+      <div data-testid="invite-summary" className="flex flex-col gap-1.5 rounded-lg bg-surface-sunken p-4">
         {valid.length === 0 ? (
           <>
-            <strong className="text-body-md">{t.t('invite.empty.title')}</strong>
+            <strong className="text-body-sm font-bold">{t.t('invite.empty.title')}</strong>
             <span className="text-body-sm text-text-2">{t.t('invite.empty.body')}</span>
           </>
         ) : (
-          <strong className="text-body-md">{t.t('invite.count', { count: valid.length })}</strong>
+          <strong className="text-body-sm font-bold">{t.t('invite.count', { count: valid.length })}</strong>
         )}
       </div>
     </>

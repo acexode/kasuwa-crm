@@ -63,7 +63,11 @@ export function LiteModeToggle({
   label: string;
   onLabel: string;
   accessibleName: string;
-  compact: boolean;
+  /**
+   * Icon only. `'phone'` is icon only below `md` and labelled above it, as
+   * the P01 top bar draws it at 360 and at 1440 (T-0131).
+   */
+  compact: boolean | 'phone';
 }) {
   const { lite, setLite } = useLiteMode();
 
@@ -75,14 +79,16 @@ export function LiteModeToggle({
       aria-label={accessibleName}
       data-testid="lite-mode-toggle"
       onClick={() => setLite(!lite)}
-      className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-md border px-2 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+      className={`inline-flex h-control-base min-w-touch shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-meta font-semibold focus-visible:ring-focus ${
         lite
           ? 'border-accent bg-accent-soft text-accent-text'
           : 'border-border bg-surface text-text hover:bg-surface-sunken'
       }`}
     >
-      <Icon name="network_check" />
-      {compact ? null : <span>{lite ? onLabel : label}</span>}
+      <Icon name="network_check" size={20} />
+      {compact === true ? null : (
+        <span className={compact === 'phone' ? 'hidden md:inline' : undefined}>{lite ? onLabel : label}</span>
+      )}
     </button>
   );
 }

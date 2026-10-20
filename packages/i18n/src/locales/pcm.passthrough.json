@@ -403,5 +403,7 @@
   "design.components.heading.consent",
   "records.nav.calls",
   "records.nav.more",
-  "admin.shell.tenant"
+  "admin.shell.tenant",
+  "auth.footer.compliance",
+  "onboarding.skip.short"
 ]
