@@ -4420,3 +4420,20 @@ render faux-bold in the design itself.
   `text-icon-*` utilities set size only.
 - **Budgets.** Pages re-pin under D-L182 with the measured cause, which is this icon change. A ceiling that still
   breaks after the split comes back to the lead with numbers before anyone raises it.
+
+### D-L200 — Components live in packages/ui, behind their own entry point (lead, 2026-10-20, T-0128)
+
+The D-L193 audit found no component layer: every screen hand-rolls its controls from copied class strings
+(`auth/button-classes.ts`, `records/list-classes.ts`, inline strings), and each copy drifts from the spec
+differently.
+
+**Ruling:**
+- Components are built once in `packages/ui/src/components/` and published as `@kasuwa/ui/components`.
+- React is a peer dependency. It is already in the workspace through apps/web, so no new package is
+  installed.
+- The components never import the `@kasuwa/ui` root, the colour tables or the generators at run time. The
+  root exports token tables and generators, and a client component importing it would ship them on every
+  page.
+- They are styled only with the T-0127 Tailwind utilities, so no colour or pixel literal appears in a
+  component.
+- `/design/components` shows every variant for review, beside `/design/tokens`.
