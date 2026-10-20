@@ -94,7 +94,9 @@ async function open(page: Page, scheme: 'light' | 'dark'): Promise<void> {
 }
 
 test.describe('/design/components — the gallery (T-0128)', () => {
-  test('renders every variant, with no colour outside the tokens, and passes axe @t0128', async ({ page }) => {
+  test('renders every variant, with no colour outside the tokens, and passes axe @t0128', async ({
+    page,
+  }) => {
     await open(page, 'light');
     for (const id of GALLERY_IDS) {
       await expect(at(page, id), `data-gallery="${id}" is missing`).toBeVisible();
@@ -106,7 +108,9 @@ test.describe('/design/components — the gallery (T-0128)', () => {
   test('has no sideways scroll at 360 px @t0128', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await page.goto(`${stack().webUrl}/design/components`);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
@@ -120,8 +124,21 @@ for (const scheme of ['light', 'dark'] as const) {
     test(`buttons: 44 px, 0 12 px, radius 8, 15/600; compact 36; disabled uses the disabled tokens @t0128`, async ({
       page,
     }) => {
-      for (const id of ['button-primary', 'button-secondary', 'button-ghost', 'button-danger'] as const) {
-        const s = await style(at(page, id), 'height', 'padding-left', 'padding-right', 'border-top-left-radius', 'font-size', 'font-weight');
+      for (const id of [
+        'button-primary',
+        'button-secondary',
+        'button-ghost',
+        'button-danger',
+      ] as const) {
+        const s = await style(
+          at(page, id),
+          'height',
+          'padding-left',
+          'padding-right',
+          'border-top-left-radius',
+          'font-size',
+          'font-weight',
+        );
         expect(s, id).toMatchObject({
           height: '44px',
           'padding-left': '12px',
@@ -140,13 +157,20 @@ for (const scheme of ['light', 'dark'] as const) {
       const danger = await style(at(page, 'button-danger'), 'background-color');
       expect(danger['background-color']).toBe(await colour(page, 'danger'));
 
-      const disabled = await style(at(page, 'button-primary-disabled'), 'background-color', 'color', 'opacity');
+      const disabled = await style(
+        at(page, 'button-primary-disabled'),
+        'background-color',
+        'color',
+        'opacity',
+      );
       expect(disabled['background-color']).toBe(await colour(page, 'disabled-bg'));
       expect(disabled.color).toBe(await colour(page, 'disabled-text', 'color'));
       expect(disabled.opacity, 'disabled is a token, never a fade').toBe('1');
     });
 
-    test('focus: a 2 px surface gap then a 2 px focus ring on buttons, never an outline @t0128', async ({ page }) => {
+    test('focus: a 2 px surface gap then a 2 px focus ring on buttons, never an outline @t0128', async ({
+      page,
+    }) => {
       await at(page, 'button-primary').focus();
       await page.keyboard.press('Tab');
       await page.keyboard.press('Shift+Tab');
@@ -160,7 +184,15 @@ for (const scheme of ['light', 'dark'] as const) {
     test('text field: 44 px, radius 8, 1 px border-strong, 15 px value, 14/600 label; focus is a primary border and a 3 px soft halo @t0128', async ({
       page,
     }) => {
-      const s = await style(at(page, 'field'), 'height', 'border-top-width', 'border-top-color', 'border-top-left-radius', 'font-size', 'padding-left');
+      const s = await style(
+        at(page, 'field'),
+        'height',
+        'border-top-width',
+        'border-top-color',
+        'border-top-left-radius',
+        'font-size',
+        'padding-left',
+      );
       expect(s).toMatchObject({
         height: '44px',
         'border-top-width': '1px',
@@ -191,24 +223,47 @@ for (const scheme of ['light', 'dark'] as const) {
       expect(disabled.color).toBe(await colour(page, 'disabled-text', 'color'));
     });
 
-    test('checkbox and radio: 20 px, 2 px border-strong; switch 44 x 26 @t0128', async ({ page }) => {
+    test('checkbox and radio: 20 px, 2 px border-strong; switch 44 x 26 @t0128', async ({
+      page,
+    }) => {
       for (const id of ['checkbox', 'radio'] as const) {
-        const s = await style(at(page, id), 'width', 'height', 'border-top-width', 'border-top-color');
+        const s = await style(
+          at(page, id),
+          'width',
+          'height',
+          'border-top-width',
+          'border-top-color',
+        );
         expect(s.width, id).toBe('20px');
         expect(s.height, id).toBe('20px');
         expect(s['border-top-width'], id).toBe('2px');
-        expect(s['border-top-color'], id).toBe(await colour(page, 'border-strong', 'border-top-color'));
+        expect(s['border-top-color'], id).toBe(
+          await colour(page, 'border-strong', 'border-top-color'),
+        );
       }
-      expect((await style(at(page, 'checkbox'), 'border-top-left-radius'))['border-top-left-radius']).toBe('4px');
+      expect(
+        (await style(at(page, 'checkbox'), 'border-top-left-radius'))['border-top-left-radius'],
+      ).toBe('4px');
       const sw = await style(at(page, 'switch'), 'width', 'height');
       expect(sw).toEqual({ width: '44px', height: '26px' });
-      expect((await style(at(page, 'switch-on'), 'background-color'))['background-color']).toBe(await colour(page, 'primary'));
+      expect((await style(at(page, 'switch-on'), 'background-color'))['background-color']).toBe(
+        await colour(page, 'primary'),
+      );
     });
 
     test('filter chip: 36 px, radius 999, 13/600, 1 px border-strong, 18 px icon; active is primary @t0128', async ({
       page,
     }) => {
-      const s = await style(at(page, 'chip'), 'height', 'border-top-left-radius', 'font-size', 'font-weight', 'border-top-color', 'padding-left', 'padding-right');
+      const s = await style(
+        at(page, 'chip'),
+        'height',
+        'border-top-left-radius',
+        'font-size',
+        'font-weight',
+        'border-top-color',
+        'padding-left',
+        'padding-right',
+      );
       expect(s).toMatchObject({
         height: '36px',
         'border-top-left-radius': '999px',
@@ -223,9 +278,18 @@ for (const scheme of ['light', 'dark'] as const) {
       expect(active['border-top-color']).toBe(await colour(page, 'primary', 'border-top-color'));
     });
 
-    test('pills, tags and count badges: 12/700 at 3 10 px; tags radius 4; count 20 px at 11/700 @t0128', async ({ page }) => {
+    test('pills, tags and count badges: 12/700 at 3 10 px; tags radius 4; count 20 px at 11/700 @t0128', async ({
+      page,
+    }) => {
       expect(
-        await style(at(page, 'pill-success'), 'font-size', 'font-weight', 'padding-top', 'padding-left', 'border-top-left-radius'),
+        await style(
+          at(page, 'pill-success'),
+          'font-size',
+          'font-weight',
+          'padding-top',
+          'padding-left',
+          'border-top-left-radius',
+        ),
       ).toEqual({
         'font-size': '12px',
         'font-weight': '700',
@@ -236,20 +300,49 @@ for (const scheme of ['light', 'dark'] as const) {
       const pill = await style(at(page, 'pill-success'), 'background-color', 'color');
       expect(pill['background-color']).toBe(await colour(page, 'success-soft'));
       expect(pill.color).toBe(await colour(page, 'success-text', 'color'));
-      expect((await style(at(page, 'tag'), 'border-top-left-radius'))['border-top-left-radius']).toBe('4px');
-      const count = await style(at(page, 'count-badge'), 'height', 'min-width', 'font-size', 'font-weight');
-      expect(count).toEqual({ height: '20px', 'min-width': '20px', 'font-size': '11px', 'font-weight': '700' });
+      expect(
+        (await style(at(page, 'tag'), 'border-top-left-radius'))['border-top-left-radius'],
+      ).toBe('4px');
+      const count = await style(
+        at(page, 'count-badge'),
+        'height',
+        'min-width',
+        'font-size',
+        'font-weight',
+      );
+      expect(count).toEqual({
+        height: '20px',
+        'min-width': '20px',
+        'font-size': '11px',
+        'font-weight': '700',
+      });
     });
 
     test('segmented control: sunken track, padding 3, radius 8; 36 px items at 13/600; active is surface with shadow-1 @t0128', async ({
       page,
     }) => {
-      const track = await style(at(page, 'segmented'), 'background-color', 'padding-top', 'border-top-left-radius');
+      const track = await style(
+        at(page, 'segmented'),
+        'background-color',
+        'padding-top',
+        'border-top-left-radius',
+      );
       expect(track['background-color']).toBe(await colour(page, 'surface-sunken'));
       expect(track['padding-top']).toBe('3px');
       expect(track['border-top-left-radius']).toBe('8px');
-      const item = await style(at(page, 'segmented-item'), 'height', 'font-size', 'font-weight', 'border-top-left-radius');
-      expect(item).toEqual({ height: '36px', 'font-size': '13px', 'font-weight': '600', 'border-top-left-radius': '6px' });
+      const item = await style(
+        at(page, 'segmented-item'),
+        'height',
+        'font-size',
+        'font-weight',
+        'border-top-left-radius',
+      );
+      expect(item).toEqual({
+        height: '36px',
+        'font-size': '13px',
+        'font-weight': '600',
+        'border-top-left-radius': '6px',
+      });
       const active = await style(at(page, 'segmented-active'), 'background-color', 'box-shadow');
       expect(active['background-color']).toBe(await colour(page, 'surface'));
       expect(active['box-shadow']).not.toBe('none');
@@ -258,12 +351,22 @@ for (const scheme of ['light', 'dark'] as const) {
     test('tabs are underline tabs: 14/600; the active tab is primary-text with a 2 px primary underline @t0128', async ({
       page,
     }) => {
-      const active = await style(at(page, 'tab-active'), 'font-size', 'font-weight', 'color', 'border-bottom-width', 'border-bottom-color', 'background-color');
+      const active = await style(
+        at(page, 'tab-active'),
+        'font-size',
+        'font-weight',
+        'color',
+        'border-bottom-width',
+        'border-bottom-color',
+        'background-color',
+      );
       expect(active['font-size']).toBe('14px');
       expect(active['font-weight']).toBe('600');
       expect(active.color).toBe(await colour(page, 'primary-text', 'color'));
       expect(active['border-bottom-width']).toBe('2px');
-      expect(active['border-bottom-color']).toBe(await colour(page, 'primary', 'border-bottom-color'));
+      expect(active['border-bottom-color']).toBe(
+        await colour(page, 'primary', 'border-bottom-color'),
+      );
       expect(active['background-color'], 'tabs are not pills').toBe('rgba(0, 0, 0, 0)');
       const rest = await style(at(page, 'tab'), 'color');
       expect(rest.color).toBe(await colour(page, 'text-2', 'color'));
@@ -272,13 +375,24 @@ for (const scheme of ['light', 'dark'] as const) {
     test('avatars 44 and 32, initials 14/700, round; kbd is mono 11 with a border-strong edge and radius 4 @t0128', async ({
       page,
     }) => {
-      expect(await style(at(page, 'avatar-44'), 'width', 'height', 'border-top-left-radius')).toEqual({
+      expect(
+        await style(at(page, 'avatar-44'), 'width', 'height', 'border-top-left-radius'),
+      ).toEqual({
         width: '44px',
         height: '44px',
         'border-top-left-radius': '999px',
       });
-      expect(await style(at(page, 'avatar-32'), 'width', 'font-weight')).toMatchObject({ width: '32px', 'font-weight': '700' });
-      const kbd = await style(at(page, 'kbd'), 'font-size', 'font-family', 'border-top-color', 'border-top-left-radius');
+      expect(await style(at(page, 'avatar-32'), 'width', 'font-weight')).toMatchObject({
+        width: '32px',
+        'font-weight': '700',
+      });
+      const kbd = await style(
+        at(page, 'kbd'),
+        'font-size',
+        'font-family',
+        'border-top-color',
+        'border-top-left-radius',
+      );
       expect(kbd['font-size']).toBe('11px');
       expect(kbd['font-family']).toContain('JetBrains Mono');
       expect(kbd['border-top-color']).toBe(await colour(page, 'border-strong', 'border-top-color'));
@@ -286,14 +400,28 @@ for (const scheme of ['light', 'dark'] as const) {
     });
 
     test('icon button: 44 px square with a 22 px glyph @t0128', async ({ page }) => {
-      expect(await style(at(page, 'icon-button'), 'width', 'height')).toEqual({ width: '44px', height: '44px' });
+      expect(await style(at(page, 'icon-button'), 'width', 'height')).toEqual({
+        width: '44px',
+        height: '44px',
+      });
       const glyph = at(page, 'icon-button').locator('.k-icon');
       expect((await style(glyph, 'font-size'))['font-size']).toBe('22px');
     });
 
     test('select: 44 px, radius 8, 1 px border-strong, 15 px value @t0128', async ({ page }) => {
-      const s = await style(at(page, 'select'), 'height', 'border-top-left-radius', 'border-top-width', 'font-size');
-      expect(s).toEqual({ height: '44px', 'border-top-left-radius': '8px', 'border-top-width': '1px', 'font-size': '15px' });
+      const s = await style(
+        at(page, 'select'),
+        'height',
+        'border-top-left-radius',
+        'border-top-width',
+        'font-size',
+      );
+      expect(s).toEqual({
+        height: '44px',
+        'border-top-left-radius': '8px',
+        'border-top-width': '1px',
+        'font-size': '15px',
+      });
     });
   });
 }

@@ -86,7 +86,9 @@ describe('acceptance: the components import nothing that ships token tables to t
         .split('\n')
         .filter((line) => /^\s*import\s/.test(line) && !/^\s*import\s+type\s/.test(line));
       return runtime.some((line) =>
-        /from\s+['"](@kasuwa\/ui['"]|\.\.\/(index|tokens|tokens\.colours\.generated|css|contrast)['"])/.test(line),
+        /from\s+['"](@kasuwa\/ui['"]|\.\.\/(index|tokens|tokens\.colours\.generated|css|contrast)['"])/.test(
+          line,
+        ),
       );
     });
     expect(offenders.map((file) => file.slice(repoRoot.length + 1))).toEqual([]);
