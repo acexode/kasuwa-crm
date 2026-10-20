@@ -14,6 +14,7 @@ import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { StillConnecting } from '../admin/panel';
 import { RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
+import { formatClock } from '../record/record-core';
 import { TypePill } from '../script-shared/node-style';
 import {
   nodeById,
@@ -490,21 +491,15 @@ function ContactLink({
   );
 }
 
-/** The time a version was published, with the zone named: "13:55 WAT". */
+/**
+ * The time a version was published, with the zone named: "13:55 WAT". The
+ * zone is the one people at the desk say (`zoneName`), never ICU English's
+ * "GMT+1" (T-0143).
+ */
 function clock(locale: string, iso: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  const options: Intl.DateTimeFormatOptions = {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZoneName: 'short',
-  };
-  try {
-    return new Intl.DateTimeFormat(locale, options).format(at);
-  } catch {
-    return new Intl.DateTimeFormat('en', options).format(at);
-  }
+  return formatClock(locale, at);
 }
 
 /** The export's version banner: info-soft, a 1px info edge, radius 12; a title, a body, "What changed" and a dismiss. */

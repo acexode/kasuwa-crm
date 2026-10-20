@@ -2,6 +2,7 @@ import type { MessageId } from '@kasuwa/i18n/bundle';
 import { KEY_PATTERN, VARIABLE, nodeById, type FormField, type ScriptGraph, type ScriptLocale, type ScriptNode, type ScriptVersion } from '../../lib/script-graph';
 import type { AnswerValue, NodeAnswer, RunContact, RunOutcome, ScriptRun } from '../../lib/script-runs-api';
 import { numberingLocale } from '../../lib/numbering';
+import { formatDayFirst } from '../../lib/date-locale';
 
 /**
  * The pure half of the P10 agent screen (T-0116): which steps are drawn, what
@@ -275,11 +276,7 @@ export function formatDate(day: string, locale: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
   if (match === null) return day;
   const at = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-  try {
-    return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(at);
-  } catch {
-    return day;
-  }
+  return formatDayFirst(locale, at, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
 /** An answer as the agent reads it back: money formatted, a date in words, a choice by its label. */
