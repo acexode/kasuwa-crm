@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { bundleMessages, createTranslator } from '@kasuwa/i18n';
 import { PipelineIndexScreen } from '../../components/pipeline/pipeline-index-screen';
 import { PIPELINE_INDEX_MESSAGE_IDS } from '../../components/pipeline/message-ids';
-import { crmLiveNav, crmPipelineEnabled } from '../../lib/feature-flags';
+import { crmLiveNav, crmPipelineEnabled, dealModules } from '../../lib/feature-flags';
 import { withShellMessages } from '../../components/crm/shell-messages';
 import { activeLocale, languageOptions } from '../../lib/locale';
 
@@ -29,7 +29,7 @@ export default async function PipelinesPage() {
     notFound();
   }
   const { locale } = await activeLocale();
-  const live = await crmLiveNav();
+  const [live, modules] = await Promise.all([crmLiveNav(), dealModules()]);
 
   return (
     <PipelineIndexScreen
@@ -37,6 +37,7 @@ export default async function PipelinesPage() {
       messages={bundleMessages(locale, withShellMessages(PIPELINE_INDEX_MESSAGE_IDS, live))}
       locales={languageOptions(locale)}
       live={live}
+      modules={{ templates: modules.templates }}
     />
   );
 }

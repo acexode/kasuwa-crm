@@ -83,7 +83,7 @@ describe('the lead stages', () => {
   });
 
   it('columns are Contact properties, with no score, health or last activity', () => {
-    expect(LEAD_COLUMNS.map((column) => column.key)).toEqual(['displayName', 'companyName', 'phones', 'status', 'source', 'owner']);
+    expect(LEAD_COLUMNS.map((column) => column.key)).toEqual(['displayName', 'phones', 'whatsappOptIn', 'emails', 'companyName', 'owner', 'tags', 'status', 'source']);
   });
 
   it('sorts only by sort’s enum, and never by the name (it follows its name parts: sort=displayName is a 400, T-0124)', () => {

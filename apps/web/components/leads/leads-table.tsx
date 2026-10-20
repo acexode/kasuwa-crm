@@ -5,18 +5,35 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../icon';
 import { nameOrWithheld } from '../records/name';
-import { QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
-import { FOCUS } from '../records/list-classes';
-import { HeaderLock, ListError, ListLoading, LoadMore, Muted, OfflineBanner } from '../records/list-parts';
-import { initials, listState, type ListState } from '../records/list-model';
+import { FOCUS, TH } from '../records/list-classes';
+import { ListError, ListLoading, Muted } from '../records/list-parts';
+import { listState, type ListState } from '../records/list-model';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
+import {
+  LastActivityEmpty,
+  NameBlock,
+  RecordAvatar,
+  SELECT_TH,
+  SelectAll,
+  SelectRow,
+  TABLE,
+  HeaderLabel,
+  cellClass,
+  nameTd,
+  nameTh,
+  selectTd,
+} from '../records/list-table';
+import { PagingFooter, usePaging, type PageSize } from '../records/paging';
+import { BULK_ASSIGN, BULK_UPDATE, BulkBar, useSelection } from '../records/bulk-bar';
+import { CardName, RecordCard, SwipeHint, type CardAction } from '../records/record-card';
+import { EmptyLanding, NoResults, STATE_PRIMARY, STATE_QUIET, STATE_SECONDARY, UnbuiltAction } from '../records/list-states';
 import { getLead, listLeads, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
+import { isWithheld } from '../../lib/records-api';
 import {
   LEAD_COLUMNS,
   LEAD_FILTERS,
   activeLeadFilters,
   convertOffer,
-  leadColumnLabel,
   leadListError,
   leadOptionLabel,
   lockedLeadColumns,
@@ -26,13 +43,15 @@ import {
   type LeadFilterState,
   type LeadView,
 } from './leads-model';
-import { LeadValue, fieldProps } from './lead-parts';
+import { LeadValue, StatusPill, dndOf, fieldProps, leadSubLine, networkOf, ownerText } from './lead-parts';
+import { PhoneValue } from '../records/list-table';
 
 /**
- * `P04/01`'s body (T-0058): the leads table at `md` and up, a card per lead at
- * 360 px, and the five list states. It owns its keyset read (`listLeads`,
- * in memory only, D-L64) and the convert sheet, which loads when it is first
- * opened.
+ * `P04/01`'s body (T-0058, restyled to the export by T-0133): the leads table
+ * at `md` and up — selection, a sticky name column, 52px rows, the paging
+ * footer — a dense swipe card per lead at 360 px, and the five list states. It
+ * owns its keyset read (`listLeads`, in memory only, D-L64) and the convert
+ * sheet, which loads when it is first opened.
  *
  * A converted lead stays on the list as Qualified (D-L75): the row is replaced
  * by the contact convert answers with, so the next write carries its version.
@@ -45,28 +64,62 @@ function fetchLeads(q: string, view: LeadView, cursor?: string) {
   return listLeads(toLeadQuery(q, view, cursor));
 }
 
-/** The table's cells after the name, in P04/01's order (`LEAD_COLUMNS`). */
-const TABLE_FIELDS: readonly Exclude<LeadColumnKey, 'displayName'>[] = ['companyName', 'phones', 'status', 'source', 'owner'];
+/** What the screen around the table needs to know: the count chip, the offline banner. */
+export interface LeadsMeta {
+  readonly held: number;
+  readonly more: boolean;
+  readonly online: boolean;
+  readonly syncedAt: Date | null;
+  readonly reload: () => void;
+  /** Columns withheld on a row held: the chooser carries a lock on them. */
+  readonly locked: readonly LeadColumnKey[];
+}
 
-/** What a 360 px card shows under the name: the company and the stage first. */
-const CARD_FIELDS: readonly Exclude<LeadColumnKey, 'displayName'>[] = ['companyName', 'status', 'phones', 'source', 'owner'];
+/** The P04 widths, by column: 260 / 260 / 60 / 230 / 190 / 170 / 140 / 230 / 170. */
+const WIDTH: Readonly<Record<Exclude<LeadColumnKey, 'displayName'> | 'lastActivity', string>> = {
+  phones: 'w-64',
+  whatsappOptIn: 'w-16',
+  emails: 'w-56',
+  companyName: 'w-48',
+  owner: 'w-44',
+  lastActivity: 'w-36',
+  tags: 'w-56',
+  status: 'w-44',
+  source: 'w-36',
+};
+
+export interface LeadsTableFlags {
+  readonly bulk: boolean;
+  readonly lastActivity: boolean;
+  readonly quickActions: boolean;
+}
 
 export function LeadsTable({
   t,
   locale,
   q,
   view,
+  hidden,
+  flags,
   onState,
   onWithheld,
   onClear,
+  onRemoveLast,
+  onPageSize,
+  onMeta,
 }: {
   t: Translator;
   locale: string;
   q: string;
   view: LeadView;
+  hidden: readonly LeadColumnKey[];
+  flags: LeadsTableFlags;
   onState: (state: ListState) => void;
   onWithheld: (fields: readonly string[]) => void;
   onClear: () => void;
+  onRemoveLast: (() => void) | null;
+  onPageSize: (size: PageSize) => void;
+  onMeta: (meta: LeadsMeta) => void;
 }) {
   const list = useKeysetList(q, view, fetchLeads);
   const [convertingId, setConvertingId] = useState<string | null>(null);
@@ -84,6 +137,17 @@ export function LeadsTable({
   useEffect(() => {
     onWithheld([...list.rows.flatMap((row) => row.withheldFields), ...withheldFromLeadError(list.error)]);
   }, [list.rows, list.error, onWithheld]);
+  const { reload } = list;
+  useEffect(() => {
+    onMeta({
+      held: list.rows.length,
+      more: list.nextCursor !== null,
+      online: list.online,
+      syncedAt: list.syncedAt,
+      reload,
+      locked: lockedLeadColumns(list.rows),
+    });
+  }, [list.rows, list.nextCursor, list.online, list.syncedAt, reload, onMeta]);
 
   const startConvert = (row: Lead) => {
     if (offline) return;
@@ -114,8 +178,20 @@ export function LeadsTable({
 
   return (
     <>
-      {offline ? <OfflineBanner t={t} locale={locale} syncedAt={list.syncedAt} /> : null}
-      <Body t={t} state={state} list={list} offline={offline} onClear={onClear} onConvert={startConvert} />
+      <Body
+        t={t}
+        locale={locale}
+        state={state}
+        list={list}
+        view={view}
+        hidden={hidden}
+        flags={flags}
+        offline={offline}
+        onClear={onClear}
+        onRemoveLast={onRemoveLast}
+        onConvert={startConvert}
+        onPageSize={onPageSize}
+      />
       <p role="status" className="sr-only">
         {announcement}
       </p>
@@ -145,19 +221,35 @@ function describeFilters(t: Translator, filters: LeadFilterState): string {
 
 function Body({
   t,
+  locale,
   state,
   list,
+  view,
+  hidden,
+  flags,
   offline,
   onClear,
+  onRemoveLast,
   onConvert,
+  onPageSize,
 }: {
   t: Translator;
+  locale: string;
   state: ListState;
   list: KeysetList<Lead, LeadView>;
+  view: LeadView;
+  hidden: readonly LeadColumnKey[];
+  flags: LeadsTableFlags;
   offline: boolean;
   onClear: () => void;
+  onRemoveLast: (() => void) | null;
   onConvert: (row: Lead) => void;
+  onPageSize: (size: PageSize) => void;
 }) {
+  const size = (view.pageSize ?? 25) as PageSize;
+  const paging = usePaging(list, size);
+  const selection = useSelection(list.answered.q, list.answered.view);
+
   if (state === 'loading') {
     return <ListLoading t={t} slow={list.slow} label="leads.loading" />;
   }
@@ -176,148 +268,291 @@ function Body({
   }
 
   if (state === 'empty') {
-    return (
-      <div data-testid="empty-state" className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-8 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
-          <Icon name="person_add" size="xl" />
-        </span>
-        <h2 className="text-h3">{t.t('leads.empty.title')}</h2>
-        <p className="max-w-xl text-body-md text-text-2">{t.t('leads.empty.body')}</p>
-      </div>
-    );
+    return <LeadsEmpty t={t} />;
   }
 
   if (state === 'no-results') {
     const answered = list.answered;
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-10 text-center">
-        <Icon name="search_off" size="xl" className="text-text-muted" />
-        <h2 className="text-h3">{t.t('leads.noResults.title')}</h2>
-        <p data-testid="no-results-message" className="max-w-xl text-body-md text-text-2">
-          {answered.q.trim() === '' ? null : t.t('records.noResults.query', { query: answered.q.trim() })}{' '}
-          {activeLeadFilters(answered.view.filters).length === 0
-            ? null
-            : t.t('records.noResults.filters', { filters: describeFilters(t, answered.view.filters) })}
-        </p>
-        <button type="button" data-action="clear-search-filters" onClick={onClear} className={SECONDARY_BUTTON}>
-          {t.t('records.noResults.clear')}
-        </button>
-      </div>
+      <NoResults
+        t={t}
+        title={t.t('leads.noResults.title')}
+        message={
+          <>
+            {answered.q.trim() === '' ? null : t.t('records.noResults.query', { query: answered.q.trim() })}{' '}
+            {activeLeadFilters(answered.view.filters).length === 0
+              ? null
+              : t.t('records.noResults.filters', { filters: describeFilters(t, answered.view.filters) })}
+          </>
+        }
+        onClear={onClear}
+        onRemoveLast={onRemoveLast}
+      />
     );
   }
 
-  const rows = list.rows;
-  const locked = lockedLeadColumns(rows);
+  const rows = paging.rows;
+  const locked = lockedLeadColumns(list.rows);
+  const columns = LEAD_COLUMNS.filter((column) => column.key !== 'displayName' && !hidden.includes(column.key)).map(
+    (column) => column.key as Exclude<LeadColumnKey, 'displayName'>,
+  );
+  const ownerAt = columns.indexOf('owner');
+  const pageIds = rows.map((row) => row.id);
+  const selectedOnPage = pageIds.filter((id) => selection.selected.has(id)).length;
+  const bulk = flags.bulk;
+
   return (
-    <div className="flex flex-col gap-3">
-      {/* A scrolling region is a keyboard stop, or keyboard users cannot reach
-          the columns past the edge (WCAG 2.1.1). */}
-      <div
-        role="region"
-        aria-label={t.t('leads.title')}
-        tabIndex={0}
-        className={`relative hidden overflow-x-auto rounded-lg border border-border bg-surface md:block ${FOCUS}`}
-      >
-        <table className="w-full min-w-max border-collapse text-body-sm">
-          <caption className="sr-only">{t.t('leads.title')}</caption>
-          <thead className="bg-surface-sunken text-caption text-text-muted">
-            <tr>
-              {LEAD_COLUMNS.map((column) => (
-                <th
-                  key={column.key}
-                  role="columnheader"
-                  scope="col"
-                  data-column={column.key}
-                  className="p-3 text-start font-bold"
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {t.t(column.label)}
-                    {locked.includes(column.key) ? <HeaderLock t={t} /> : null}
-                  </span>
+    <div className="flex flex-col gap-2.5">
+      {bulk ? (
+        <BulkBar
+          t={t}
+          count={selection.selected.size}
+          actions={[BULK_ASSIGN, BULK_UPDATE]}
+          onSelectPage={() => selection.setAll(pageIds, true)}
+          onClear={selection.clear}
+        />
+      ) : null}
+
+      <div className="hidden md:block">
+        {/* A scrolling region is a keyboard stop, or keyboard users cannot reach
+            the columns past the edge (WCAG 2.1.1). */}
+        <div
+          role="region"
+          aria-label={t.t('leads.title')}
+          tabIndex={0}
+          className={`relative overflow-x-auto rounded-t-lg border border-border bg-surface ${FOCUS}`}
+        >
+          <table className={TABLE}>
+            <caption className="sr-only">{t.t('leads.title')}</caption>
+            <colgroup>
+              {bulk ? <col className="w-11" /> : null}
+              <col className="w-64" />
+              {columns.flatMap((key, index) => [
+                <col key={key} className={WIDTH[key]} />,
+                ...(flags.lastActivity && index === ownerAt ? [<col key="lastActivity" className={WIDTH.lastActivity} />] : []),
+              ])}
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                {bulk ? (
+                  <th scope="col" className={SELECT_TH}>
+                    <SelectAll t={t} count={pageIds.length} selected={selectedOnPage} onChange={(all) => selection.setAll(pageIds, all)} />
+                  </th>
+                ) : null}
+                <th role="columnheader" scope="col" data-column="displayName" className={nameTh(bulk)}>
+                  <HeaderLabel t={t} label="records.col.lead" locked={locked.includes('displayName')} />
                 </th>
-              ))}
-              <th scope="col" className="p-3 text-start font-bold">
-                <span className="sr-only">{t.t('accounts.col.actions')}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} data-row-id={row.id} className="border-t border-border align-top hover:bg-surface-sunken">
-                <th scope="row" data-field="displayName" className="p-3 text-start font-normal">
-                  <NameCell t={t} row={row} />
-                </th>
-                {TABLE_FIELDS.map((field) => (
-                  <td key={field} {...fieldProps(row, field)} className="p-3">
-                    <LeadValue t={t} row={row} field={field} />
-                  </td>
+                {columns.map((key, index) => (
+                  <HeaderCells
+                    key={key}
+                    t={t}
+                    column={key}
+                    locked={locked.includes(key)}
+                    lastActivity={flags.lastActivity && index === ownerAt}
+                  />
                 ))}
-                <td className="p-2 text-end">
-                  <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} />
-                </td>
+                <th scope="col" className={TH}>
+                  <span className="sr-only">{t.t('accounts.col.actions')}</span>
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const selected = selection.selected.has(row.id);
+                return (
+                  <tr key={row.id} data-row-id={row.id} data-selected={selected ? 'true' : undefined} className="group">
+                    {bulk ? (
+                      <td className={selectTd(selected)}>
+                        <SelectRow
+                          t={t}
+                          name={nameOrWithheld(t, row.displayName)}
+                          checked={selected}
+                          onChange={() => selection.toggle(row.id)}
+                        />
+                      </td>
+                    ) : null}
+                    <th scope="row" data-field="displayName" className={`${nameTd(selected, bulk)} text-start`}>
+                      <NameBlock t={t} name={row.displayName} sub={leadSubLine(t, row)} />
+                    </th>
+                    {columns.map((field, index) => (
+                      <BodyCells
+                        key={field}
+                        t={t}
+                        row={row}
+                        field={field}
+                        selected={selected}
+                        lastActivity={flags.lastActivity && index === ownerAt}
+                      />
+                    ))}
+                    <td className={cellClass(selected, 'text-end')}>
+                      <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <PagingFooter t={t} locale={locale} paging={paging} size={size} offline={offline} onSize={onPageSize} />
       </div>
 
-      <ul className="flex flex-col gap-2 md:hidden">
+      {flags.quickActions ? <SwipeHint t={t} label="records.card.hint" /> : null}
+      <ul className="-mx-4 flex flex-col border-t border-border md:hidden">
         {rows.map((row) => (
-          <li key={row.id} data-row-id={row.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <div data-field="displayName" className="min-w-0 flex-1">
-                <NameCell t={t} row={row} />
-              </div>
-              <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} />
-            </div>
-            <dl className="flex flex-col gap-1 text-body-sm">
-              {CARD_FIELDS.map((field) => (
-                <div key={field} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                  <dt className="text-caption font-semibold text-text-muted">{t.t(leadColumnLabel(field))}</dt>
-                  <dd {...fieldProps(row, field)} className="min-w-0">
-                    <LeadValue t={t} row={row} field={field} />
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </li>
+          <LeadCard key={row.id} t={t} row={row} offline={offline} quickActions={flags.quickActions} onConvert={onConvert} />
         ))}
       </ul>
+      <div className="md:hidden">
+        <PagingFooter t={t} locale={locale} paging={paging} size={size} offline={offline} onSize={onPageSize} />
+      </div>
 
       {list.moreError === null ? null : (
         <p role="alert" className="text-body-sm text-danger-text">
           {t.t(leadListError(list.moreError))}
         </p>
       )}
-
-      {list.nextCursor === null ? null : (
-        <LoadMore t={t} loading={list.loadingMore} offline={offline} onLoadMore={list.loadMore} />
-      )}
     </div>
   );
 }
 
-/** People get round avatars (P04/01); the initials are decoration. */
-function NameCell({ t, row }: { t: Translator; row: Lead }) {
-  const name = row.displayName;
+function HeaderCells({
+  t,
+  column,
+  locked,
+  lastActivity,
+}: {
+  t: Translator;
+  column: Exclude<LeadColumnKey, 'displayName'>;
+  locked: boolean;
+  lastActivity: boolean;
+}) {
+  const spec = LEAD_COLUMNS.find((item) => item.key === column);
   return (
-    <span className="flex min-w-0 items-center gap-3">
-      <span
-        aria-hidden="true"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption font-bold text-primary-text"
+    <>
+      <th
+        role="columnheader"
+        scope="col"
+        data-column={column}
+        aria-label={column === 'whatsappOptIn' ? t.t('records.col.whatsappOptIn') : undefined}
+        className={`${TH} ${WIDTH[column]} ${column === 'whatsappOptIn' ? 'text-center' : ''}`}
       >
-        {name === undefined ? <Icon name="lock" size="sm" /> : initials(name)}
+        {column === 'whatsappOptIn' ? (
+          <span aria-hidden="true">{t.t('records.col.wa')}</span>
+        ) : (
+          <HeaderLabel t={t} label={spec?.label ?? 'records.col.displayName'} locked={locked} />
+        )}
+      </th>
+      {lastActivity ? (
+        <th scope="col" data-column-placeholder="lastActivity" className={`${TH} ${WIDTH.lastActivity}`}>
+          {t.t('records.col.lastActivity')}
+        </th>
+      ) : null}
+    </>
+  );
+}
+
+function BodyCells({
+  t,
+  row,
+  field,
+  selected,
+  lastActivity,
+}: {
+  t: Translator;
+  row: Lead;
+  field: Exclude<LeadColumnKey, 'displayName'>;
+  selected: boolean;
+  lastActivity: boolean;
+}) {
+  return (
+    <>
+      <td {...fieldProps(row, field)} className={cellClass(selected, `${WIDTH[field]} max-w-0 ${field === 'whatsappOptIn' ? 'text-center' : ''}`)}>
+        <LeadValue t={t} row={row} field={field} />
+      </td>
+      {lastActivity ? (
+        <td className={cellClass(selected, WIDTH.lastActivity)}>
+          <LastActivityEmpty t={t} />
+        </td>
+      ) : null}
+    </>
+  );
+}
+
+/** The 360 px card: name and WA, phone and network, "Company · Owner", the status. */
+function LeadCard({
+  t,
+  row,
+  offline,
+  quickActions,
+  onConvert,
+}: {
+  t: Translator;
+  row: Lead;
+  offline: boolean;
+  quickActions: boolean;
+  onConvert: (row: Lead) => void;
+}) {
+  const name = nameOrWithheld(t, row.displayName);
+  const phone = row.phones?.[0];
+  const offer = convertOffer(row);
+  const actions: CardAction[] = [
+    ...(quickActions
+      ? ([
+          { key: 'call', icon: 'call', label: 'records.card.call', onClick: null, tone: 'primary' },
+          { key: 'whatsapp', icon: 'chat', label: row.whatsappOptIn === true ? 'records.card.whatsapp' : 'records.card.noOptIn', onClick: null, tone: 'success' },
+          { key: 'sms', icon: 'sms', label: 'records.card.sms', onClick: null, tone: 'info' },
+        ] as const)
+      : []),
+    ...(offer === 'offer'
+      ? [
+          {
+            key: 'convert',
+            icon: 'task_alt',
+            label: 'leads.action.convert',
+            onClick: () => onConvert(row),
+            tone: 'soft',
+            ariaDisabled: offline,
+            attributes: { 'data-action': 'convert-lead', 'data-requires-connection': '' },
+          } as const,
+        ]
+      : []),
+  ];
+  const meta = [
+    !isWithheld(row, 'companyName') && typeof row.companyName === 'string' ? row.companyName : null,
+    ownerText(t, row),
+  ].filter((part): part is string => part !== null && part !== '');
+  return (
+    <RecordCard t={t} rowId={row.id} name={name} actions={actions} avatar={<RecordAvatar name={row.displayName} size={44} />}>
+      <CardName t={t} name={name} withheld={row.displayName === undefined} whatsapp={row.whatsappOptIn === true && !isWithheld(row, 'whatsappOptIn')} />
+      <span {...fieldProps(row, 'phones')}>
+        {isWithheld(row, 'phones') ? (
+          <LeadValue t={t} row={row} field="phones" />
+        ) : phone === undefined ? null : (
+          <PhoneValue t={t} e164={phone.e164} network={networkOf(row)} dnd={dndOf(row)} more={0} compact />
+        )}
       </span>
-      {name === undefined ? (
-        <span data-name-withheld="" className="min-w-0 break-words text-body-sm text-text-muted">
-          {t.t('records.name.withheld')}
+      {meta.length === 0 ? null : (
+        <span data-record-text="" className="truncate text-caption text-text-2">
+          {meta.join(' · ')}
         </span>
-      ) : (
-        <b data-record-text="" className="min-w-0 break-words text-body-sm">
-          {name}
-        </b>
       )}
-    </span>
+      <span className="mt-0.75 flex items-center gap-1.5">
+        <span {...fieldProps(row, 'status')}>
+          {isWithheld(row, 'status') ? (
+            <LeadValue t={t} row={row} field="status" />
+          ) : typeof row.status === 'string' ? (
+            <StatusPill t={t} status={row.status} small />
+          ) : null}
+        </span>
+        {offer === 'converted' ? (
+          <span className="inline-flex items-center gap-1 text-caption">
+            <Icon name="check_circle" size={16} className="text-success-text" />
+            <Muted>{t.t('leads.convert.converted')}</Muted>
+          </span>
+        ) : null}
+      </span>
+    </RecordCard>
   );
 }
 
@@ -341,16 +576,16 @@ function ConvertAction({
   const offer = convertOffer(row);
   if (offer === 'locked') {
     return (
-      <span className="inline-flex min-h-touch shrink-0 items-center gap-1 px-3 text-body-sm text-text-muted">
-        <Icon name="lock" size="sm" />
+      <span className="inline-flex items-center gap-1 whitespace-nowrap text-meta text-text-muted">
+        <Icon name="lock" size={16} />
         {t.t('leads.convert.locked')}
       </span>
     );
   }
   if (offer === 'converted') {
     return (
-      <span className="inline-flex min-h-touch shrink-0 items-center gap-1 px-3 text-body-sm">
-        <Icon name="check_circle" size="sm" className="text-success-text" />
+      <span className="inline-flex items-center gap-1 whitespace-nowrap text-meta">
+        <Icon name="check_circle" size={16} className="text-success-text" />
         <Muted>{t.t('leads.convert.converted')}</Muted>
       </span>
     );
@@ -362,13 +597,59 @@ function ConvertAction({
       data-requires-connection=""
       aria-disabled={offline ? 'true' : undefined}
       onClick={() => onConvert(row)}
-      className={`${QUIET_BUTTON} shrink-0 aria-disabled:cursor-not-allowed aria-disabled:opacity-60`}
+      className={`inline-flex h-control-sm items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-meta font-semibold text-primary-text hover:bg-primary-soft aria-disabled:cursor-not-allowed aria-disabled:text-disabled-text ${FOCUS}`}
     >
-      <Icon name="task_alt" size="sm" />
+      <Icon name="task_alt" size={18} />
       {t.t('leads.action.convert')}
       <span data-record-text="" className="sr-only">
         {nameOrWithheld(t, row.displayName)}
       </span>
     </button>
+  );
+}
+
+/** P04/05 "No leads yet": import and capture, both not built here, in the design's disabled state. */
+function LeadsEmpty({ t }: { t: Translator }) {
+  return (
+    <EmptyLanding
+      icon="person_add"
+      title={t.t('leads.empty.title')}
+      body={t.t('leads.empty.body')}
+      cards={[
+        {
+          icon: 'upload_file',
+          tone: 'sunken',
+          title: t.t('leads.empty.import.title'),
+          body: t.t('leads.empty.import.body'),
+          actions: (
+            <>
+              <UnbuiltAction t={t} action="import-csv-empty" icon="upload" label="records.empty.import.action" className={STATE_PRIMARY} />
+              <UnbuiltAction t={t} action="import-zoho" label="records.empty.import.zoho" className={STATE_SECONDARY} />
+              <UnbuiltAction t={t} action="import-salesforce" label="records.empty.import.salesforce" className={STATE_SECONDARY} />
+            </>
+          ),
+        },
+        {
+          icon: 'chat',
+          tone: 'success',
+          title: t.t('leads.empty.capture.title'),
+          body: t.t('leads.empty.capture.body'),
+          actions: (
+            <>
+              <UnbuiltAction t={t} action="capture-whatsapp" icon="link" label="records.empty.capture.action" className={STATE_SECONDARY} />
+              <UnbuiltAction t={t} action="capture-ussd" label="records.empty.capture.ussd" className={STATE_QUIET} />
+            </>
+          ),
+        },
+      ]}
+      footer={t.t('records.empty.later')}
+      phoneActions={
+        <>
+          <UnbuiltAction t={t} action="capture-whatsapp-phone" icon="chat" label="leads.empty.capture.title" className={`${STATE_PRIMARY} h-control-lg w-full`} />
+          <UnbuiltAction t={t} action="import-phone" icon="upload_file" label="records.empty.import.phone" className={`${STATE_SECONDARY} h-control-lg w-full`} />
+        </>
+      }
+      phoneNote={t.t('records.empty.phoneNote')}
+    />
   );
 }

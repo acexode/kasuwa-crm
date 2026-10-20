@@ -40,6 +40,21 @@ describe('feature flags', () => {
       'crm_tickets',
       'crm_calls',
       'crm_reports',
+      'fx_display',
+      'pipeline_summary',
+      'pipeline_templates',
+      'whatsapp_recency',
+      'deal_products',
+      'deal_risk',
+      'deal_relationships',
+      'deal_quotes',
+      'product_tour',
+      'map_view',
+      'bulk_actions',
+      'saved_views',
+      'last_activity',
+      'quick_actions',
+      'more_filters',
     ]);
   });
 
