@@ -26,7 +26,9 @@ export const ONBOARDING_CURRENCIES: readonly OnboardingCurrency[] = [
   { code: 'KES', formatLocale: 'en-KE' },
   { code: 'ZAR', formatLocale: 'en-ZA' },
   { code: 'XOF', formatLocale: 'fr-SN' },
-  { code: 'USD', formatLocale: 'en-US' },
+  // en-NG, not en-US: an African workspace reads dollars as "US$" beside its
+  // own currency, as the P01/5.2 board prints it (T-0131).
+  { code: 'USD', formatLocale: 'en-NG' },
 ];
 
 function currencyFormat(currency: OnboardingCurrency, fractionDigits?: number): Intl.NumberFormat {

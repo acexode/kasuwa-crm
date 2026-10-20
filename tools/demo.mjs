@@ -50,6 +50,8 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_search',
   'admin_live_api',
+  // D-L194 placeholders: designed elements drawn in their empty or disabled state.
+  'product_tour',
 ];
 /** Flags added to the demo automatically once their task has merged. */
 const DEMO_FLAGS_WHEN_PRESENT = ['crm_custom_fields', 'crm_import', 'crm_duplicates', 'crm_notifications'];

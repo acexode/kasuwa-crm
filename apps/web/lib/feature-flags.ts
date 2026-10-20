@@ -345,3 +345,12 @@ export async function crmDuplicatesEnabled(): Promise<boolean> {
     toEvaluationContext({ tenantId: CRM_SHELL }),
   );
 }
+
+/**
+ * `product_tour` (D-L194, T-0131): whether P01/6 draws the tour button, in its
+ * disabled state until a tour exists. Per process, like sign-up.
+ */
+export async function productTourShown(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue('product_tour', false, toEvaluationContext({ tenantId: PRE_TENANT }));
+}

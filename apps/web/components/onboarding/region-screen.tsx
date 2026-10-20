@@ -59,20 +59,17 @@ export function RegionScreen({
       locales={locales}
       locale={locale}
       step={1}
+      back={{ label: t.t('onboarding.back'), onClick: () => router.back() }}
       next={{
         label: t.t('onboarding.continue'),
         onClick: () => router.push('/onboarding'),
         testId: 'onboarding-continue',
       }}
     >
-      <section data-screen="P01/5.1" className="flex w-full max-w-2xl flex-col gap-5">
+      <section data-screen="P01/5.1" className="flex w-full max-w-layout-wizard flex-col gap-4.5">
         <StepHeading title={t.t('region.title')} subtitle={t.t('region.subtitle')} />
 
-        <div
-          role="radiogroup"
-          aria-label={t.t('onboarding.step.region')}
-          className="flex flex-col gap-3"
-        >
+        <div role="radiogroup" aria-label={t.t('onboarding.step.region')} className="flex flex-col gap-2.5">
           {REGIONS.map((region) => {
             const checked = region.selfServe;
             return (
@@ -83,43 +80,37 @@ export function RegionScreen({
                 aria-disabled={!region.selfServe}
                 tabIndex={checked ? 0 : -1}
                 data-region={region.key}
-                className={`flex min-h-touch items-center gap-3 rounded-lg p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                  checked
-                    ? 'border-2 border-primary bg-primary-soft'
-                    : 'border border-border-strong bg-surface'
+                className={`flex items-start gap-3.5 rounded-lg p-4 focus-visible:ring-focus ${
+                  checked ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
+                  className={`mt-0.5 flex size-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                     checked ? 'border-primary' : 'border-border-strong'
                   }`}
                 >
-                  {checked ? <span className="h-2 w-2 rounded-full bg-primary" /> : null}
+                  {checked ? <span className="size-2.5 rounded-full bg-primary" /> : null}
                 </span>
-                <span className="flex flex-1 flex-col gap-1">
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <strong className="text-body-md text-text">
+                    <strong className="text-body-md font-bold text-text">
                       {t.t(`region.${region.key}.name` as MessageId)}
                     </strong>
                     <span
-                      className={`rounded-full px-2 text-caption font-bold ${
-                        region.selfServe
-                          ? 'bg-success-soft text-success-text'
-                          : 'bg-accent-soft text-accent-text'
+                      className={`rounded-full px-2 py-0.5 text-caption font-bold ${
+                        region.selfServe ? 'bg-success-soft text-success-text' : 'bg-accent-soft text-accent-text'
                       }`}
                     >
                       {t.t(region.selfServe ? 'region.tag.default' : 'region.tag.sales')}
                     </span>
                   </span>
-                  <span className="text-body-sm text-text-2">
-                    {t.t(`region.${region.key}.desc` as MessageId)}
-                  </span>
+                  <span className="text-body-sm text-text-2">{t.t(`region.${region.key}.desc` as MessageId)}</span>
                   {region.selfServe ? null : (
-                    <span className="text-body-sm text-text-2">{t.t('region.sales.note')}</span>
+                    <span className="text-meta text-text-muted">{t.t('region.sales.note')}</span>
                   )}
                 </span>
-                <span dir="ltr" className="font-mono text-caption text-text-muted">
+                <span dir="ltr" className="whitespace-nowrap font-mono text-caption font-normal text-text-muted">
                   {`~${latency.format(region.latencyMs)}`}
                 </span>
               </div>
@@ -127,22 +118,22 @@ export function RegionScreen({
           })}
         </div>
 
-        <div className="flex gap-3 rounded-lg bg-surface-sunken p-4">
-          <Icon name="info" className="text-text-2" />
-          <div className="flex flex-col gap-2">
-            <strong className="text-body-md">{t.t('region.law.title')}</strong>
+        <div className="flex gap-3 rounded-lg bg-info-soft p-4">
+          <Icon name="gavel" size={22} className="text-info-text" />
+          <div className="flex flex-col gap-1.5 text-body-sm">
+            <strong className="text-info-text">{t.t('region.law.title')}</strong>
             {/* D-P11: the design's last sentence told the reader to "choose
                 Nigeria", which D-P2 makes unselectable here. It is replaced by
                 the adopted sales sentence, under NEW ids so every catalogue had
                 to say the new thing. Counsel signs off the final wording before
                 self_serve_signup is lifted. */}
-            <span data-testid="region-law" className="text-body-sm text-text-2">
+            <span data-testid="region-law" className="text-text-2">
               {t.t('region.law.guidance')}
             </span>
-            <span data-testid="region-law-sales" className="text-body-sm font-semibold text-text">
+            <span data-testid="region-law-sales" className="font-semibold text-text">
               {t.t('region.law.sales')}
             </span>
-            <span className="text-caption text-text-muted">{t.t('region.law.disclaimer')}</span>
+            <span className="text-caption font-normal text-text-muted">{t.t('region.law.disclaimer')}</span>
           </div>
         </div>
       </section>
