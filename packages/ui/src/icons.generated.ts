@@ -32,6 +32,7 @@ export type IconName =
   | 'bookmark'
   | 'bookmark_add'
   | 'business_center'
+  | 'calendar_month'
   | 'call'
   | 'call_end'
   | 'call_received'
@@ -143,6 +144,7 @@ export type IconName =
   | 'person'
   | 'person_add'
   | 'person_add_alt'
+  | 'person_off'
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
@@ -171,6 +173,7 @@ export type IconName =
   | 'sentiment_satisfied'
   | 'settings'
   | 'share'
+  | 'shopping_cart'
   | 'signal_cellular_4_bar'
   | 'signal_cellular_alt'
   | 'signal_cellular_alt_1_bar'
@@ -204,6 +207,7 @@ export type IconName =
   | 'undo'
   | 'unfold_less'
   | 'unfold_more'
+  | 'upcoming'
   | 'upload'
   | 'upload_file'
   | 'verified'
@@ -216,6 +220,7 @@ export type IconName =
   | 'visibility'
   | 'visibility_off'
   | 'warning'
+  | 'where_to_vote'
   | 'work'
   | 'workspaces'
   ;
@@ -250,6 +255,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'bookmark',
   'bookmark_add',
   'business_center',
+  'calendar_month',
   'call',
   'call_end',
   'call_received',
@@ -361,6 +367,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'person',
   'person_add',
   'person_add_alt',
+  'person_off',
   'phone_iphone',
   'photo_camera',
   'play_arrow',
@@ -389,6 +396,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'sentiment_satisfied',
   'settings',
   'share',
+  'shopping_cart',
   'signal_cellular_4_bar',
   'signal_cellular_alt',
   'signal_cellular_alt_1_bar',
@@ -422,6 +430,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'undo',
   'unfold_less',
   'unfold_more',
+  'upcoming',
   'upload',
   'upload_file',
   'verified',
@@ -434,6 +443,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'visibility',
   'visibility_off',
   'warning',
+  'where_to_vote',
   'work',
   'workspaces',
 ];

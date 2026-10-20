@@ -10,6 +10,7 @@ import { tierLabel } from '../accounts/accounts-model';
 import { ACCOUNT_CREATE_ONLY_MESSAGE_IDS } from '../accounts/message-ids';
 import { accountFieldLabel } from './account-record-model';
 import { ACCOUNT_RECORD_MESSAGE_IDS } from './message-ids';
+import { placeholderMessageIds } from '../record/frame-message-ids';
 
 /**
  * A screen that asks for a message id it did not bundle throws — at REQUEST
@@ -39,7 +40,11 @@ const SOURCES = [
 ];
 
 describe('the account record bundles every id it renders', () => {
-  const available = new Set<string>(ACCOUNT_RECORD_MESSAGE_IDS);
+  // T-0134: the D-L194 placeholders' ids are bundled by the page only where their flag is on.
+  const available = new Set<string>([
+    ...ACCOUNT_RECORD_MESSAGE_IDS,
+    ...placeholderMessageIds({ composer: true, aiSummary: true, aiNba: true, call: true, related: true, identity: true, addresses: true, follow: true }),
+  ]);
   // The record opens the sheet to edit, never to create (`mode` is always `edit` there).
   const createOnly = new Set<string>(ACCOUNT_CREATE_ONLY_MESSAGE_IDS);
 

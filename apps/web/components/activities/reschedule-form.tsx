@@ -2,12 +2,11 @@
 
 import { useId, useState, type FormEvent } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Banner, Button, Dialog } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from '../auth/button-classes';
 import { writeErrorId } from '../record/record-core';
 import { hasDetail, type RecordsResult } from '../../lib/records-api';
 import type { MyActivity, WrittenActivity } from '../../lib/activities-api';
-import { ActivityDialog } from './activity-dialog';
 import { Subject } from './activity-parts';
 import {
   rebaseTimes,
@@ -67,7 +66,7 @@ export function RescheduleForm({
   const [alert, setAlert] = useState<MessageId | null>(null);
   const [saving, setSaving] = useState(false);
   const [gone, setGone] = useState(false);
-  const ids = { error: useId(), hint: useId() };
+  const ids = { error: useId(), hint: useId(), form: useId() };
   const inputIds: Record<TimeKey, string> = { dueAt: useId(), startsAt: useId(), endsAt: useId() };
 
   const submit = async (event: FormEvent) => {
@@ -121,27 +120,42 @@ export function RescheduleForm({
   };
 
   return (
-    <ActivityDialog
+    <Dialog
+      open
       testId="reschedule-form"
       title={t.t('activities.reschedule.title')}
       closeLabel={t.t('record.sheet.close')}
       onClose={onClose}
+      secondaryAction={
+        <Button onClick={onClose} className="!h-control-lg !px-4">
+          {t.t('record.form.cancel')}
+        </Button>
+      }
+      primaryAction={
+        <Button
+          variant="primary"
+          type="submit"
+          form={ids.form}
+          data-action="save-reschedule"
+          data-requires-connection=""
+          disabled={offline || saving || gone}
+          className="!h-control-lg !px-[18px] !font-bold"
+        >
+          {saving ? t.t('record.saving') : t.t('activities.reschedule.save')}
+        </Button>
+      }
     >
-      <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
+      <form id={ids.form} noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         <p className="text-body-md">
           <Subject t={t} item={item} className="font-semibold" />
         </p>
-        {alert === null ? null : (
-          <p role="alert" className="flex items-start gap-2 rounded-md bg-danger-soft p-3 text-body-sm text-danger-text">
-            <Icon name="error" size="sm" />
-            {t.t(alert)}
-          </p>
-        )}
+        {alert === null ? null : <Banner tone="danger">{t.t(alert)}</Banner>}
         {gone ? (
-          <p role="alert" className="flex items-start gap-2 rounded-md bg-warning-soft p-3 text-body-sm text-warning-text">
-            <Icon name="info" size="sm" />
-            {t.t('activities.reschedule.gone')}
-          </p>
+          <div role="alert">
+            <Banner tone="warning" icon="info">
+              {t.t('activities.reschedule.gone')}
+            </Banner>
+          </div>
         ) : null}
         {keys.map((key) => {
           const error = fieldError?.field === key ? fieldError.message : null;
@@ -161,7 +175,7 @@ export function RescheduleForm({
                   const value = event.target.value;
                   setTyped((current) => ({ ...current, [key]: value }));
                 }}
-                className={FIELD}
+                className="h-control-base rounded-md border border-border-strong bg-surface px-3 font-mono text-body-sm text-text is-focus:field-focus aria-[invalid=true]:border-danger"
               />
               {error === null ? null : (
                 <p id={`${ids.error}-${key}`} data-field-error={key} className="text-body-sm text-danger-text">
@@ -180,21 +194,7 @@ export function RescheduleForm({
         <p id={ids.hint} className="text-caption text-text-muted">
           {t.t('activities.reschedule.hint')}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            data-action="save-reschedule"
-            data-requires-connection=""
-            disabled={offline || saving || gone}
-            className={PRIMARY_BUTTON}
-          >
-            {saving ? t.t('record.saving') : t.t('activities.reschedule.save')}
-          </button>
-          <button type="button" onClick={onClose} className={QUIET_BUTTON}>
-            {t.t('record.form.cancel')}
-          </button>
-        </div>
       </form>
-    </ActivityDialog>
+    </Dialog>
   );
 }

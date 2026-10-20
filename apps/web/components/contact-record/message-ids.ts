@@ -3,6 +3,7 @@ import { ConsentState, ContactSource, ContactStatus, PreferredChannel, RecordsEr
 import { ActivityKind } from '../../lib/contact-record-api';
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { DETAILS, LANGUAGE_CODES, fieldLabel } from './record-model';
+import { RECORD_FRAME_MESSAGE_IDS } from '../record/frame-message-ids';
 
 /**
  * The strings P05/01 needs, resolved on the SERVER (T-0062).
@@ -36,6 +37,30 @@ const TIMELINE_FIELDS = [
 
 export const CONTACT_RECORD_MESSAGE_IDS: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
+  // T-0134: the P05 frame, and the contact's own groups, chips and consent card.
+  ...RECORD_FRAME_MESSAGE_IDS,
+  'record.appBar.contact',
+  'record.group.contact',
+  'record.group.personal',
+  'record.group.consent',
+  'record.group.system',
+  'record.chip.dnd',
+  'record.chip.consent.opted_in',
+  'record.chip.consent.withdrawn',
+  'record.chip.consent.pending',
+  'record.chip.prefers',
+  'record.consent.title',
+  'record.consent.whatsapp.on',
+  'record.consent.whatsapp.off',
+  'record.consent.whatsapp.onDetail',
+  'record.consent.whatsapp.offDetail',
+  'record.consent.dnd.on',
+  'record.consent.dnd.off',
+  'record.consent.marketing',
+  'record.consent.marketingDetail',
+  'record.consent.none',
+  'record.consent.footer',
+  'record.notFound.back',
   'records.title',
   'notFound.title',
   'notFound.body',

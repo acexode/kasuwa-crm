@@ -126,7 +126,7 @@ export { localToUtc };
 // The calendar's window: local midnights, never more than 42 days
 // ---------------------------------------------------------------------------
 
-export type CalendarRange = 'week' | 'month';
+export type CalendarRange = 'day' | 'week' | 'month';
 
 export interface CalendarView {
   readonly range: CalendarRange;
@@ -153,8 +153,18 @@ export function weekStart(at: Date): Date {
  * month's first midnight — at most 31 days, inside the contract's 42.
  */
 export function windowOf(view: CalendarView): WindowDays {
-  const from = view.range === 'week' ? weekStart(view.anchor) : new Date(view.anchor.getFullYear(), view.anchor.getMonth(), 1);
-  const to = view.range === 'week' ? addDays(from, 7) : new Date(from.getFullYear(), from.getMonth() + 1, 1);
+  const from =
+    view.range === 'day'
+      ? startOfDay(view.anchor)
+      : view.range === 'week'
+        ? weekStart(view.anchor)
+        : new Date(view.anchor.getFullYear(), view.anchor.getMonth(), 1);
+  const to =
+    view.range === 'day'
+      ? addDays(from, 1)
+      : view.range === 'week'
+        ? addDays(from, 7)
+        : new Date(from.getFullYear(), from.getMonth() + 1, 1);
   const days: Date[] = [];
   for (let day = from; day < to && days.length < MAX_WINDOW_DAYS; day = addDays(day, 1)) {
     days.push(day);
@@ -171,6 +181,7 @@ export function wireWindow(window: WindowDays): { from: string; to: string } | n
 
 /** The previous or next period. A month steps to the first of the month, so January 31st never skips February. */
 export function shiftView(view: CalendarView, direction: -1 | 1): CalendarView {
+  if (view.range === 'day') return { ...view, anchor: addDays(startOfDay(view.anchor), direction) };
   if (view.range === 'week') return { ...view, anchor: addDays(weekStart(view.anchor), 7 * direction) };
   return { ...view, anchor: new Date(view.anchor.getFullYear(), view.anchor.getMonth() + direction, 1) };
 }
@@ -212,6 +223,94 @@ export function placeEvents(items: readonly MyActivity[], window: WindowDays): M
     byDay.get(key)?.push(item);
   }
   return byDay;
+}
+
+// ---------------------------------------------------------------------------
+// The time grid (T-0136): hours down the side, events placed by their times
+// ---------------------------------------------------------------------------
+
+/** The design's working day, 08:00 to 18:00; widened to fit any event outside it. */
+export const GRID_FIRST_HOUR = 8;
+export const GRID_LAST_HOUR = 18;
+/** A task has a due time, not a length: it is drawn as a half-hour block. */
+export const TASK_BLOCK_HOURS = 0.5;
+
+export interface PlacedEvent {
+  readonly item: MyActivity;
+  /** Hours after local midnight of the day it is drawn on. */
+  readonly start: number;
+  readonly end: number;
+  /** Side-by-side lanes for events that overlap, as the design packs them. */
+  readonly lane: number;
+  readonly lanes: number;
+}
+
+function hoursInto(day: Date, at: Date): number {
+  return (at.getTime() - day.getTime()) / HOUR_MS;
+}
+
+/**
+ * One day's events as blocks: a meeting from its start to its end, a task as
+ * half an hour from its due time, each clipped to the day. Overlapping blocks
+ * share the width in lanes; a block alone takes all of it.
+ */
+export function placeOnDay(items: readonly MyActivity[], day: Date): PlacedEvent[] {
+  const next = addDays(day, 1);
+  const blocks = items
+    .map((item) => {
+      const start = eventStart(item);
+      if (start === null) return null;
+      const from = new Date(start);
+      const until = item.type === 'meeting' && typeof item.endsAt === 'string' ? new Date(item.endsAt) : new Date(from.getTime() + TASK_BLOCK_HOURS * HOUR_MS);
+      const clippedFrom = from < day ? day : from;
+      const clippedTo = until > next ? next : until;
+      return { item, start: hoursInto(day, clippedFrom), end: Math.max(hoursInto(day, clippedTo), hoursInto(day, clippedFrom) + 0.25) };
+    })
+    .filter((block): block is { item: MyActivity; start: number; end: number } => block !== null)
+    .sort((a, b) => a.start - b.start || b.end - a.end);
+  const placed: PlacedEvent[] = [];
+  let cluster: { item: MyActivity; start: number; end: number; lane: number }[] = [];
+  let clusterEnd = -1;
+  let ends: number[] = [];
+  const flush = () => {
+    const lanes = cluster.reduce((most, block) => Math.max(most, block.lane + 1), 1);
+    for (const block of cluster) placed.push({ ...block, lanes });
+    cluster = [];
+    ends = [];
+  };
+  for (const block of blocks) {
+    if (block.start >= clusterEnd) flush();
+    let lane = ends.findIndex((end) => end <= block.start);
+    if (lane < 0) {
+      lane = ends.length;
+      ends.push(0);
+    }
+    ends[lane] = block.end;
+    cluster.push({ ...block, lane });
+    clusterEnd = Math.max(clusterEnd, block.end);
+  }
+  flush();
+  return placed;
+}
+
+/** The hours the grid shows: the design's 08:00–18:00, widened to the earliest and latest event. */
+export function gridHours(days: readonly (readonly PlacedEvent[])[]): { first: number; last: number } {
+  let first = GRID_FIRST_HOUR;
+  let last = GRID_LAST_HOUR;
+  for (const events of days) {
+    for (const event of events) {
+      first = Math.min(first, Math.floor(event.start));
+      last = Math.max(last, Math.ceil(event.end));
+    }
+  }
+  return { first: Math.max(0, first), last: Math.min(24, last) };
+}
+
+/** `true` when two of the day's blocks overlap: the design marks both. */
+export function overlapping(events: readonly PlacedEvent[]): Set<string> {
+  const ids = new Set<string>();
+  for (const event of events) if (event.lanes > 1) ids.add(event.item.id);
+  return ids;
 }
 
 // ---------------------------------------------------------------------------
