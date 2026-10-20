@@ -2,9 +2,8 @@
 
 import { useId, useState, type ReactNode, type RefObject } from 'react';
 import { cx } from './class-names';
-import { OverlayCloseButton } from './dialog';
+import { OverlayCloseButton, OverlayLayer } from './dialog';
 import { useOverlay, useScrollEdges } from './overlay';
-import { Portal } from './portal';
 
 /**
  * The right drawer and the bottom sheet, to the v1.1 Patterns page ("J ·
@@ -40,6 +39,8 @@ export interface SidePanelProps {
   readonly closeLabel: string;
   readonly modal?: boolean | undefined;
   readonly initialFocus?: RefObject<HTMLElement | null> | undefined;
+  /** Draw it in place inside a positioned frame: the gallery's specimens. */
+  readonly preview?: boolean | undefined;
 }
 
 type Form = 'drawer' | 'sheet';
@@ -100,29 +101,35 @@ function SidePanel({
   closeLabel,
   modal = true,
   initialFocus,
+  preview = false,
 }: SidePanelProps & { readonly form: Form }) {
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const titleId = useId();
   const { bodyRef, scrolled, more } = useScrollEdges(open && panel !== null);
-  useOverlay({ open, onClose, panel, modal, initialFocus });
+  useOverlay({ open: open && !preview, onClose, panel, modal, initialFocus });
 
   if (!open) return null;
   const hasFooter = primaryAction !== undefined || secondaryAction !== undefined;
 
   return (
-    <Portal>
+    <OverlayLayer preview={preview}>
       {modal ? (
-        <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-50 animate-fade-in bg-scrim" />
+        <div
+          aria-hidden="true"
+          onClick={onClose}
+          className={cx('inset-0 animate-fade-in bg-scrim', preview ? 'absolute' : 'fixed z-50')}
+        />
       ) : null}
       <div
         ref={setPanel}
         role="dialog"
-        aria-modal={modal ? 'true' : undefined}
+        aria-modal={modal && !preview ? 'true' : undefined}
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cx(
           'z-50 flex min-h-0 flex-col bg-surface-raised text-text shadow-3 outline-none',
           PANEL[form],
+          preview && '!absolute !animate-none',
         )}
       >
         <span
@@ -166,7 +173,7 @@ function SidePanel({
           </div>
         ) : null}
       </div>
-    </Portal>
+    </OverlayLayer>
   );
 }
 

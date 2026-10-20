@@ -239,6 +239,8 @@ module.exports = {
     'overlay-table-footer': 'var(--k-overlay-table-footer)',
     'overlay-pager-item': 'var(--k-overlay-pager-item)',
     'overlay-empty-text': 'var(--k-overlay-empty-text)',
+    'overlay-preview-frame': 'var(--k-overlay-preview-frame)',
+    'overlay-preview-frame-compact': 'var(--k-overlay-preview-frame-compact)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',

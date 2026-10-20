@@ -380,6 +380,8 @@ export const CONTROL_SHADOW = {
  *   tableFooter     56  the table footer: Showing, rows per page, pager (P04)
  *   pagerItem       30  a rows-per-page segment in that footer (P04)
  *   emptyText      280  an empty state's centred body line (v1.1 Components)
+ *   previewFrame   480  the Patterns page's drawer and modal specimen tiles,
+ *                       and 560 for its phone specimens (/design/components-2)
  *
  * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
  * `h-overlay-table-footer`.
@@ -394,6 +396,8 @@ export const OVERLAY = {
   tableFooter: '56px',
   pagerItem: '30px',
   emptyText: '280px',
+  previewFrame: '480px',
+  previewFrameCompact: '560px',
 } as const;
 
 /**

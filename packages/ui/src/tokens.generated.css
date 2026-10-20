@@ -244,6 +244,8 @@
   --k-overlay-table-footer: 56px;
   --k-overlay-pager-item: 30px;
   --k-overlay-empty-text: 280px;
+  --k-overlay-preview-frame: 480px;
+  --k-overlay-preview-frame-compact: 560px;
   --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */

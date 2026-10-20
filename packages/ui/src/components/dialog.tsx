@@ -78,6 +78,22 @@ export interface DialogProps {
   readonly size?: DialogSize | undefined;
   /** What to focus on open, instead of the first field. */
   readonly initialFocus?: RefObject<HTMLElement | null> | undefined;
+  /**
+   * Draw it in place, inside a positioned frame, with no portal, focus trap
+   * or scroll lock: the /design/components-2 gallery's specimens.
+   */
+  readonly preview?: boolean | undefined;
+}
+
+/** A portal for a live overlay; the children as they are for a preview. */
+export function OverlayLayer({
+  preview,
+  children,
+}: {
+  readonly preview: boolean;
+  readonly children: ReactNode;
+}) {
+  return preview ? children : <Portal>{children}</Portal>;
 }
 
 export function Dialog({
@@ -91,29 +107,36 @@ export function Dialog({
   closeLabel,
   size = 'form',
   initialFocus,
+  preview = false,
 }: DialogProps) {
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const titleId = useId();
   const { bodyRef, scrolled, more } = useScrollEdges(open && panel !== null);
-  useOverlay({ open, onClose, panel, modal: true, initialFocus });
+  useOverlay({ open: open && !preview, onClose, panel, modal: true, initialFocus });
 
   if (!open) return null;
   const hasFooter = primaryAction !== undefined || secondaryAction !== undefined;
 
   return (
-    <Portal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 max-sm:p-0">
+    <OverlayLayer preview={preview}>
+      <div
+        className={cx(
+          'inset-0 flex items-center justify-center p-6 max-sm:p-0',
+          preview ? 'absolute' : 'fixed z-50',
+        )}
+      >
         <div aria-hidden="true" onClick={onClose} className="absolute inset-0 animate-fade-in bg-scrim" />
         <div
           ref={setPanel}
           role="dialog"
-          aria-modal="true"
+          aria-modal={preview ? undefined : 'true'}
           aria-labelledby={titleId}
           tabIndex={-1}
           className={cx(
-            'relative flex w-full min-h-0 animate-pop-in flex-col overflow-hidden bg-surface-raised text-text shadow-3 outline-none',
-            'h-full sm:h-auto sm:max-h-[85vh] sm:rounded-14',
+            'relative flex w-full min-h-0 flex-col overflow-hidden bg-surface-raised text-text shadow-3 outline-none',
+            preview ? 'h-full sm:h-auto sm:max-h-full sm:rounded-14' : 'h-full sm:h-auto sm:max-h-[85vh] sm:rounded-14',
             WIDTH[size],
+            !preview && 'animate-pop-in',
           )}
         >
           <div
@@ -164,7 +187,7 @@ export function Dialog({
           ) : null}
         </div>
       </div>
-    </Portal>
+    </OverlayLayer>
   );
 }
 
