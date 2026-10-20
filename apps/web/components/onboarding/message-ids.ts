@@ -84,12 +84,8 @@ export const VERIFY_MESSAGE_IDS: readonly MessageId[] = [
 
 /** The wizard frame shared by `P01/5.1`–`5.5`. */
 const WIZARD_FRAME_IDS: readonly MessageId[] = [
-  'app.name',
-  'auth.topbar.language',
-  'auth.topbar.language.current',
-  'auth.topbar.lite',
-  'auth.topbar.lite.on',
-  'auth.topbar.lite.toggle',
+  // The whole auth frame: P01/6 sits in it, brand panel included (T-0131).
+  ...SHELL_MESSAGE_IDS,
   'onboarding.progress',
   'onboarding.stepOf',
   'onboarding.step.region',
@@ -99,6 +95,7 @@ const WIZARD_FRAME_IDS: readonly MessageId[] = [
   'onboarding.step.team',
   'onboarding.back',
   'onboarding.skip',
+  'onboarding.skip.short',
   'onboarding.continue',
   'onboarding.finish',
 ];
@@ -229,6 +226,7 @@ export const ONBOARDING_MESSAGE_IDS: readonly MessageId[] = [
   'done.action.review',
   'done.action.invite',
   'done.home',
+  'done.tour',
 ];
 
 /**

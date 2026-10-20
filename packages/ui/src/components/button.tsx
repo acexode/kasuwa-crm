@@ -27,7 +27,7 @@ import { Spinner } from './spinner';
  */
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'default' | 'compact';
+export type ButtonSize = 'default' | 'compact' | 'large';
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
@@ -43,16 +43,19 @@ const VARIANT: Record<ButtonVariant, string> = {
 };
 
 const BASE =
-  'relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-md border px-3 transition-colors duration-instant is-focus-visible:ring-focus is-active:translate-y-px disabled:cursor-not-allowed';
+  'relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-md border transition-colors duration-instant is-focus-visible:ring-focus is-active:translate-y-px disabled:cursor-not-allowed';
 
 const SIZE: Record<ButtonSize, string> = {
-  default: 'h-control-base text-label',
+  default: 'h-control-base px-3 text-label',
+  // The P01 auth and setup buttons (T-0131): 48px, padding 0 14px.
+  large: 'h-control-lg px-3.5 text-label',
   compact:
-    'h-control-base text-label md:h-control-sm md:text-meta md:font-semibold md:before:absolute md:before:inset-x-0 md:before:-inset-y-1',
+    'h-control-base px-3 text-label md:h-control-sm md:text-meta md:font-semibold md:before:absolute md:before:inset-x-0 md:before:-inset-y-1',
 };
 
 const ICON_SIZE: Record<ButtonSize, string | undefined> = {
   default: undefined,
+  large: undefined,
   compact: 'md:text-icon-18',
 };
 
@@ -105,7 +108,13 @@ export function Button({
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
       onClick={loading ? undefined : onClick}
-      className={cx(BASE, SIZE[size], VARIANT[variant], className)}
+      className={cx(
+        BASE,
+        // A large primary sets its label at 16/600, the export's main action.
+        size === 'large' && variant === 'primary' ? 'h-control-lg px-3.5 text-body-md font-semibold' : SIZE[size],
+        VARIANT[variant],
+        className,
+      )}
       {...rest}
     >
       {loadingLabel === undefined ? (

@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
+import { Button } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
 import { AuthShell } from '../auth/auth-shell';
 import { shellStrings } from '../auth/shell-strings';
-import { LINK, PRIMARY_BUTTON } from '../auth/button-classes';
+import { AUTH_COLUMN, PAGE_SUBTITLE, PAGE_TITLE } from '../auth/auth-classes';
+import { Emphasis } from '../auth/rich-text';
 import { OtpInput } from '../auth/otp-input';
 import { ResendControl } from '../auth/resend-control';
 import type { LanguageOption } from '../auth/language-menu';
@@ -69,13 +71,16 @@ export function VerifyScreen({
 
   if (verificationId === '') {
     return (
-      <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale} showPanel={false}>
-        <section data-screen="P01/4" className="flex w-full max-w-lg flex-col gap-4">
-          <h1 className="text-h3 text-text">{t.t('verify.title')}</h1>
-          <p role="alert" className="text-body-md text-text-2">
+      <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale}>
+        <section data-screen="P01/4" className={AUTH_COLUMN}>
+          <h1 className={PAGE_TITLE}>{t.t('verify.title')}</h1>
+          <p role="alert" className={PAGE_SUBTITLE}>
             {t.t('verify.missing')}
           </p>
-          <a href="/sign-up" className={PRIMARY_BUTTON}>
+          <a
+            href="/sign-up"
+            className="flex h-control-lg items-center justify-center rounded-md bg-primary px-3.5 text-body-md font-semibold text-on-primary hover:bg-primary-hover focus-visible:ring-focus"
+          >
             {t.t('verify.restart')}
           </a>
         </section>
@@ -123,11 +128,11 @@ export function VerifyScreen({
   const attempts = error?.attemptsRemaining;
 
   return (
-    <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale} showPanel={false}>
-      <section data-screen="P01/4" className="flex w-full max-w-lg flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-h3 text-text">{t.t('verify.title')}</h1>
-          <p className="text-body-md text-text-2">{t.t('verify.subtitle')}</p>
+    <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale}>
+      <section data-screen="P01/4" className="my-auto flex w-full max-w-layout-column-verify flex-col gap-4.5">
+        <div className="flex flex-col gap-1.5">
+          <h1 className={PAGE_TITLE}>{t.t('verify.title')}</h1>
+          <p className={PAGE_SUBTITLE}>{t.t('verify.subtitle')}</p>
         </div>
 
         <div
@@ -136,14 +141,14 @@ export function VerifyScreen({
           className="flex gap-3 rounded-lg border border-border bg-surface p-4"
         >
           <span
-            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+            className={`flex size-10 flex-shrink-0 items-center justify-center rounded-full ${
               emailVerified ? 'bg-success-soft text-success-text' : 'bg-info-soft text-info-text'
             }`}
           >
-            <Icon name="mail" />
+            <Icon name={emailVerified ? 'mark_email_read' : 'mail'} size={22} />
           </span>
-          <div className="flex flex-1 flex-col gap-1">
-            <strong className="text-body-md">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <strong className="text-label font-bold">
               {t.t(emailVerified ? 'verify.email.done' : 'verify.email.waiting')}
             </strong>
             {emailHint !== null ? (
@@ -151,7 +156,7 @@ export function VerifyScreen({
             ) : null}
           </div>
           <span
-            className={`self-start rounded-full px-2 text-caption font-bold ${
+            className={`self-start rounded-full px-2 py-0.5 text-caption font-bold ${
               emailVerified ? 'bg-success-soft text-success-text' : 'bg-surface-sunken text-text-2'
             }`}
           >
@@ -159,87 +164,95 @@ export function VerifyScreen({
           </span>
         </div>
 
-        <form
-          onSubmit={submit}
-          noValidate
-          className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
-        >
-          <div className="flex gap-3">
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-text">
-              <Icon name="sms" />
-            </span>
-            <div className="flex flex-col gap-1">
-              <strong className="text-body-md">{t.t('verify.phone.title')}</strong>
-              <span className="text-body-sm text-text-2">
-                {phoneHint !== null ? (
-                  <span dir="ltr" className="font-mono">
-                    {t.t('verify.sentTo', { hint: phoneHint })}
-                  </span>
-                ) : null}{' '}
-                <a href="/sign-up" className={LINK}>
-                  {t.t('verify.phone.change')}
-                </a>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4.5">
+          {/* The current step: a primary edge, and the code entry inside it. */}
+          <div className="flex flex-col gap-3.5 rounded-lg border border-primary bg-surface p-4">
+            <div className="flex gap-3">
+              <span className="flex size-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+                <Icon name="sms" size={22} />
               </span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <strong className="text-label font-bold">{t.t('verify.phone.title')}</strong>
+                <span className="text-body-sm text-text-2">
+                  {phoneHint !== null ? (
+                    <Emphasis
+                      sentence={(hint) => t.t('verify.sentTo', { hint: hint ?? '' })}
+                      values={[
+                        <span key="hint" dir="ltr" className="font-mono">
+                          {phoneHint}
+                        </span>,
+                      ]}
+                    />
+                  ) : null}
+                  {phoneHint !== null ? ' · ' : null}
+                  <a href="/sign-up" className="rounded-sm font-bold text-primary-text focus-visible:ring-focus">
+                    {t.t('verify.phone.change')}
+                  </a>
+                </span>
+              </div>
             </div>
+
+            <OtpInput
+              value={code}
+              onChange={setCode}
+              groupLabel={t.t('auth.mfa.code.label')}
+              digitLabel={(position) => t.t('auth.mfa.code.digit', { position })}
+              invalid={error !== undefined && error.code.startsWith('otp_')}
+              disabled={pending}
+            />
+
+            {error !== undefined || waitingForEmail ? (
+              <div
+                ref={alertRef}
+                role="alert"
+                tabIndex={-1}
+                data-testid="verify-error"
+                data-error-code={error?.code ?? 'verify_email'}
+                className="flex gap-2 text-body-sm text-danger-text outline-offset-2"
+              >
+                <Icon name={error?.code === 'otp_expired' ? 'timer_off' : 'error'} size={20} />
+                <span className="flex flex-col gap-1">
+                  <strong>
+                    {error !== undefined
+                      ? t.t(`auth.error.${error.code}` as MessageId)
+                      : t.t('verify.emailPending')}
+                  </strong>
+                  {typeof attempts === 'number' ? (
+                    <span data-testid="otp-attempts">{t.t('auth.attemptsRemaining', { count: attempts })}</span>
+                  ) : null}
+                  {error?.retryAt !== undefined ? (
+                    <span data-testid="otp-retry">
+                      {t.t('auth.locked.retryAt', formatRetryTime(error.retryAt, error.timeZone, locale))}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            ) : null}
+
+            <ResendControl
+              resendAt={resendAt}
+              waitingLabel={(clock) => t.t('auth.mfa.resend.in', { clock })}
+              nowLabel={t.t('auth.mfa.resend.now')}
+              onResend={() => void resend()}
+              disabled={pending}
+              testIdPrefix="verify-resend"
+            />
           </div>
 
-          <OtpInput
-            value={code}
-            onChange={setCode}
-            groupLabel={t.t('auth.mfa.code.label')}
-            digitLabel={(position) => t.t('auth.mfa.code.digit', { position })}
-            invalid={error !== undefined && error.code.startsWith('otp_')}
-            disabled={pending}
-          />
-
-          {error !== undefined || waitingForEmail ? (
-            <div
-              ref={alertRef}
-              role="alert"
-              tabIndex={-1}
-              data-testid="verify-error"
-              data-error-code={error?.code ?? 'verify_email'}
-              className="flex gap-3 rounded-lg bg-danger-soft p-3 text-body-sm text-danger-text"
-            >
-              <Icon name={error?.code === 'otp_expired' ? 'timer_off' : 'error'} />
-              <span className="flex flex-col gap-1">
-                <strong>
-                  {error !== undefined
-                    ? t.t(`auth.error.${error.code}` as MessageId)
-                    : t.t('verify.emailPending')}
-                </strong>
-                {typeof attempts === 'number' ? (
-                  <span data-testid="otp-attempts">{t.t('auth.attemptsRemaining', { count: attempts })}</span>
-                ) : null}
-                {error?.retryAt !== undefined ? (
-                  <span data-testid="otp-retry">
-                    {t.t('auth.locked.retryAt', formatRetryTime(error.retryAt, error.timeZone, locale))}
-                  </span>
-                ) : null}
-              </span>
-            </div>
-          ) : null}
-
-          <ResendControl
-            resendAt={resendAt}
-            waitingLabel={(clock) => t.t('auth.mfa.resend.in', { clock })}
-            nowLabel={t.t('auth.mfa.resend.now')}
-            onResend={() => void resend()}
-            disabled={pending}
-            testIdPrefix="verify-resend"
-          />
-
-          <button
+          <Button
             type="submit"
-            disabled={pending || code.length < CODE_LENGTH}
+            variant="primary"
+            size="large"
+            loading={pending}
+            loadingLabel={t.t('auth.mfa.verifying')}
             data-testid="verify-submit"
-            className={PRIMARY_BUTTON}
+            className="w-full"
           >
-            {t.t(pending ? 'auth.mfa.verifying' : 'verify.submit')}
-          </button>
+            {t.t('verify.submit')}
+          </Button>
         </form>
 
-        <p className="text-caption text-text-muted">{t.t('verify.help')}</p>
+        <p className="text-meta text-text-muted">{t.t('verify.help')}</p>
       </section>
     </AuthShell>
   );

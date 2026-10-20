@@ -23,5 +23,8 @@ export function shellStrings(t: Translator): ShellStrings {
     trustEncryption: t.t('auth.panel.trust.encryption'),
     trustCompliance: t.t('auth.panel.trust.compliance'),
     trustResidency: t.t('auth.panel.trust.residency'),
+    footerEncryption: t.t('auth.footer.encryption'),
+    footerCompliance: t.t('auth.footer.compliance'),
+    footerResidency: t.t('auth.footer.residency'),
   };
 }

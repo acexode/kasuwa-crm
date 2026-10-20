@@ -306,6 +306,29 @@ export const SHELL = {
 } as const;
 
 /**
+ * Page-column widths (T-0131), from the P01 export (`Kasuwa Auth and
+ * Onboarding`). Every auth and setup screen sits in one of these; the nearest
+ * Tailwind widths (448/512/576/672) made each screen looser than its design.
+ *
+ *   authPanel      520  the brand panel beside every auth screen, desktop
+ *   authHeader      64  the auth and setup top bar
+ *   column         400  sign in, SSO, locked, slow, two-step verification
+ *   columnVerify   440  sign-up verification (P01/4)
+ *   columnWide     520  sign up (P01/3) and setup complete (P01/6)
+ *   wizard         640  the setup wizard's step body (P01/5.x)
+ *   wizardStepper  880  the setup wizard's stepper
+ */
+export const LAYOUT = {
+  authPanel: '520px',
+  authHeader: '64px',
+  column: '400px',
+  columnVerify: '440px',
+  columnWide: '520px',
+  wizard: '640px',
+  wizardStepper: '880px',
+} as const;
+
+/**
  * Focus treatments (T-0127), from the v1.1 Components page. Two shapes, not one:
  *
  *   ring   buttons, checkboxes, radios, chips: a 2px surface gap, then a 2px
