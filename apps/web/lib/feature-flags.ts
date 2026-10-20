@@ -155,12 +155,36 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
 }
 
 /**
+ * The CRM nav entries for modules that are not built (T-0130, D-L194), each
+ * behind its module's own flag. On, the shell draws the entry in its disabled
+ * state, as the design draws it; off, the entry is not drawn. `crmLiveNav()`
+ * reports each as `placeholder:<id>`. Presentation only: grants nothing.
+ */
+const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'reports'] as const;
+
+const PLACEHOLDER_FLAG = {
+  inbox: 'crm_inbox',
+  tickets: 'crm_tickets',
+  calls: 'crm_calls',
+  reports: 'crm_reports',
+} as const satisfies Record<(typeof UNBUILT_NAV)[number], string>;
+
+async function crmPlaceholderEnabled(id: (typeof UNBUILT_NAV)[number]): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    PLACEHOLDER_FLAG[id],
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
  * The CRM shell's nav entries whose ROUTE is on in this process, by nav id.
  * An entry links only to a screen that answers; one whose flag is off is drawn
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications] = await Promise.all([
+  const [contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, ...placeholders] = await Promise.all([
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -171,8 +195,11 @@ export async function crmLiveNav(): Promise<string[]> {
     crmDuplicatesEnabled(),
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
+    ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
   return [
+    // The rail's entries for unbuilt modules (T-0130, D-L194): drawn, disabled, only where their flag is on.
+    ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
     ...(accounts ? ['accounts'] : []),

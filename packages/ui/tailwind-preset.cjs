@@ -183,6 +183,8 @@ module.exports = {
     'label': ['var(--k-font-size-label)', { lineHeight: 'var(--k-line-height-label)', fontWeight: 'var(--k-font-weight-label)', letterSpacing: 'var(--k-tracking-label)' }],
     'meta': ['var(--k-font-size-meta)', { lineHeight: 'var(--k-line-height-meta)', fontWeight: 'var(--k-font-weight-meta)', letterSpacing: 'var(--k-tracking-meta)' }],
     'micro': ['var(--k-font-size-micro)', { lineHeight: 'var(--k-line-height-micro)', fontWeight: 'var(--k-font-weight-micro)', letterSpacing: 'var(--k-tracking-micro)' }],
+    'logo': ['var(--k-font-size-logo)', { lineHeight: 'var(--k-line-height-logo)', fontWeight: 'var(--k-font-weight-logo)', letterSpacing: 'var(--k-tracking-logo)' }],
+    'rail-label': ['var(--k-font-size-rail-label)', { lineHeight: 'var(--k-line-height-rail-label)', fontWeight: 'var(--k-font-weight-rail-label)', letterSpacing: 'var(--k-tracking-rail-label)' }],
     'overline': ['var(--k-font-size-overline)', { lineHeight: 'var(--k-line-height-overline)', fontWeight: 'var(--k-font-weight-overline)', letterSpacing: 'var(--k-tracking-overline)' }],
     'icon-14': 'var(--k-icon-size-14)',
     'icon-15': 'var(--k-icon-size-15)',
@@ -226,6 +228,8 @@ module.exports = {
     'shell-admin-nav': 'var(--k-shell-admin-nav)',
     'shell-bottom-bar': 'var(--k-shell-bottom-bar)',
     'shell-mobile-header': 'var(--k-shell-mobile-header)',
+    'shell-search': 'var(--k-shell-search)',
+    'shell-fab': 'var(--k-shell-fab)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',
