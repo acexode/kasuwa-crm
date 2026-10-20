@@ -255,7 +255,9 @@ async function captureApp(prefixes) {
     prefixes.length === 0 || prefixes.some((prefix) => name.startsWith(prefix));
   const browser = await chromium.launch();
   try {
-    const signedOut = await browser.newContext();
+    // The designs are drawn on a Lagos desk ("All times WAT"); shoot in that zone, not the host's (T-0134).
+    const desk = { timezoneId: 'Africa/Lagos' };
+    const signedOut = await browser.newContext(desk);
     const anon = await signedOut.newPage();
     for (const [name, path] of [
       ['p01-signin', '/'],
@@ -279,7 +281,7 @@ async function captureApp(prefixes) {
     }
     await signedOut.close();
 
-    const context = await browser.newContext();
+    const context = await browser.newContext(desk);
     const page = await context.newPage();
     await signIn(page, role);
     const get = (path) =>
@@ -315,7 +317,7 @@ async function captureApp(prefixes) {
     }
     const programme = '11111111-0000-4000-8000-0000000c0001';
     const SCREENS = [
-      ['p03-home', '/'],
+      ['p03-home', '/home'],
       ['p04-contacts', '/contacts'],
       ['p04-leads', '/leads'],
       ['p04-accounts', '/accounts'],
@@ -339,6 +341,7 @@ async function captureApp(prefixes) {
       ['p28-import', '/contacts/import'],
       ['p28-duplicates', '/contacts/duplicates'],
       ['p01-onboarding', '/onboarding'],
+      ['design-components-2', '/design/components-2'],
     ];
     for (const [name, path] of SCREENS) {
       if (!wanted(name) || path.includes('undefined')) continue;

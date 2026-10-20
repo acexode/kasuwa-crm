@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
+import { Button, Checkbox } from '@kasuwa/ui/components';
+import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { AuthShell } from './auth-shell';
 import { shellStrings } from './shell-strings';
-import { PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from './button-classes';
+import { AUTH_COLUMN, ICON_DISC, PAGE_SUBTITLE, PAGE_TITLE, SECTION_LABEL } from './auth-classes';
+import { LeadSentence } from './rich-text';
 import { OtpInput } from './otp-input';
 import { ResendControl } from './resend-control';
 import {
@@ -23,6 +26,13 @@ import {
   rememberSmsOption,
   smsOptionHint,
 } from '../../lib/mfa-sms-option';
+import {
+  availableFallbacks,
+  forgetFallbacks,
+  recallFallbacks,
+  rememberFallbacks,
+  type MfaFallback,
+} from '../../lib/mfa-fallbacks';
 import type { LanguageOption } from './language-menu';
 
 const CODE_LENGTH = 6;
@@ -60,10 +70,15 @@ export function MfaScreen({
   const [error, setError] = useState<ScreenError | undefined>(undefined);
   const alertRef = useRef<HTMLDivElement>(null);
 
+  // Passkey and backup code, under the same rule (T-0131): hidden until the
+  // challenge says the method is available.
+  const [fallbacks, setFallbacks] = useState<readonly MfaFallback[]>([]);
+
   useEffect(() => {
     const remembered = recallSmsOption(browserSessionStore(), challengeId);
     setSmsOffer(remembered);
     setHint((current) => current ?? remembered);
+    setFallbacks(recallFallbacks(browserSessionStore(), challengeId));
   }, [challengeId]);
 
   useEffect(() => {
@@ -79,6 +94,15 @@ export function MfaScreen({
     async (event: React.FormEvent) => {
       event.preventDefault();
       if (pending) return;
+
+      if (!expired && code.length < CODE_LENGTH) {
+        // The button stays at full colour, as the board draws it; an
+        // incomplete code is answered by putting the caret where the next
+        // digit goes.
+        const cells = document.querySelectorAll<HTMLInputElement>('[data-testid="otp-input"] input');
+        cells[Math.min(code.length, CODE_LENGTH - 1)]?.focus();
+        return;
+      }
 
       if (expired) {
         setPending(true);
@@ -101,6 +125,7 @@ export function MfaScreen({
 
       if (result.ok) {
         forgetSmsOption(browserSessionStore(), challengeId);
+        forgetFallbacks(browserSessionStore(), challengeId);
         // The BFF has set the session cookie (the body carries no token,
         // ADR-0019 point 3). Straight to the landing the server chose, with no
         // redirect hop on the way: a hop through `/` makes the router abort
@@ -125,6 +150,9 @@ export function MfaScreen({
     const offer = smsOptionHint(challenge.methods);
     setSmsOffer(offer);
     rememberSmsOption(browserSessionStore(), challengeId, offer);
+    const nextFallbacks = availableFallbacks(challenge.methods);
+    setFallbacks(nextFallbacks);
+    rememberFallbacks(browserSessionStore(), challengeId, nextFallbacks);
   }
 
   const switchTo = useCallback(
@@ -146,18 +174,14 @@ export function MfaScreen({
   const attempts = error?.attemptsRemaining;
 
   return (
-    <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale} showPanel={false}>
-      <section data-screen={screenId} className="flex w-full max-w-lg flex-col gap-5">
-        <span
-          className={`flex h-16 w-16 items-center justify-center rounded-full ${
-            expired ? 'bg-danger-soft text-danger-text' : 'bg-primary-soft text-primary-text'
-          }`}
-        >
-          <Icon name={expired ? 'timer_off' : method === 'sms' ? 'sms' : 'phone_iphone'} size="xl" />
+    <AuthShell strings={shellStrings(t)} locales={locales} currentLocale={locale}>
+      <section data-screen={screenId} className={AUTH_COLUMN}>
+        <span className={`${ICON_DISC} bg-primary-soft text-primary-text`}>
+          <Icon name={expired ? 'timer_off' : method === 'sms' ? 'sms' : 'phone_iphone'} size={28} />
         </span>
 
-        <div className="flex flex-col gap-2">
-          <h1 className="text-h3 text-text">
+        <div className="flex flex-col gap-1.5">
+          <h1 className={PAGE_TITLE}>
             {t.t(
               expired
                 ? 'auth.mfa.title.expired'
@@ -166,14 +190,14 @@ export function MfaScreen({
                   : 'auth.mfa.title.app',
             )}
           </h1>
-          <p className="text-body-md text-text-2">
+          <p className={`${PAGE_SUBTITLE} text-pretty`}>
             {method === 'sms'
               ? t.t('auth.mfa.body.sms', { hint: hint ?? '' })
               : t.t('auth.mfa.body.app')}
           </p>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+        <form onSubmit={submit} className="flex flex-col gap-4.5" noValidate>
           <OtpInput
             value={code}
             onChange={setCode}
@@ -190,11 +214,11 @@ export function MfaScreen({
               tabIndex={-1}
               data-testid="mfa-error"
               data-error-code={error.code}
-              className="flex gap-3 rounded-lg bg-danger-soft p-3 text-body-sm text-danger-text"
+              className="flex gap-2 text-body-sm text-danger-text outline-offset-2"
             >
-              <Icon name={expired ? 'timer_off' : 'error'} />
+              <Icon name={expired ? 'timer_off' : 'error'} size={20} />
               <span>
-                <strong>{t.t(`auth.error.${error.code}` as MessageId)}</strong>
+                <LeadSentence text={t.t(`auth.error.${error.code}` as MessageId)} locale={locale} />
                 {typeof attempts === 'number' ? (
                   <span> {t.t('auth.attemptsRemaining', { count: attempts })}</span>
                 ) : null}
@@ -203,84 +227,106 @@ export function MfaScreen({
           ) : null}
 
           {method === 'sms' && !expired ? (
-            <ResendControl
-              resendAt={resendAt}
-              waitingLabel={(clock) => t.t('auth.mfa.resend.in', { clock })}
-              nowLabel={t.t('auth.mfa.resend.now')}
-              onResend={() => void switchTo('sms')}
-              disabled={pending}
-            />
+            <>
+              <ResendControl
+                resendAt={resendAt}
+                waitingLabel={(clock) => t.t('auth.mfa.resend.in', { clock })}
+                nowLabel={t.t('auth.mfa.resend.now')}
+                onResend={() => void switchTo('sms')}
+                disabled={pending}
+              />
+              <p className="text-meta text-text-muted">
+                {t.t('auth.mfa.sms.slow')}{' '}
+                <button
+                  type="button"
+                  className="rounded-sm font-bold text-primary-text underline-offset-2 hover:underline focus-visible:ring-focus"
+                >
+                  {t.t('auth.mfa.sms.voice')}
+                </button>
+              </p>
+            </>
           ) : null}
 
-          <button
+          <Button
             type="submit"
-            disabled={pending || (!expired && code.length < CODE_LENGTH)}
+            variant="primary"
+            size="large"
+            loading={pending}
             data-testid="mfa-submit"
-            className={PRIMARY_BUTTON}
+            className="w-full"
           >
             {t.t(expired ? 'auth.mfa.sendNew' : pending ? 'auth.mfa.verifying' : 'auth.mfa.verify')}
-          </button>
+          </Button>
         </form>
 
         {method === 'totp' && !expired ? (
-          <label className="flex min-h-touch items-center gap-3 text-body-sm">
-            <input type="checkbox" name="trustDevice" className="h-5 w-5 accent-primary" />
-            {t.t('auth.mfa.trustDevice')}
-          </label>
+          <Checkbox name="trustDevice" label={t.t('auth.mfa.trustDevice')} />
         ) : null}
 
-        {method === 'sms' && !expired ? (
-          <p className="text-caption text-text-muted">
-            {t.t('auth.mfa.sms.slow')}{' '}
-            <button type="button" className={QUIET_BUTTON}>
-              {t.t('auth.mfa.sms.voice')}
-            </button>
-          </p>
-        ) : null}
-
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <h2 className="text-h6 text-text-muted">{t.t('auth.mfa.alternatives')}</h2>
+        <div className="flex flex-col border-t border-border pt-2">
+          <h2 className={`${SECTION_LABEL} py-1.5`}>{t.t('auth.mfa.alternatives')}</h2>
           {method === 'totp' ? (
             <>
-              <button type="button" className={SECONDARY_BUTTON}>
-                <Icon name="passkey" />
-                {t.t('auth.mfa.alt.passkey')}
-              </button>
-              {smsOffer !== null ? (
-                <button
-                  type="button"
-                  data-testid="switch-to-sms"
-                  onClick={() => void switchTo('sms')}
-                  className={SECONDARY_BUTTON}
-                >
-                  <Icon name="sms" />
-                  {t.t('auth.mfa.alt.sms', { hint: smsOffer })}
-                </button>
+              {fallbacks.includes('passkey') ? (
+                <AlternativeRow icon="passkey" label={t.t('auth.mfa.alt.passkey')} />
               ) : null}
-              <button type="button" onClick={() => void switchTo('backup_code')} className={SECONDARY_BUTTON}>
-                <Icon name="key" />
-                {t.t('auth.mfa.alt.backup')}
-              </button>
+              {smsOffer !== null ? (
+                <AlternativeRow
+                  icon="sms"
+                  testId="switch-to-sms"
+                  label={t.t('auth.mfa.alt.sms', { hint: smsOffer })}
+                  onClick={() => void switchTo('sms')}
+                />
+              ) : null}
+              {fallbacks.includes('backup_code') ? (
+                <AlternativeRow
+                  icon="key"
+                  label={t.t('auth.mfa.alt.backup')}
+                  onClick={() => void switchTo('backup_code')}
+                />
+              ) : null}
             </>
           ) : (
             <>
-              <button
-                type="button"
-                data-testid="switch-to-app"
+              <AlternativeRow
+                icon="phone_iphone"
+                testId="switch-to-app"
+                label={t.t('auth.mfa.alt.app')}
                 onClick={() => void switchTo('totp')}
-                className={SECONDARY_BUTTON}
-              >
-                <Icon name="phone_iphone" />
-                {t.t('auth.mfa.alt.app')}
-              </button>
-              <button type="button" className={SECONDARY_BUTTON}>
-                <Icon name="passkey" />
-                {t.t('auth.mfa.alt.passkey')}
-              </button>
+              />
+              {fallbacks.includes('passkey') ? (
+                <AlternativeRow icon="passkey" label={t.t('auth.mfa.alt.passkey')} />
+              ) : null}
             </>
           )}
         </div>
       </section>
     </AuthShell>
+  );
+}
+
+/** One "Other ways to verify" row: a divided, full-width row with a chevron. */
+function AlternativeRow({
+  icon,
+  label,
+  testId,
+  onClick,
+}: {
+  icon: IconName;
+  label: string;
+  testId?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      onClick={onClick}
+      className="flex min-h-control-lg w-full items-center gap-3 border-b border-border text-start text-label font-normal text-text hover:bg-surface-sunken focus-visible:ring-focus"
+    >
+      <Icon name={icon} size={20} className="text-text-2" />
+      <span className="flex-1">{label}</span>
+      <Icon name="chevron_right" size={20} className="text-text-muted rtl:-scale-x-100" />
+    </button>
   );
 }

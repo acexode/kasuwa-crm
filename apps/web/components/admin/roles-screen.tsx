@@ -11,7 +11,7 @@ import { useResource } from './use-resource';
 import { useUnsavedGuard } from './use-unsaved-guard';
 import { applyMove, canMove, moveTargets, parentMap, treeRows } from './role-tree';
 import type { LanguageOption } from '../auth/language-menu';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
+import { AdminButton, CARD, Notice, PageHeader, UnsavedBar } from './admin-ui';
 import {
   deleteRole,
   getRole,
@@ -54,12 +54,15 @@ export function RolesScreen({
   locales,
   linkedSettings,
   bell,
+  placeholders,
 }: {
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
   linkedSettings: Readonly<Record<string, string>>;
   bell: boolean;
+  /** `admin_placeholders` (D-L194): the role panel's View people, drawn disabled. */
+  placeholders: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -155,67 +158,86 @@ export function RolesScreen({
       ? t.t('admin.roles.topLevel')
       : (items.find((role) => role.id === roleId)?.name ?? t.t('admin.prog.unknown'));
 
+  const deleteCount = items.find((role) => role.id === deleteTarget)?.userCount ?? 0;
+
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} bell={bell} activeSettingId="roles">
+    <AdminShell
+      locale={locale}
+      messages={messages}
+      locales={locales}
+      linkedSettings={linkedSettings}
+      bell={bell}
+      activeSettingId="roles"
+    >
       <div data-screen="P02/C" className="flex flex-col gap-6 pb-24">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <span className="text-body-sm font-semibold text-text-muted">
-              {t.t('admin.roles.eyebrow')}
-            </span>
-            <h1 className="text-h2">{t.t('admin.roles.title')}</h1>
-            <p className="max-w-prose text-body-md text-text-2">{t.t('admin.roles.intro')}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              data-testid="expand-all"
-              onClick={() => setCollapsed(new Set())}
-              className={SECONDARY_BUTTON}
-            >
-              <Icon name="unfold_more" size="sm" />
-              {t.t('admin.roles.expandAll')}
-            </button>
-            <button
-              type="button"
-              data-testid="collapse-all"
-              onClick={() => setCollapsed(new Set(items.map((role) => role.id)))}
-              className={SECONDARY_BUTTON}
-            >
-              <Icon name="unfold_less" size="sm" />
-              {t.t('admin.roles.collapseAll')}
-            </button>
-            {/* `POST /roles` is not built. A control that looks live and
-                answers 501 is worse than one that is visibly not ready. */}
-            <span
-              className={`${PRIMARY_BUTTON} pointer-events-none opacity-60`}
-              aria-disabled
-              data-testid="add-role"
-            >
-              <Icon name="add" size="sm" />
-              {t.t('admin.roles.add')}
-            </span>
-          </div>
-        </div>
+        <PageHeader
+          eyebrow={t.t('admin.roles.eyebrow')}
+          title={t.t('admin.roles.title')}
+          intro={t.t('admin.roles.intro')}
+          actions={
+            <>
+              <AdminButton
+                data-testid="expand-all"
+                icon="unfold_more"
+                disabled={items.length === 0}
+                onClick={() => setCollapsed(new Set())}
+              >
+                {t.t('admin.roles.expandAll')}
+              </AdminButton>
+              <AdminButton
+                data-testid="collapse-all"
+                icon="unfold_less"
+                disabled={items.length === 0}
+                onClick={() => setCollapsed(new Set(items.map((role) => role.id)))}
+              >
+                {t.t('admin.roles.collapseAll')}
+              </AdminButton>
+              {/* `POST /roles` is not built. A control that looks live and
+                  answers 501 is worse than one that is visibly not ready. */}
+              <AdminButton variant="primary" icon="add" notReady data-testid="add-role">
+                {t.t('admin.roles.add')}
+              </AdminButton>
+            </>
+          }
+        />
 
         <Panel t={t} resource={roles} skeletonRows={8}>
-          {() => (
-            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {(data) =>
+            data.items.length === 0 ? (
+              <div
+                data-testid="roles-empty"
+                className={`${CARD} flex flex-col items-center gap-3.5 px-6 py-16 text-center`}
+              >
+                <span className="flex size-16 items-center justify-center rounded-full bg-primary-soft text-primary-text">
+                  <Icon name="account_tree" size={32} />
+                </span>
+                <h2 className="m-0 text-h4 font-bold">{t.t('admin.roles.empty.title')}</h2>
+                <p className="m-0 max-w-lg text-pretty text-label font-normal text-text-2">
+                  {t.t('admin.roles.empty.body')}
+                </p>
+                <AdminButton variant="primary" icon="add" notReady>
+                  {t.t('admin.roles.add')}
+                </AdminButton>
+              </div>
+            ) : (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_380px]">
               <section
                 aria-label={t.t('admin.roles.tree')}
-                className="overflow-hidden rounded-lg border border-border bg-surface"
+                className={`${CARD} min-w-0 overflow-hidden`}
               >
-                <p className="flex items-center gap-2 border-b border-border bg-surface-sunken p-3 text-body-sm text-text-2">
-                  <Icon name="drag_pan" size="sm" />
+                <p className="m-0 flex items-center gap-2 border-b border-border bg-surface-sunken px-4 py-3 text-meta text-text-2">
+                  <Icon name="drag_pan" size={18} className="shrink-0" />
                   {t.t('admin.roles.dragHint')}
                 </p>
-                <div role="tree" aria-label={t.t('admin.roles.tree')} className="flex flex-col p-2">
-                  {rows.map((row) => (
+                <div role="tree" aria-label={t.t('admin.roles.tree')} className="flex flex-col gap-0.5 p-2">
+                  {rows.map((row) => {
+                    const isSelected = row.role.id === selectedId;
+                    return (
                     <div
                       key={row.role.id}
                       role="treeitem"
                       aria-level={row.level}
-                      aria-selected={row.role.id === selectedId}
+                      aria-selected={isSelected}
                       {...(row.hasChildren
                         ? { 'aria-expanded': !collapsed.has(row.role.id) }
                         : {})}
@@ -248,16 +270,17 @@ export function RolesScreen({
                         setDraggingId(null);
                         setOverId(null);
                       }}
-                      style={{ paddingInlineStart: `${row.level * 12}px` }}
-                      className={`flex min-h-touch cursor-grab select-none items-center gap-2 rounded-md px-3 ${
+                      // The design's indent: 28px a level, from a 12px start.
+                      style={{ paddingInlineStart: `${12 + (row.level - 1) * 28}px` }}
+                      className={`flex min-h-touch cursor-grab select-none items-center gap-1.5 rounded-md pe-3 outline-none is-focus-visible:ring-focus ${
                         row.role.id === overId
                           ? 'bg-primary-soft'
-                          : row.role.id === selectedId
+                          : isSelected
                             ? 'bg-surface-sunken'
-                            : ''
-                      } ${row.role.id === draggingId ? 'opacity-60' : ''} hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus`}
+                            : 'is-hover:bg-surface-sunken'
+                      } ${row.role.id === draggingId ? 'opacity-60' : ''}`}
                     >
-                      <Icon name="drag_indicator" size="sm" className="text-text-muted" />
+                      <Icon name="drag_indicator" size={18} className="text-text-muted" />
                       {row.hasChildren ? (
                         <button
                           type="button"
@@ -272,39 +295,51 @@ export function RolesScreen({
                             event.stopPropagation();
                             toggleCollapse(row.role.id);
                           }}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-2 hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                          className="flex size-7 shrink-0 items-center justify-center rounded-6 text-text-2 outline-none is-hover:bg-border is-focus-visible:ring-focus"
                         >
                           <Icon
                             name={collapsed.has(row.role.id) ? 'chevron_right' : 'expand_more'}
-                            size="sm"
+                            size={20}
+                            className={collapsed.has(row.role.id) ? 'rtl:-scale-x-100' : ''}
                           />
                         </button>
                       ) : (
-                        <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+                        <span className="size-7 shrink-0" aria-hidden="true" />
                       )}
-                      <span className="min-w-0 flex-1 truncate text-body-md font-semibold">
+                      <span
+                        aria-hidden="true"
+                        className={`flex size-7 shrink-0 items-center justify-center rounded-6 ${
+                          isSelected ? 'bg-primary text-on-primary' : 'bg-surface-sunken text-text-2'
+                        }`}
+                      >
+                        <Icon name={row.hasChildren ? 'account_tree' : 'badge'} size={18} />
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-body-sm ${isSelected ? 'font-bold' : 'font-medium'}`}
+                      >
                         {row.role.name}
                       </span>
                       {row.role.id === overId ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2 text-caption font-bold text-on-primary">
-                          <Icon name="arrow_forward" size="sm" />
+                        <span className="inline-flex h-5.5 items-center gap-1 rounded-full bg-primary px-2 text-caption font-bold text-on-primary">
+                          <Icon name="arrow_forward" size={16} className="rtl:-scale-x-100" />
                           {t.t('admin.roles.moveUnder')}
                         </span>
                       ) : null}
                       {row.moved ? (
                         <span
                           data-testid="role-moved"
-                          className="inline-flex items-center rounded-full bg-accent-soft px-2 text-caption font-bold text-accent-text"
+                          className="inline-flex h-5.5 items-center rounded-full bg-accent-soft px-2 text-caption font-bold text-accent-text"
                         >
                           {t.t('admin.roles.moved')}
                         </span>
                       ) : null}
-                      <span className="inline-flex items-center gap-1 text-body-sm text-text-muted">
-                        <Icon name="person" size="sm" />
+                      <span className="inline-flex min-w-11 items-center justify-end gap-1 text-meta text-text-muted">
+                        <Icon name="person" size={16} />
                         {formatCount(locale, row.role.userCount)}
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
 
                   {draggingId === null ? null : (
                     <div
@@ -320,9 +355,9 @@ export function RolesScreen({
                         setDraggingId(null);
                         setOverId(null);
                       }}
-                      className="mt-2 flex min-h-touch items-center justify-center gap-2 rounded-md border-2 border-dashed border-border-strong text-body-sm font-semibold text-text-2"
+                      className="mt-2 flex min-h-touch items-center justify-center gap-2 rounded-md border-2 border-dashed border-border-strong text-meta font-semibold text-text-2"
                     >
-                      <Icon name="vertical_align_top" size="sm" />
+                      <Icon name="vertical_align_top" size={18} />
                       {t.t('admin.roles.rootDrop')}
                     </div>
                   )}
@@ -333,78 +368,87 @@ export function RolesScreen({
                 <aside
                   aria-label={t.t('admin.roles.selected')}
                   data-testid="role-panel"
-                  className="flex flex-col rounded-lg border border-border bg-surface"
+                  className={`${CARD} flex flex-col`}
                 >
-                  <div className="flex flex-col gap-1 border-b border-border p-5">
-                    <span className="text-caption font-bold uppercase text-text-muted">
+                  <div className="flex flex-col gap-1 border-b border-border px-5 py-4.5">
+                    <span className="text-caption font-bold uppercase tracking-wider text-text-muted">
                       {t.t('admin.roles.selected')}
                     </span>
-                    <h2 className="text-h4">{selected.name}</h2>
-                    <span className="text-body-sm text-text-2">
+                    <h2 className="m-0 text-h5 font-bold">{selected.name}</h2>
+                    <span className="text-meta text-text-2">
                       {t.t('admin.roles.inRole', { count: selected.userCount })}
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-2 border-b border-border p-5">
-                    <label
-                      htmlFor="reports-to"
-                      className="text-body-sm font-bold"
-                    >
+                  <div className="flex flex-col gap-2 border-b border-border px-5 py-4">
+                    <label htmlFor="reports-to" className="text-meta font-bold">
                       {t.t('admin.roles.reportsTo')}
                     </label>
-                    <select
-                      id="reports-to"
-                      data-testid="reports-to"
-                      value={parents.get(selected.id) ?? ''}
-                      onChange={(event) =>
-                        move(selected.id, event.target.value === '' ? null : event.target.value)
-                      }
-                      className="min-h-touch rounded-md border border-border-strong bg-surface px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                    >
-                      <option value="">{t.t('admin.roles.topLevel')}</option>
-                      {moveTargets(items, parents, selected.id).map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="relative flex">
+                      <select
+                        id="reports-to"
+                        data-testid="reports-to"
+                        value={parents.get(selected.id) ?? ''}
+                        onChange={(event) =>
+                          move(selected.id, event.target.value === '' ? null : event.target.value)
+                        }
+                        className="h-control-base w-full cursor-pointer appearance-none rounded-md border border-border-strong bg-surface pe-10 ps-3 text-body-sm font-semibold text-text is-focus:field-focus"
+                      >
+                        <option value="">{t.t('admin.roles.topLevel')}</option>
+                        {moveTargets(items, parents, selected.id).map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Icon
+                        name="expand_more"
+                        size={20}
+                        className="pointer-events-none absolute end-2.5 top-3 text-text"
+                      />
+                    </span>
                     {moves.some((pending) => pending.roleId === selected.id) ? (
-                      <p data-testid="role-was" className="text-body-sm text-accent-text">
+                      <p data-testid="role-was" className="m-0 flex items-center gap-1.5 text-meta text-accent-text">
+                        <Icon name="undo" size={16} />
                         {t.t('admin.roles.was', { name: nameOf(selected.parentRoleId) })}
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="flex flex-col gap-2 border-b border-border p-5">
-                    <span className="text-body-sm font-bold">{t.t('admin.roles.sees')}</span>
+                  <div className="flex flex-col gap-2 border-b border-border px-5 py-4">
+                    <span className="text-meta font-bold">{t.t('admin.roles.sees')}</span>
                     {/* Loaded separately, and absent until it is known. An
                         empty list rendered while the read is in flight says
                         "this role sees nothing", which is a visibility claim. */}
                     {detail.data?.seesRecordsOwnedBy === undefined ? (
-                      <p className="text-body-sm text-text-muted">{t.t('admin.loading')}</p>
+                      <p className="m-0 text-meta text-text-muted">{t.t('admin.loading')}</p>
                     ) : detail.data.seesRecordsOwnedBy.roleCount === 0 ? (
-                      <p data-testid="sees-none" className="text-body-sm text-text-2">
+                      <p data-testid="sees-none" className="m-0 text-body-sm text-text-2">
                         {t.t('admin.roles.sees.none')}
                       </p>
                     ) : (
                       <>
-                        <span data-testid="sees-summary" className="text-body-sm text-text-2">
+                        <span data-testid="sees-summary" className="text-meta text-text-2">
                           {t.t('admin.roles.sees.summary', {
                             roles: detail.data.seesRecordsOwnedBy.roleCount,
                             users: detail.data.seesRecordsOwnedBy.userCount,
                           })}
                         </span>
-                        <ul className="flex flex-col gap-1">
+                        <ul className="m-0 flex list-none flex-col gap-1 p-0">
                           {detail.data.seesRecordsOwnedBy.sample.map((role) => (
-                            <li key={role.id} className="flex items-center gap-2 text-body-md">
-                              <Icon name="subdirectory_arrow_right" size="sm" className="text-text-muted" />
+                            <li key={role.id} className="flex items-center gap-1.5 text-body-sm">
+                              <Icon
+                                name="subdirectory_arrow_right"
+                                size={16}
+                                className="text-text-muted rtl:-scale-x-100"
+                              />
                               {role.name}
                             </li>
                           ))}
                         </ul>
                         {detail.data.seesRecordsOwnedBy.roleCount >
                         detail.data.seesRecordsOwnedBy.sample.length ? (
-                          <span className="text-body-sm text-text-muted">
+                          <span className="text-meta text-text-muted">
                             {t.t('admin.roles.sees.more', {
                               count:
                                 detail.data.seesRecordsOwnedBy.roleCount -
@@ -416,88 +460,67 @@ export function RolesScreen({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 p-5">
-                    <button
-                      type="button"
+                  <div className="flex flex-wrap gap-2 px-5 py-4">
+                    {placeholders ? (
+                      <AdminButton notReady className="flex-1">
+                        {t.t('admin.roles.viewPeople')}
+                      </AdminButton>
+                    ) : null}
+                    <AdminButton
+                      variant="danger-outline"
+                      icon="delete"
                       data-testid="delete-role"
                       onClick={() => {
                         setSaveError(null);
-                        setReassignTo(
-                          moveTargets(items, parents, selected.id)[0]?.id ?? '',
-                        );
+                        setReassignTo(moveTargets(items, parents, selected.id)[0]?.id ?? '');
                         setDeleteTarget(selected.id);
                       }}
-                      className="flex min-h-touch items-center justify-center gap-2 rounded-md border border-danger bg-surface px-4 text-body-md font-semibold text-danger-text hover:bg-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                     >
-                      <Icon name="delete" size="sm" />
                       {t.t('admin.roles.delete')}
-                    </button>
+                    </AdminButton>
                   </div>
                 </aside>
               )}
             </div>
-          )}
+            )
+          }
         </Panel>
 
         {saveError === null ? null : (
-          <p
-            role="alert"
-            data-testid="roles-save-error"
-            data-error-code={saveError.code}
-            className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
-          >
+          <Notice tone="danger" testId="roles-save-error" errorCode={saveError.code}>
             {t.t(errorMessageId(saveError))}
-          </p>
+          </Notice>
         )}
 
         {toast === null ? null : (
-          <p
-            role="status"
-            data-testid="roles-toast"
-            className="rounded-md bg-success-soft p-3 text-body-sm text-success-text"
-          >
+          <Notice tone="success" testId="roles-toast">
             {toast}
-          </p>
+          </Notice>
         )}
       </div>
 
       {moves.length === 0 ? null : (
-        <div
-          data-testid="unsaved-bar"
-          className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap items-center gap-3 border-t border-border bg-inverse p-4 text-on-inverse"
-        >
-          <Icon name="edit_note" className="text-accent" />
-          <b data-testid="unsaved-count" className="flex-1 text-body-sm">
-            {t.t('admin.roles.unsaved', { count: moves.length })}
-          </b>
-          <button
-            type="button"
-            data-testid="discard-changes"
-            onClick={() => {
-              setMoves([]);
-              setSaveError(null);
-              setToast(t.t('admin.unsaved.discarded'));
-            }}
-            className={`${SECONDARY_BUTTON} border-border-strong bg-transparent text-on-inverse`}
-          >
-            {t.t('admin.unsaved.discard')}
-          </button>
-          <button
-            type="button"
-            data-testid="save-changes"
-            disabled={saving}
-            onClick={() => void save()}
-            className="flex min-h-touch items-center justify-center rounded-md bg-accent px-4 text-body-md font-bold text-on-accent disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          >
-            {saving ? t.t('admin.unsaved.saving') : t.t('admin.unsaved.save')}
-          </button>
-        </div>
+        <UnsavedBar
+          label={t.t('admin.unsaved.region')}
+          count={t.t('admin.unsaved.count', { count: moves.length })}
+          detail={t.t('admin.roles.unsaved', { count: moves.length })}
+          discardLabel={t.t('admin.unsaved.discard')}
+          saveLabel={t.t('admin.unsaved.save')}
+          savingLabel={t.t('admin.unsaved.saving')}
+          saving={saving}
+          onDiscard={() => {
+            setMoves([]);
+            setSaveError(null);
+            setToast(t.t('admin.unsaved.discarded'));
+          }}
+          onSave={() => void save()}
+        />
       )}
 
       {deleteTarget === null ? null : (
         <Dialog
           title={t.t('admin.roles.delete.title', { name: nameOf(deleteTarget) })}
-          body={t.t('admin.roles.delete.body')}
+          body={`${t.t('admin.roles.delete.people', { count: deleteCount })} ${t.t('admin.roles.delete.body')}`}
           icon="delete"
           tone="danger"
           testId="delete-role-dialog"
@@ -505,56 +528,62 @@ export function RolesScreen({
           onClose={() => setDeleteTarget(null)}
           footer={
             <>
-              <button
-                type="button"
-                data-testid="delete-role-cancel"
-                onClick={() => setDeleteTarget(null)}
-                className={SECONDARY_BUTTON}
-              >
+              <AdminButton data-testid="delete-role-cancel" onClick={() => setDeleteTarget(null)}>
                 {t.t('admin.roles.delete.cancel')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
+                variant="danger"
                 data-testid="delete-role-confirm"
                 disabled={saving || reassignTo === ''}
                 onClick={() => void confirmDelete()}
-                className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary disabled:opacity-60 hover:bg-danger-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {t.t('admin.roles.delete.confirm')}
-              </button>
+              </AdminButton>
             </>
           }
         >
           {/* `reassignUsersToRoleId` is required even for an empty role, so the
-              picker is always here — a role that gained a member between the
+              choice is always here — a role that gained a member between the
               page load and this click would otherwise orphan them. */}
-          <p className="text-body-sm">
-            {t.t('admin.roles.delete.people', {
-              count: items.find((role) => role.id === deleteTarget)?.userCount ?? 0,
-            })}
-          </p>
-          <label htmlFor="reassign-to" className="text-body-sm font-bold">
-            {t.t('admin.roles.delete.moveTo')}
-          </label>
-          <select
-            id="reassign-to"
+          <div
+            role="radiogroup"
+            aria-labelledby="reassign-to-label"
             data-testid="reassign-to"
-            value={reassignTo}
-            onChange={(event) => setReassignTo(event.target.value)}
-            className="min-h-touch rounded-md border border-border-strong bg-surface px-3 text-body-md text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="flex flex-col gap-1.5"
           >
-            {moveTargets(items, parents, deleteTarget).map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+            <span id="reassign-to-label" className="text-meta font-bold">
+              {t.t('admin.roles.delete.moveTo')}
+            </span>
+            {moveTargets(items, parents, deleteTarget).map((role) => {
+              const checked = reassignTo === role.id;
+              return (
+                <button
+                  key={role.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={checked}
+                  data-value={role.id}
+                  onClick={() => setReassignTo(role.id)}
+                  className={`flex min-h-touch items-center gap-2.5 rounded-md border px-3 text-start text-body-sm text-text outline-none is-focus-visible:ring-focus ${
+                    checked ? 'border-primary bg-primary-soft' : 'border-border bg-surface is-hover:bg-surface-sunken'
+                  }`}
+                >
+                  <Icon
+                    name={checked ? 'radio_button_checked' : 'radio_button_unchecked'}
+                    size={20}
+                    className={checked ? 'text-primary-text' : 'text-text-muted'}
+                  />
+                  {role.name}
+                </button>
+              );
+            })}
+          </div>
           {saveError === null ? null : (
             <p
               role="alert"
               data-testid="delete-role-error"
               data-error-code={saveError.code}
-              className="rounded-md bg-danger-soft p-3 text-body-sm text-danger-text"
+              className="m-0 rounded-10 bg-danger-soft px-3.5 py-3 text-meta text-danger-text"
             >
               {t.t(errorMessageId(saveError))}
             </p>
@@ -573,16 +602,11 @@ export function RolesScreen({
           onClose={() => setPendingHref(null)}
           footer={
             <>
-              <button
-                type="button"
-                data-testid="leave-cancel"
-                onClick={() => setPendingHref(null)}
-                className={SECONDARY_BUTTON}
-              >
+              <AdminButton data-testid="leave-cancel" onClick={() => setPendingHref(null)}>
                 {t.t('admin.leave.cancel')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
+                variant="danger"
                 data-testid="leave-confirm"
                 onClick={() => {
                   const destination = pendingHref;
@@ -590,14 +614,13 @@ export function RolesScreen({
                   setMoves([]);
                   router.push(destination);
                 }}
-                className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {t.t('admin.leave.confirm')}
-              </button>
+              </AdminButton>
             </>
           }
         >
-          <p className="rounded-md bg-surface-sunken p-3 text-body-sm">
+          <p className="m-0 rounded-10 bg-surface-sunken px-3.5 py-3 text-meta">
             {t.t('admin.roles.unsaved', { count: moves.length })}
           </p>
         </Dialog>

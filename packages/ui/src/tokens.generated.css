@@ -147,6 +147,10 @@
   --k-line-height-title: 36px;
   --k-font-weight-title: 800;
   --k-tracking-title: -0.01em;
+  --k-font-size-title-phone: 22px;
+  --k-line-height-title-phone: 28px;
+  --k-font-weight-title-phone: 800;
+  --k-tracking-title-phone: -0.01em;
   --k-font-size-title-sm: 26px;
   --k-line-height-title-sm: 34px;
   --k-font-weight-title-sm: 800;
@@ -155,6 +159,14 @@
   --k-line-height-card-title: 24px;
   --k-font-weight-card-title: 700;
   --k-tracking-card-title: 0;
+  --k-font-size-sheet-title: 17px;
+  --k-line-height-sheet-title: 24px;
+  --k-font-weight-sheet-title: 700;
+  --k-tracking-sheet-title: 0;
+  --k-font-size-body-relaxed: 14px;
+  --k-line-height-body-relaxed: 21px;
+  --k-font-weight-body-relaxed: 400;
+  --k-tracking-body-relaxed: 0;
   --k-font-size-label: 15px;
   --k-line-height-label: 22px;
   --k-font-weight-label: 600;
@@ -163,6 +175,18 @@
   --k-line-height-meta: 19px;
   --k-font-weight-meta: 400;
   --k-tracking-meta: 0;
+  --k-font-size-micro: 11px;
+  --k-line-height-micro: 16px;
+  --k-font-weight-micro: 700;
+  --k-tracking-micro: 0;
+  --k-font-size-logo: 17px;
+  --k-line-height-logo: 20px;
+  --k-font-weight-logo: 800;
+  --k-tracking-logo: 0;
+  --k-font-size-rail-label: 10px;
+  --k-line-height-rail-label: 14px;
+  --k-font-weight-rail-label: 600;
+  --k-tracking-rail-label: 0;
   --k-font-size-overline: 11px;
   --k-line-height-overline: 16px;
   --k-font-weight-overline: 700;
@@ -180,9 +204,14 @@
   --k-space-10: 40px;
   --k-space-12: 48px;
   --k-space-16: 64px;
+  --k-space-0_75: 3px;
   --k-space-1_5: 6px;
+  --k-space-2_25: 9px;
   --k-space-2_5: 10px;
   --k-space-3_5: 14px;
+  --k-space-4_5: 18px;
+  --k-space-5_5: 22px;
+  --k-space-6_5: 26px;
   --k-space-touch: 44px;
   --k-radius-6: 6px;
   --k-radius-10: 10px;
@@ -194,6 +223,7 @@
   --k-radius-full: 999px;
   
   /* control heights, icon sizes, app shell */
+  --k-control-height-xs: 30px;
   --k-control-height-sm: 36px;
   --k-control-height-md: 40px;
   --k-control-height-base: 44px;
@@ -206,6 +236,7 @@
   --k-icon-size-20: 20px;
   --k-icon-size-22: 22px;
   --k-icon-size-24: 24px;
+  --k-icon-size-26: 26px;
   --k-icon-size-28: 28px;
   --k-icon-size-32: 32px;
   --k-shell-header: 60px;
@@ -215,6 +246,42 @@
   --k-shell-admin-nav: 272px;
   --k-shell-bottom-bar: 64px;
   --k-shell-mobile-header: 56px;
+  --k-shell-search: 420px;
+  --k-shell-fab: 56px;
+  --k-layout-auth-panel: 520px;
+  --k-layout-auth-header: 64px;
+  --k-layout-column: 400px;
+  --k-layout-column-verify: 440px;
+  --k-layout-column-wide: 520px;
+  --k-layout-wizard: 640px;
+  --k-layout-wizard-stepper: 880px;
+  --k-layout-home-max: 1368px;
+  --k-layout-home-time: 52px;
+  --k-layout-home-deal-name: 170px;
+  --k-layout-home-add-tile: 140px;
+  --k-layout-home-progress: 360px;
+  --k-layout-home-skeleton-tall: 120px;
+  --k-layout-filter-rail: 240px;
+  --k-layout-page-wide: 1116px;
+  --k-layout-settings-aside: 380px;
+  --k-layout-prefs-channel: 88px;
+  
+  /* overlays and data display (T-0129) */
+  --k-overlay-drawer: 400px;
+  --k-overlay-dialog-confirm: 360px;
+  --k-overlay-dialog-form: 440px;
+  --k-overlay-dialog-wide: 640px;
+  --k-overlay-dialog-composer: 560px;
+  --k-overlay-menu: 300px;
+  --k-overlay-toast: 400px;
+  --k-overlay-table-footer: 56px;
+  --k-overlay-pager-item: 30px;
+  --k-overlay-empty-text: 280px;
+  --k-overlay-preview-frame: 480px;
+  --k-overlay-preview-frame-compact: 560px;
+  --k-overlay-notification-panel: 440px;
+  --k-overlay-notification-toast: 380px;
+  --k-radius-sheet: 20px;
   
   /* elevation — the shadow values themselves are semantic, so they differ per theme */
   --k-elevation-0: none;
@@ -226,6 +293,8 @@
   --k-duration-instant: 100ms;
   --k-duration-quick: 160ms;
   --k-duration-base: 240ms;
+  --k-duration-spin: 800ms;
+  --k-duration-shimmer: 1400ms;
   --k-ease: cubic-bezier(.2,.8,.2,1);
   
   /* semantic tokens — light is the default theme */
@@ -420,10 +489,16 @@
   --k-line-height-mono: 22px;
   --k-line-height-headline: 57px;
   --k-line-height-title: 40px;
+  --k-line-height-title-phone: 31px;
   --k-line-height-title-sm: 37px;
   --k-line-height-card-title: 26px;
+  --k-line-height-sheet-title: 26px;
+  --k-line-height-body-relaxed: 23px;
   --k-line-height-label: 24px;
   --k-line-height-meta: 21px;
+  --k-line-height-micro: 18px;
+  --k-line-height-logo: 22px;
+  --k-line-height-rail-label: 15px;
   --k-line-height-overline: 18px;
 }
 

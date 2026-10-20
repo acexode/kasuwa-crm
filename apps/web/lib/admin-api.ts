@@ -363,6 +363,12 @@ export const AuditEntrySummary = z.object({
   actor: z.object({ displayName: z.string().nullable().optional() }).partial().passthrough(),
   recordLabel: z.string().nullable().optional(),
   summary: z.string().nullable().optional(),
+  // The events read is the audit log's own (`AuditEntry`); the home panel
+  // reads the object it names so "What" can say "Updated · Script" and Record
+  // can name it, as P02/A draws them (T-0140).
+  objectType: z.string().nullable().optional(),
+  objectLabel: z.string().nullable().optional(),
+  objectId: z.string().nullable().optional(),
 });
 
 export const AuditEventList = z.object({

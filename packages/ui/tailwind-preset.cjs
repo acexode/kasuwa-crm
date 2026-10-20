@@ -178,10 +178,16 @@ module.exports = {
     'mono': ['var(--k-font-size-mono)', { lineHeight: 'var(--k-line-height-mono)', fontWeight: 'var(--k-font-weight-mono)', letterSpacing: 'var(--k-tracking-mono)' }],
     'headline': ['var(--k-font-size-headline)', { lineHeight: 'var(--k-line-height-headline)', fontWeight: 'var(--k-font-weight-headline)', letterSpacing: 'var(--k-tracking-headline)' }],
     'title': ['var(--k-font-size-title)', { lineHeight: 'var(--k-line-height-title)', fontWeight: 'var(--k-font-weight-title)', letterSpacing: 'var(--k-tracking-title)' }],
+    'title-phone': ['var(--k-font-size-title-phone)', { lineHeight: 'var(--k-line-height-title-phone)', fontWeight: 'var(--k-font-weight-title-phone)', letterSpacing: 'var(--k-tracking-title-phone)' }],
     'title-sm': ['var(--k-font-size-title-sm)', { lineHeight: 'var(--k-line-height-title-sm)', fontWeight: 'var(--k-font-weight-title-sm)', letterSpacing: 'var(--k-tracking-title-sm)' }],
     'card-title': ['var(--k-font-size-card-title)', { lineHeight: 'var(--k-line-height-card-title)', fontWeight: 'var(--k-font-weight-card-title)', letterSpacing: 'var(--k-tracking-card-title)' }],
+    'sheet-title': ['var(--k-font-size-sheet-title)', { lineHeight: 'var(--k-line-height-sheet-title)', fontWeight: 'var(--k-font-weight-sheet-title)', letterSpacing: 'var(--k-tracking-sheet-title)' }],
+    'body-relaxed': ['var(--k-font-size-body-relaxed)', { lineHeight: 'var(--k-line-height-body-relaxed)', fontWeight: 'var(--k-font-weight-body-relaxed)', letterSpacing: 'var(--k-tracking-body-relaxed)' }],
     'label': ['var(--k-font-size-label)', { lineHeight: 'var(--k-line-height-label)', fontWeight: 'var(--k-font-weight-label)', letterSpacing: 'var(--k-tracking-label)' }],
     'meta': ['var(--k-font-size-meta)', { lineHeight: 'var(--k-line-height-meta)', fontWeight: 'var(--k-font-weight-meta)', letterSpacing: 'var(--k-tracking-meta)' }],
+    'micro': ['var(--k-font-size-micro)', { lineHeight: 'var(--k-line-height-micro)', fontWeight: 'var(--k-font-weight-micro)', letterSpacing: 'var(--k-tracking-micro)' }],
+    'logo': ['var(--k-font-size-logo)', { lineHeight: 'var(--k-line-height-logo)', fontWeight: 'var(--k-font-weight-logo)', letterSpacing: 'var(--k-tracking-logo)' }],
+    'rail-label': ['var(--k-font-size-rail-label)', { lineHeight: 'var(--k-line-height-rail-label)', fontWeight: 'var(--k-font-weight-rail-label)', letterSpacing: 'var(--k-tracking-rail-label)' }],
     'overline': ['var(--k-font-size-overline)', { lineHeight: 'var(--k-line-height-overline)', fontWeight: 'var(--k-font-weight-overline)', letterSpacing: 'var(--k-tracking-overline)' }],
     'icon-14': 'var(--k-icon-size-14)',
     'icon-15': 'var(--k-icon-size-15)',
@@ -190,6 +196,7 @@ module.exports = {
     'icon-20': 'var(--k-icon-size-20)',
     'icon-22': 'var(--k-icon-size-22)',
     'icon-24': 'var(--k-icon-size-24)',
+    'icon-26': 'var(--k-icon-size-26)',
     'icon-28': 'var(--k-icon-size-28)',
     'icon-32': 'var(--k-icon-size-32)',
       },
@@ -205,10 +212,16 @@ module.exports = {
     '10': 'var(--k-space-10)',
     '12': 'var(--k-space-12)',
     '16': 'var(--k-space-16)',
+    '0.75': 'var(--k-space-0_75)',
     '1.5': 'var(--k-space-1_5)',
+    '2.25': 'var(--k-space-2_25)',
     '2.5': 'var(--k-space-2_5)',
     '3.5': 'var(--k-space-3_5)',
+    '4.5': 'var(--k-space-4_5)',
+    '5.5': 'var(--k-space-5_5)',
+    '6.5': 'var(--k-space-6_5)',
     'touch': 'var(--k-space-touch)',
+    'control-xs': 'var(--k-control-height-xs)',
     'control-sm': 'var(--k-control-height-sm)',
     'control-md': 'var(--k-control-height-md)',
     'control-base': 'var(--k-control-height-base)',
@@ -221,6 +234,39 @@ module.exports = {
     'shell-admin-nav': 'var(--k-shell-admin-nav)',
     'shell-bottom-bar': 'var(--k-shell-bottom-bar)',
     'shell-mobile-header': 'var(--k-shell-mobile-header)',
+    'shell-search': 'var(--k-shell-search)',
+    'shell-fab': 'var(--k-shell-fab)',
+    'overlay-drawer': 'var(--k-overlay-drawer)',
+    'overlay-dialog-confirm': 'var(--k-overlay-dialog-confirm)',
+    'overlay-dialog-form': 'var(--k-overlay-dialog-form)',
+    'overlay-dialog-wide': 'var(--k-overlay-dialog-wide)',
+    'overlay-dialog-composer': 'var(--k-overlay-dialog-composer)',
+    'overlay-menu': 'var(--k-overlay-menu)',
+    'overlay-toast': 'var(--k-overlay-toast)',
+    'overlay-table-footer': 'var(--k-overlay-table-footer)',
+    'overlay-pager-item': 'var(--k-overlay-pager-item)',
+    'overlay-empty-text': 'var(--k-overlay-empty-text)',
+    'overlay-preview-frame': 'var(--k-overlay-preview-frame)',
+    'overlay-preview-frame-compact': 'var(--k-overlay-preview-frame-compact)',
+    'overlay-notification-panel': 'var(--k-overlay-notification-panel)',
+    'overlay-notification-toast': 'var(--k-overlay-notification-toast)',
+    'layout-auth-panel': 'var(--k-layout-auth-panel)',
+    'layout-auth-header': 'var(--k-layout-auth-header)',
+    'layout-column': 'var(--k-layout-column)',
+    'layout-column-verify': 'var(--k-layout-column-verify)',
+    'layout-column-wide': 'var(--k-layout-column-wide)',
+    'layout-wizard': 'var(--k-layout-wizard)',
+    'layout-wizard-stepper': 'var(--k-layout-wizard-stepper)',
+    'layout-home-max': 'var(--k-layout-home-max)',
+    'layout-home-time': 'var(--k-layout-home-time)',
+    'layout-home-deal-name': 'var(--k-layout-home-deal-name)',
+    'layout-home-add-tile': 'var(--k-layout-home-add-tile)',
+    'layout-home-progress': 'var(--k-layout-home-progress)',
+    'layout-home-skeleton-tall': 'var(--k-layout-home-skeleton-tall)',
+    'layout-filter-rail': 'var(--k-layout-filter-rail)',
+    'layout-page-wide': 'var(--k-layout-page-wide)',
+    'layout-settings-aside': 'var(--k-layout-settings-aside)',
+    'layout-prefs-channel': 'var(--k-layout-prefs-channel)',
       },
       borderRadius: {
     '6': 'var(--k-radius-6)',
@@ -231,18 +277,51 @@ module.exports = {
     'lg': 'var(--k-radius-lg)',
     'xl': 'var(--k-radius-xl)',
     'full': 'var(--k-radius-full)',
+    'sheet': 'var(--k-radius-sheet)',
       },
       boxShadow: {
     '0': 'var(--k-elevation-0)',
     '1': 'var(--k-elevation-1)',
     '2': 'var(--k-elevation-2)',
     '3': 'var(--k-elevation-3)',
+    'knob': '0 1px 2px rgba(0,0,0,.3)',
+    'switch-disabled': 'inset 0 0 0 1px var(--k-border)',
+    'table-header': '0 2px 4px rgba(0,0,0,.06)',
+    'scroll-edge': '0 -8px 12px -8px rgba(0,0,0,.28)',
       },
       transitionDuration: {
     'instant': 'var(--k-duration-instant)',
     'quick': 'var(--k-duration-quick)',
     'base': 'var(--k-duration-base)',
+    'spin': 'var(--k-duration-spin)',
+    'shimmer': 'var(--k-duration-shimmer)',
       },
+      // `animate-spin` turns at the design's speed, not Tailwind's 1s.
+      // The overlays' entrances (T-0129, v1.1 Patterns "Dismissal & motion":
+      // a 240ms slide; under reduced motion the global layer cuts each to one
+      // frame). Distances are percentages of the element, never pixels.
+      animation: {
+        spin: 'spin var(--k-duration-spin) linear infinite',
+        shimmer: 'k-shimmer var(--k-duration-shimmer) ease-in-out infinite',
+        'fade-in': 'k-fade-in var(--k-duration-base) var(--k-ease) both',
+        'pop-in': 'k-pop-in var(--k-duration-base) var(--k-ease) both',
+        'drawer-in': 'k-drawer-in var(--k-duration-base) var(--k-ease) both',
+        'drawer-in-rtl': 'k-drawer-in-rtl var(--k-duration-base) var(--k-ease) both',
+        'sheet-in': 'k-sheet-in var(--k-duration-base) var(--k-ease) both',
+        'toast-in': 'k-toast-in var(--k-duration-base) var(--k-ease) both',
+      },
+      keyframes: {
+        'k-shimmer': { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
+        'k-fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'k-pop-in': { from: { opacity: '0', transform: 'scale(.97)' }, to: { opacity: '1', transform: 'none' } },
+        'k-drawer-in': { from: { transform: 'translateX(100%)' }, to: { transform: 'none' } },
+        'k-drawer-in-rtl': { from: { transform: 'translateX(-100%)' }, to: { transform: 'none' } },
+        'k-sheet-in': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
+        'k-toast-in': { from: { opacity: '0', transform: 'translateY(50%)' }, to: { opacity: '1', transform: 'none' } },
+      },
+      // The v1.1 text links and the bulk bar's "Select all" sit 3px under
+      // their text (T-0129).
+      textUnderlineOffset: { 3: '3px' },
       transitionTimingFunction: {
         DEFAULT: 'var(--k-ease)',
         kasuwa: 'var(--k-ease)',
@@ -260,15 +339,37 @@ module.exports = {
     // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
     // behind a variant: `focus-visible:ring-focus`. Never combine `ring-focus`
     // with a `ring-N` width utility: both write box-shadow, and one discards the other.
-    function ({ addUtilities }) {
+    //
+    // The four state variants (T-0128) are how @kasuwa/ui/components style
+    // hover, press and focus. Each also matches `data-preview`, so the
+    // /design/components gallery can show a state at rest, the way the v1.1
+    // Components page does, from the same class that styles the live state:
+    //   is-hover          hover, only on devices that hover (a tap on Android
+    //                     must not leave a button stuck in its hover colour),
+    //                     never on a disabled control
+    //   is-active         pressed, never on a disabled control
+    //   is-focus-visible  keyboard focus: buttons, checkboxes, chips, tabs
+    //   is-focus          any focus: text fields and selects, which show their
+    //                     focus while the user types, however they got there
+    function ({ addUtilities, addVariant }) {
+      addVariant('is-hover', [
+        '@media (hover: hover) { &:hover:not(:disabled) }',
+        '&[data-preview~="hover"]',
+      ]);
+      addVariant('is-active', ['&:active:not(:disabled)', '&[data-preview~="active"]']);
+      addVariant('is-focus-visible', ['&:focus-visible', '&[data-preview~="focus"]']);
+      addVariant('is-focus', ['&:focus', '&[data-preview~="focus"]']);
       addUtilities({
         '.text-h6': { 'text-transform': 'uppercase' },
         '.text-mono': { 'font-feature-settings': "'tnum' 1" },
         '.text-overline': { 'text-transform': 'uppercase' },
         '.ring-focus': {
-          outline: '2px solid transparent',
-          'outline-offset': '2px',
+          'outline-style': 'none',
           'box-shadow': '0 0 0 2px var(--k-surface), 0 0 0 4px var(--k-focus)',
+          '@media (forced-colors: active)': {
+            outline: '2px solid transparent',
+            'outline-offset': '2px',
+          },
         },
         '.field-focus': {
           outline: '2px solid transparent',
@@ -276,6 +377,13 @@ module.exports = {
           'border-color': 'var(--k-primary)',
           'box-shadow': '0 0 0 3px var(--k-primary-soft-strong)',
         },
+        '.bg-chart-1-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-1) 18%, var(--k-surface))' },
+        '.bg-chart-2-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-2) 18%, var(--k-surface))' },
+        '.bg-chart-3-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-3) 18%, var(--k-surface))' },
+        '.bg-chart-4-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-4) 18%, var(--k-surface))' },
+        '.bg-chart-5-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-5) 18%, var(--k-surface))' },
+        '.bg-chart-6-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-6) 18%, var(--k-surface))' },
+        '.bg-chart-7-tint': { 'background-color': 'color-mix(in oklch, var(--k-chart-7) 18%, var(--k-surface))' },
       });
     },
   ],

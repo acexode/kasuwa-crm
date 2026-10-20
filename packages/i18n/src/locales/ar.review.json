@@ -23,6 +23,19 @@
     "import.source.hubspot": "A product name. It is spelled the same in this locale.",
     "import.source.csv": "File-format names (CSV, Excel) used unchanged in this locale.",
     "records.filter.active": "Two placeholders and punctuation; no words.",
-    "records.source.ussd": "An abbreviation used unchanged in this locale."
+    "records.source.ussd": "An abbreviation used unchanged in this locale.",
+    "design.components.tag.vip": "An abbreviation (VIP) used unchanged in this locale.",
+    "design.components.tag.p1": "A priority code (P1), used unchanged in every locale.",
+    "design.components.kbd.search": "The label printed on the keys (Ctrl and K), the same on keyboards in this locale.",
+    "design.components.kbd.escape": "The label printed on the Esc key, the same on keyboards in this locale.",
+    "auth.footer.compliance": "The names of two data-protection laws, NDPA and POPIA. They are acronyms in every language.",
+    "notifications.prefs.channel.whatsapp": "Product name of the WhatsApp channel. It is spelled the same in every locale.",
+    "home.dateLine": "A day, a clock time and a time-zone name joined by punctuation. No words to translate.",
+    "home.widget.size.s": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.m": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.l": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "home.widget.size.xl": "A width code shown on a small button (S, M, L, XL), the same letters the customise hint names. Not words.",
+    "search.key.ctrl": "The Ctrl key keeps its Latin keyboard label.",
+    "search.key.slash": "A keyboard key, not a word."
   }
 }

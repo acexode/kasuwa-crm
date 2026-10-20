@@ -27,6 +27,7 @@ interface DropdownProps {
   t: Translator;
   locale: string;
   live: readonly string[];
+  extras: { readonly types: boolean; readonly preferences: boolean };
   onClose: (returnFocus: boolean) => void;
 }
 
@@ -50,12 +51,12 @@ function DropdownFailed({ t, onClose }: DropdownProps) {
       aria-modal="true"
       aria-labelledby={titleId}
       data-testid="notifications-dropdown"
-      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-md flex-col items-start gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3"
+      className="fixed inset-x-2 top-14 z-40 flex flex-col items-start gap-2 rounded-14 border border-border bg-surface p-4 text-text shadow-3 md:inset-x-auto md:end-3 md:w-overlay-notification-panel"
     >
-      <h2 id={titleId} className="text-h4 font-bold">
+      <h2 id={titleId} className="text-card-title">
         {t.t('notifications.error.title')}
       </h2>
-      <button ref={ref} type="button" onClick={() => onClose(true)} className={`flex min-h-touch items-center rounded-md px-3 text-body-sm font-semibold text-primary-text hover:bg-surface-sunken ${FOCUS}`}>
+      <button ref={ref} type="button" onClick={() => onClose(true)} className={`-ms-2 flex min-h-touch items-center rounded-md px-2 text-meta font-bold text-primary-text is-hover:bg-primary-soft ${FOCUS}`}>
         {t.t('notifications.dropdown.close')}
       </button>
     </div>
@@ -119,14 +120,19 @@ export default function NotificationBell({ t, locale, live }: { t: Translator; l
           setDropdown((current: LazyExoticComponent<ComponentType<DropdownProps>> | null) => current ?? loadDropdown());
           setOpen(true);
         }}
-        className={`flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-md border border-border bg-surface text-text hover:bg-surface-sunken ${FOCUS}`}
+        // The header bell (P03, P26; T-0130): a 44px ghost button, a 22px glyph
+        // in text-2, filled and primary-soft while its dropdown is open, and the
+        // count in a danger pill ringed in surface at the glyph's shoulder.
+        className={`relative flex size-control-base items-center justify-center rounded-md outline-none focus-visible:ring-focus ${
+          open ? 'bg-primary-soft text-primary-text' : 'text-text-2 is-hover:bg-surface-sunken'
+        }`}
       >
-        <Icon name="notifications" size="sm" />
+        <Icon name="notifications" size={22} filled={open} />
         {badge === '' ? null : (
           <span
             aria-hidden="true"
             data-testid="notifications-badge"
-            className="rounded-full bg-danger px-1 text-caption font-bold text-on-primary"
+            className="absolute start-5 top-1 flex h-5 min-w-5 items-center justify-center whitespace-nowrap rounded-full border-2 border-surface bg-danger px-1 text-micro text-on-primary"
           >
             {badge}
           </span>
@@ -137,7 +143,13 @@ export default function NotificationBell({ t, locale, live }: { t: Translator; l
       </span>
       {open && Dropdown !== null ? (
         <Suspense fallback={null}>
-          <Dropdown t={t} locale={locale} live={liveObjectTypes(live)} onClose={close} />
+          <Dropdown
+            t={t}
+            locale={locale}
+            live={liveObjectTypes(live)}
+            extras={{ types: live.includes('notification-types'), preferences: live.includes('notification-preferences') }}
+            onClose={close}
+          />
         </Suspense>
       ) : null}
     </div>

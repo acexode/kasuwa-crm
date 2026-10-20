@@ -50,7 +50,7 @@ export function formatRetryTime(
   try {
     time = new Intl.DateTimeFormat(locale, options).format(when);
     zone =
-      new Intl.DateTimeFormat(locale, { ...options, timeZoneName: 'short' })
+      new Intl.DateTimeFormat(zoneNameLocale(locale), { ...options, timeZoneName: 'short' })
         .formatToParts(when)
         .find((part) => part.type === 'timeZoneName')?.value ?? (timeZone ?? '');
   } catch {
@@ -62,4 +62,14 @@ export function formatRetryTime(
   }
 
   return { time, zone };
+}
+
+/**
+ * English names African zones by their letters only in an African English:
+ * `en` says "GMT+1" where `en-NG` says "WAT" (and EAT, SAST, CAT), which is
+ * what the P01 design prints and what a Lagos or Nairobi roster calls them.
+ * Other languages keep their own convention ("UTC+1" in French).
+ */
+export function zoneNameLocale(locale: string): string {
+  return locale === 'en' || locale.startsWith('en-') ? 'en-NG' : locale;
 }

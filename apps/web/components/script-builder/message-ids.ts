@@ -1,5 +1,7 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
-import { CONDITION_OPERATORS, FORM_FIELD_TYPES } from '../../lib/script-graph';
+import { CONDITION_OPERATORS, FORM_FIELD_TYPES, NODE_TYPES } from '../../lib/script-graph';
+
+const PALETTE_TYPES = NODE_TYPES;
 import { CRM_SHELL_MESSAGE_IDS } from '../crm/crm-nav';
 import { NODE_TYPE_MESSAGE_IDS, SCRIPTING_ERROR_MESSAGE_IDS } from '../script-run/message-ids';
 import { AGENT_VARIABLE, BRANCH_FIELDS, CONTACT_VARIABLES, PUBLISH_REASONS } from './builder-model';
@@ -16,6 +18,8 @@ const SHARED: readonly MessageId[] = [
   ...CRM_SHELL_MESSAGE_IDS,
   'notFound.title',
   'notFound.body',
+  // T-0134: the shared not-found's hint (record-states.tsx).
+  'record.notFound.hint',
   'records.offline.title',
   'records.offline.never',
   'record.offline',
@@ -48,6 +52,15 @@ export const SCRIPT_LIST_MESSAGE_IDS: readonly MessageId[] = [
   'scripting.builder.create.submit',
   'scripting.builder.create.saving',
   'scripting.builder.create.cancel',
+  // T-0139: the P04-pattern list.
+  'scripting.builder.breadcrumb',
+  'scripting.builder.breadcrumb.scripts',
+  'scripting.builder.col.script',
+  'scripting.builder.col.programme',
+  'scripting.builder.col.language',
+  'scripting.builder.col.version',
+  'scripting.builder.version.short',
+  'scripting.builder.version.live',
 ];
 
 export const SCRIPT_EDITOR_MESSAGE_IDS: readonly MessageId[] = [
@@ -142,4 +155,35 @@ export const SCRIPT_EDITOR_MESSAGE_IDS: readonly MessageId[] = [
   'scripting.builder.publish.change',
   'scripting.builder.publish.confirm',
   'scripting.builder.publish.cancel',
+  // T-0139: the export's workspace.
+  'scripting.builder.title',
+  'scripting.builder.breadcrumb',
+  'scripting.builder.breadcrumb.scripts',
+  'scripting.builder.savedAgo',
+  'scripting.builder.preview',
+  'scripting.builder.preview.soon',
+  'scripting.builder.publishNext',
+  'scripting.builder.publish.partial',
+  'scripting.builder.missingText',
+  'scripting.builder.palette.heading',
+  ...PALETTE_TYPES.map((type) => `scripting.builder.palette.${type}` as MessageId),
+  'scripting.builder.assigned',
+  'scripting.builder.unassign',
+  'scripting.builder.assign',
+  'scripting.builder.assign.soon',
+  'scripting.builder.field.name',
+  'scripting.builder.field.line',
+  'scripting.builder.linePlaceholder',
+  'scripting.builder.startNode',
+  'scripting.builder.settings',
+  'scripting.builder.variables.heading',
+  'scripting.builder.translation.placeholder',
+  'scripting.builder.translation.sourceIn',
+  'scripting.builder.version.short',
+  'scripting.builder.version.draft',
+  'scripting.builder.version.live',
+  'scripting.builder.version.archived',
+  'scripting.builder.version.draftNote',
+  'scripting.builder.emptyLine',
+  'scripting.builder.branch.if',
 ];

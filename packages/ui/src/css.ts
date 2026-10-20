@@ -14,6 +14,9 @@ import {
   RADIUS,
   SEMANTIC_DARK,
   SEMANTIC_LIGHT,
+  LAYOUT,
+  OVERLAY,
+  SHEET_RADIUS,
   SHELL,
   SPACING,
   TYPE_SCALE,
@@ -104,6 +107,15 @@ export function buildTokensCss(): string {
     ...Object.entries(SHELL).map(
       ([name, value]) => `${CSS_VAR_PREFIX}-shell-${cssKey(name)}: ${value};`,
     ),
+    ...Object.entries(LAYOUT).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-layout-${cssKey(name)}: ${value};`,
+    ),
+    '',
+    '/* overlays and data display (T-0129) */',
+    ...Object.entries(OVERLAY).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-overlay-${cssKey(name)}: ${value};`,
+    ),
+    `${CSS_VAR_PREFIX}-radius-sheet: ${SHEET_RADIUS};`,
     '',
     '/* elevation — the shadow values themselves are semantic, so they differ per theme */',
     ...Object.entries(ELEVATION).map(

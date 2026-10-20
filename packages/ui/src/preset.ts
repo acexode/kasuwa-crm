@@ -1,6 +1,7 @@
 import {
   COLOUR_SCALES,
   CONTROL_HEIGHT,
+  CONTROL_SHADOW,
   CSS_VAR_PREFIX,
   cssKey,
   DESIGN_VERSION,
@@ -8,9 +9,11 @@ import {
   FOCUS,
   ICON_SIZE,
   kebab,
+  LAYOUT,
   MOTION,
   RADIUS,
   SEMANTIC_TOKEN_NAMES,
+  OVERLAY,
   SHELL,
   SPACING,
   TYPE_SCALE,
@@ -94,6 +97,12 @@ export function buildTailwindPreset(): string {
     ...Object.keys(SHELL).map(
       (key) => `    'shell-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-shell-${cssKey(key)})',`,
     ),
+    ...Object.keys(OVERLAY).map(
+      (key) => `    'overlay-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-overlay-${cssKey(key)})',`,
+    ),
+    ...Object.keys(LAYOUT).map(
+      (key) => `    'layout-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-layout-${cssKey(key)})',`,
+    ),
   ].join('\n');
 
   const radius = Object.keys(RADIUS)
@@ -104,8 +113,24 @@ export function buildTailwindPreset(): string {
     .map((level) => `    '${level}': 'var(${CSS_VAR_PREFIX}-elevation-${level})',`)
     .join('\n');
 
+  // Control shadows are literal values (or var() references resolved on the
+  // element), never root custom properties: see CONTROL_SHADOW in tokens.ts.
+  const controlShadows = Object.entries(CONTROL_SHADOW)
+    .map(([name, value]) => `    '${name}': '${value}',`)
+    .join('\n');
+
   const durations = Object.keys(MOTION)
     .map((name) => `    '${name}': 'var(${CSS_VAR_PREFIX}-duration-${name})',`)
+    .join('\n');
+
+  // Event tints (P07 calendar, T-0136): a chart colour mixed 18% into
+  // surface, as the export draws every event block, legend swatch and month
+  // chip. A mix of two theme variables, so it follows light and dark.
+  const chartTints = Array.from({ length: 7 }, (_, index) => index + 1)
+    .map(
+      (step) =>
+        `        '.bg-chart-${step}-tint': { 'background-color': 'color-mix(in oklch, var(${CSS_VAR_PREFIX}-chart-${step}) 18%, var(${CSS_VAR_PREFIX}-surface))' },`,
+    )
     .join('\n');
 
   return `/* eslint-disable */
@@ -140,13 +165,41 @@ ${spacing}
       },
       borderRadius: {
 ${radius}
+    'sheet': 'var(${CSS_VAR_PREFIX}-radius-sheet)',
       },
       boxShadow: {
 ${shadows}
+${controlShadows}
       },
       transitionDuration: {
 ${durations}
       },
+      // \`animate-spin\` turns at the design's speed, not Tailwind's 1s.
+      // The overlays' entrances (T-0129, v1.1 Patterns "Dismissal & motion":
+      // a 240ms slide; under reduced motion the global layer cuts each to one
+      // frame). Distances are percentages of the element, never pixels.
+      animation: {
+        spin: 'spin var(${CSS_VAR_PREFIX}-duration-spin) linear infinite',
+        shimmer: 'k-shimmer var(${CSS_VAR_PREFIX}-duration-shimmer) ease-in-out infinite',
+        'fade-in': 'k-fade-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'pop-in': 'k-pop-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'drawer-in': 'k-drawer-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'drawer-in-rtl': 'k-drawer-in-rtl var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'sheet-in': 'k-sheet-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+        'toast-in': 'k-toast-in var(${CSS_VAR_PREFIX}-duration-base) var(${CSS_VAR_PREFIX}-ease) both',
+      },
+      keyframes: {
+        'k-shimmer': { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
+        'k-fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'k-pop-in': { from: { opacity: '0', transform: 'scale(.97)' }, to: { opacity: '1', transform: 'none' } },
+        'k-drawer-in': { from: { transform: 'translateX(100%)' }, to: { transform: 'none' } },
+        'k-drawer-in-rtl': { from: { transform: 'translateX(-100%)' }, to: { transform: 'none' } },
+        'k-sheet-in': { from: { transform: 'translateY(100%)' }, to: { transform: 'none' } },
+        'k-toast-in': { from: { opacity: '0', transform: 'translateY(50%)' }, to: { opacity: '1', transform: 'none' } },
+      },
+      // The v1.1 text links and the bulk bar's "Select all" sit 3px under
+      // their text (T-0129).
+      textUnderlineOffset: { 3: '3px' },
       transitionTimingFunction: {
         DEFAULT: 'var(${CSS_VAR_PREFIX}-ease)',
         kasuwa: 'var(${CSS_VAR_PREFIX}-ease)',
@@ -164,13 +217,35 @@ ${durations}
     // tailwindcss/plugin, so the preset needs no import. Use the focus shapes
     // behind a variant: \`focus-visible:ring-focus\`. Never combine \`ring-focus\`
     // with a \`ring-N\` width utility: both write box-shadow, and one discards the other.
-    function ({ addUtilities }) {
+    //
+    // The four state variants (T-0128) are how @kasuwa/ui/components style
+    // hover, press and focus. Each also matches \`data-preview\`, so the
+    // /design/components gallery can show a state at rest, the way the v1.1
+    // Components page does, from the same class that styles the live state:
+    //   is-hover          hover, only on devices that hover (a tap on Android
+    //                     must not leave a button stuck in its hover colour),
+    //                     never on a disabled control
+    //   is-active         pressed, never on a disabled control
+    //   is-focus-visible  keyboard focus: buttons, checkboxes, chips, tabs
+    //   is-focus          any focus: text fields and selects, which show their
+    //                     focus while the user types, however they got there
+    function ({ addUtilities, addVariant }) {
+      addVariant('is-hover', [
+        '@media (hover: hover) { &:hover:not(:disabled) }',
+        '&[data-preview~="hover"]',
+      ]);
+      addVariant('is-active', ['&:active:not(:disabled)', '&[data-preview~="active"]']);
+      addVariant('is-focus-visible', ['&:focus-visible', '&[data-preview~="focus"]']);
+      addVariant('is-focus', ['&:focus', '&[data-preview~="focus"]']);
       addUtilities({
 ${typeExtras}
         '.ring-focus': {
-          outline: '2px solid transparent',
-          'outline-offset': '2px',
+          'outline-style': 'none',
           'box-shadow': '${FOCUS.ring}',
+          '@media (forced-colors: active)': {
+            outline: '2px solid transparent',
+            'outline-offset': '2px',
+          },
         },
         '.field-focus': {
           outline: '2px solid transparent',
@@ -178,6 +253,7 @@ ${typeExtras}
           'border-color': '${FOCUS.fieldBorder}',
           'box-shadow': '${FOCUS.field}',
         },
+${chartTints}
       });
     },
   ],

@@ -93,12 +93,35 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P07 activities | Calendar sync chips, clash banner, holidays, booking pages | D-P22 | Ruling 1 (`calendar_sync`, `booking_pages` flags; design's not-connected state). |
 | P10 run | Call bar, "Writes to record" rail | D-L88, D-P31 | Ruling 1 (`call_bar` flag); "Writes to record" shows the design's empty state. |
 | P26 notifications | Counts on the filter rail | D-P13 | Same rail without counts. |
+| P26 notifications | One "Assignments" type covering every assignment | T-0099 (one kind per filter) | "Assignments" filters record assignments; a "Tasks" entry right after it filters task assignments. |
+| P26 notifications | Tablet "Type [All types ▾]" select | T-0101 I20 (kinds visible as chips at 1024) | The served kinds as pills after a "Type" label, in the select's place. |
+| P26 notifications | Row body text and inline actions | D-P29 (no stored text) | Title (the sentence) and object line only; no action on assignment or import rows, as the design draws them. |
+| P26 notifications | "13 in the last 90 days", "90 days" in A3 | Not served (D-L146 retention pending) | Subtitle is the bell's capped count; A3 body drops the 90 days. |
+| P26 preferences | Personal channel sub-labels, quiet-hour times, chosen digest | No preferences API | Same layout, every control disabled; only the two in-app deliveries that exist are checked. |
 | P27 search | Recent searches / recently viewed | D-L133 (R19) | Same panel, showing the design's empty state ("No recent searches"). |
 | P27 search | Partial phone-number match strip | D-L133 | Same info strip, showing the existing "type the whole number" guidance in the design's style. |
 | P27 search | "3 results hidden…" strip | D-L133 | Not drawn: a hidden-results count is an existence leak. |
 | P27 search | Programme scope pill and menu | D-L87 | Ruling 1 (`programme_scope_search` flag). |
+| P27 search | Counts on the object chips, group headers, facets, "See all 12 results" and "12 results" | D-P13 | Same chips, headers, boxes and button without numbers; the results subtitle says what is shown instead (T-0138). |
+| P27 search | Phone, city and segment line; amount and close date; owner; "3 days ago" | Not in the search contract (hits carry a name, a company and a lead's status) | Company line where served, the lead status pill; owner and updated columns behind `search_filters` with the empty dash (T-0138). |
+| P27 search | "Create contact" / "Create lead" on no matches | No create flow in the web app yet | Same buttons, drawn in the lists' "Not available yet" state; a lookup never repeats the number (T-0138). |
+| P27 palette | Call last contact, Create ticket, Go to wallboard; Switch programme's current programme and waiting counts | D-L194; no telephony, tickets or wallboard; no current-programme concept | Rows drawn disabled behind their module's placeholder flag; Switch programme lists the session's programmes disabled, with no "Current" pill or counts (T-0138). |
+| P27 palette | Ask AI and the D3 answer | D-L194 | Ask AI row disabled behind `ai_assistant`; D3 is not built (T-0138). |
 | P28 import | Review step stats and error table | D-L128 Q6 | Same step and layout, with the counts the API returns; no invented totals. |
 | P03 home | Landing on Home | D-L172 | Superseded by ruling 3. |
+| P06 board | "Any amount" and "All territories" filters | R14 (no amount-band or territory filter in the contract) | Same dropdowns, same place: the currency and won-window filters the contract has (T-0135). |
+| P06 board | "Won this quarter" and "+7 won earlier this quarter" | D-L88 (won covers `closedSince`, default 90 days) | Same figure and box, labelled "Won since {date}" with the served window; won cards stay listed under the box (T-0135). |
+| P06 list | Footer count and totals | R13 (the list holds lost deals the board totals never cover) | Not drawn (T-0135). |
+| P06 deal | Commit/Renewal badges, deal number, Forecast category, Territory, Lead source, Type | No such Deal fields | Not drawn; the header carries account and owner, the key fields what the Deal serves (T-0135). |
+| P01/1 sign in | Work email straight after the divider | D-L195 | Workspace field kept above it, as a 48px field with its help line. |
+| P01/3 sign up | No password; carrier pill ("MTN") in the phone field | D-L195, T-0007b | Password field kept (48px, with help). Joined phone field without the carrier pill. |
+| P01/5.1 region | Nigeria "Enterprise", Kenya "Included", both selectable | D-P2, D-P11 | Same cards and tag style; both tagged "Talk to sales" in the Enterprise colours, not selectable, with the sales note. |
+| P01/2 two-step | Passkey and backup-code rows always | T-0126, T-0131 | Each row only when the challenge marks the method available. The API has no passkey method, so that row is hidden. |
+| P01/6 success | "{Company} is ready", "Go to Inbox", "Take a 2-minute tour", "2 invites sent" | No inbox, tour or invite endpoint | "Your workspace is ready", "Go to Home"; the tour button disabled behind `product_tour`; invites say "on the list", never "sent". |
+| P05 records | Timeline filter pills with counts ("All 8", "Calls 1") | D-P13 | Same pills without counts (T-0134). |
+| P05 records | Offline "2 changes queued", View queue (2), Send relabelled Queue, "Queued" chips | D-P21, D-L64 | Same inverse band with the last-synced time; no queue count or button; write controls disabled (T-0134). |
+| P05 records | Contact ID / Account ID (`KSW-C-…`) in the SYSTEM group | No human-readable id exists; UUIDs are never printed | The SYSTEM group keeps Created and Programme in the same place (T-0134). |
+| P05 account | "Contacts · 12", "12 contacts" chip, Hierarchy roll-ups and child accounts | D-P13, D-L98 (children not served, T-0118) | Contacts card without a count; the Hierarchy card draws the ancestors and this account only, with no money (T-0134). |
 
 ## Order and tasks
 

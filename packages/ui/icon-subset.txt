@@ -8,6 +8,8 @@
 # lacked: team/reports/ui-audit/foundations.md section 2, plus the v1.1 signal
 # glyphs. Every glyph costs bytes on every page at 256 kbps, so a glyph only a
 # not-yet-built screen uses is added by the task that builds it.
+# T-0133 (P04 lists): the view switcher (table_rows, map, vertical_split), the
+# Source chip (input), and the bulk bar (person_add_alt, merge).
 account_balance
 account_tree
 add
@@ -16,6 +18,7 @@ add_link
 add_task
 alarm
 alt_route
+alternate_email
 apartment
 approval
 archive
@@ -36,13 +39,16 @@ bolt
 bookmark
 bookmark_add
 business_center
+calendar_month
 call
 call_end
 call_received
 campaign
+category
 chat
 check
 check_box
+check_box_outline_blank
 check_circle
 chevron_left
 chevron_right
@@ -96,17 +102,21 @@ headset_mic
 help
 history
 home
+hourglass_bottom
 hourglass_top
 hub
 image
 import_export
 inbox
 info
+input
+insights
 inventory_2
 join
 key
 language
 layers
+leaderboard
 left_panel_close
 left_panel_open
 light_mode
@@ -120,9 +130,12 @@ lock_open
 logout
 mail
 manage_search
+map
 mark_email_read
+mark_email_unread
 menu
 menu_book
+merge
 mic
 mobile_off
 more_horiz
@@ -139,9 +152,13 @@ pause_circle
 payments
 person
 person_add
+person_add_alt
+person_off
 phone_iphone
 photo_camera
 play_arrow
+play_circle
+priority_high
 public
 publish
 published_with_changes
@@ -155,6 +172,7 @@ remove
 replay
 request_quote
 rule
+savings
 schedule
 schedule_send
 schema
@@ -162,8 +180,12 @@ science
 search
 search_off
 send
+sentiment_satisfied
 settings
 share
+shield
+shield_person
+shopping_cart
 signal_cellular_4_bar
 signal_cellular_alt
 signal_cellular_alt_1_bar
@@ -182,11 +204,14 @@ support_agent
 swap_horiz
 swipe_left
 sync_alt
+table_rows
+target
 task_alt
 thumb_down
 thumb_up
 timer
 timer_off
+today
 touch_app
 translate
 trending_up
@@ -194,15 +219,23 @@ tune
 undo
 unfold_less
 unfold_more
+upcoming
 upload
 upload_file
 verified
 verified_user
 vertical_align_top
+vertical_split
+videocam
 view_column
 view_kanban
 visibility
 visibility_off
 warning
+where_to_vote
 work
 workspaces
+# P27 search and command palette (T-0138).
+calendar_today
+monitoring
+select_all

@@ -60,6 +60,15 @@ export const Phone = z.object({
 });
 export type Phone = z.infer<typeof Phone>;
 
+/**
+ * The owner's and the account's names a contact row embeds (T-0043, T-0061):
+ * `owner.displayName` is `null` for a FORMER owner (T-0103). Each is omitted
+ * when withheld and `null` when there is none. The P04 rows print them
+ * (T-0133); an id is never a name.
+ */
+const ContactOwnerRef = z.object({ id: z.string(), displayName: z.string().nullable() });
+const ContactAccountRef = z.object({ id: z.string(), name: z.string() });
+
 export const Contact = z.object({
   id: z.string(),
   programmeId: z.string(),
@@ -71,7 +80,9 @@ export const Contact = z.object({
   phones: z.array(Phone).optional(),
   emails: z.array(z.string()).optional(),
   accountId: z.string().nullable().optional(),
+  account: ContactAccountRef.nullable().optional(),
   ownerUserId: z.string().nullable().optional(),
+  owner: ContactOwnerRef.nullable().optional(),
   status: ContactStatus.nullable().optional(),
   source: ContactSource.nullable().optional(),
   tags: z.array(z.string()).optional(),

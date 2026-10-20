@@ -7,10 +7,14 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
     "./tokens.css": "./src/tokens.generated.css",
     "./fonts.css": "./src/fonts.generated.css",
     "./tailwind-preset": "./tailwind-preset.cjs"
   },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "lint": "eslint src scripts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -18,7 +22,15 @@
     "import-design": "node scripts/import-design-tokens.mjs",
     "fetch-fonts": "node scripts/fetch-fonts.mjs"
   },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
   "devDependencies": {
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tsx": "^4.19.2"
   },
   "nx": {

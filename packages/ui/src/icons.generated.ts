@@ -12,6 +12,7 @@ export type IconName =
   | 'add_task'
   | 'alarm'
   | 'alt_route'
+  | 'alternate_email'
   | 'apartment'
   | 'approval'
   | 'archive'
@@ -32,13 +33,17 @@ export type IconName =
   | 'bookmark'
   | 'bookmark_add'
   | 'business_center'
+  | 'calendar_month'
+  | 'calendar_today'
   | 'call'
   | 'call_end'
   | 'call_received'
   | 'campaign'
+  | 'category'
   | 'chat'
   | 'check'
   | 'check_box'
+  | 'check_box_outline_blank'
   | 'check_circle'
   | 'chevron_left'
   | 'chevron_right'
@@ -92,17 +97,21 @@ export type IconName =
   | 'help'
   | 'history'
   | 'home'
+  | 'hourglass_bottom'
   | 'hourglass_top'
   | 'hub'
   | 'image'
   | 'import_export'
   | 'inbox'
   | 'info'
+  | 'input'
+  | 'insights'
   | 'inventory_2'
   | 'join'
   | 'key'
   | 'language'
   | 'layers'
+  | 'leaderboard'
   | 'left_panel_close'
   | 'left_panel_open'
   | 'light_mode'
@@ -116,11 +125,15 @@ export type IconName =
   | 'logout'
   | 'mail'
   | 'manage_search'
+  | 'map'
   | 'mark_email_read'
+  | 'mark_email_unread'
   | 'menu'
   | 'menu_book'
+  | 'merge'
   | 'mic'
   | 'mobile_off'
+  | 'monitoring'
   | 'more_horiz'
   | 'more_vert'
   | 'move_up'
@@ -135,9 +148,13 @@ export type IconName =
   | 'payments'
   | 'person'
   | 'person_add'
+  | 'person_add_alt'
+  | 'person_off'
   | 'phone_iphone'
   | 'photo_camera'
   | 'play_arrow'
+  | 'play_circle'
+  | 'priority_high'
   | 'public'
   | 'publish'
   | 'published_with_changes'
@@ -151,15 +168,21 @@ export type IconName =
   | 'replay'
   | 'request_quote'
   | 'rule'
+  | 'savings'
   | 'schedule'
   | 'schedule_send'
   | 'schema'
   | 'science'
   | 'search'
   | 'search_off'
+  | 'select_all'
   | 'send'
+  | 'sentiment_satisfied'
   | 'settings'
   | 'share'
+  | 'shield'
+  | 'shield_person'
+  | 'shopping_cart'
   | 'signal_cellular_4_bar'
   | 'signal_cellular_alt'
   | 'signal_cellular_alt_1_bar'
@@ -178,11 +201,14 @@ export type IconName =
   | 'swap_horiz'
   | 'swipe_left'
   | 'sync_alt'
+  | 'table_rows'
+  | 'target'
   | 'task_alt'
   | 'thumb_down'
   | 'thumb_up'
   | 'timer'
   | 'timer_off'
+  | 'today'
   | 'touch_app'
   | 'translate'
   | 'trending_up'
@@ -190,16 +216,20 @@ export type IconName =
   | 'undo'
   | 'unfold_less'
   | 'unfold_more'
+  | 'upcoming'
   | 'upload'
   | 'upload_file'
   | 'verified'
   | 'verified_user'
   | 'vertical_align_top'
+  | 'vertical_split'
+  | 'videocam'
   | 'view_column'
   | 'view_kanban'
   | 'visibility'
   | 'visibility_off'
   | 'warning'
+  | 'where_to_vote'
   | 'work'
   | 'workspaces'
   ;
@@ -214,6 +244,7 @@ export const ICON_NAMES: readonly IconName[] = [
   'add_task',
   'alarm',
   'alt_route',
+  'alternate_email',
   'apartment',
   'approval',
   'archive',
@@ -234,13 +265,17 @@ export const ICON_NAMES: readonly IconName[] = [
   'bookmark',
   'bookmark_add',
   'business_center',
+  'calendar_month',
+  'calendar_today',
   'call',
   'call_end',
   'call_received',
   'campaign',
+  'category',
   'chat',
   'check',
   'check_box',
+  'check_box_outline_blank',
   'check_circle',
   'chevron_left',
   'chevron_right',
@@ -294,17 +329,21 @@ export const ICON_NAMES: readonly IconName[] = [
   'help',
   'history',
   'home',
+  'hourglass_bottom',
   'hourglass_top',
   'hub',
   'image',
   'import_export',
   'inbox',
   'info',
+  'input',
+  'insights',
   'inventory_2',
   'join',
   'key',
   'language',
   'layers',
+  'leaderboard',
   'left_panel_close',
   'left_panel_open',
   'light_mode',
@@ -318,11 +357,15 @@ export const ICON_NAMES: readonly IconName[] = [
   'logout',
   'mail',
   'manage_search',
+  'map',
   'mark_email_read',
+  'mark_email_unread',
   'menu',
   'menu_book',
+  'merge',
   'mic',
   'mobile_off',
+  'monitoring',
   'more_horiz',
   'more_vert',
   'move_up',
@@ -337,9 +380,13 @@ export const ICON_NAMES: readonly IconName[] = [
   'payments',
   'person',
   'person_add',
+  'person_add_alt',
+  'person_off',
   'phone_iphone',
   'photo_camera',
   'play_arrow',
+  'play_circle',
+  'priority_high',
   'public',
   'publish',
   'published_with_changes',
@@ -353,15 +400,21 @@ export const ICON_NAMES: readonly IconName[] = [
   'replay',
   'request_quote',
   'rule',
+  'savings',
   'schedule',
   'schedule_send',
   'schema',
   'science',
   'search',
   'search_off',
+  'select_all',
   'send',
+  'sentiment_satisfied',
   'settings',
   'share',
+  'shield',
+  'shield_person',
+  'shopping_cart',
   'signal_cellular_4_bar',
   'signal_cellular_alt',
   'signal_cellular_alt_1_bar',
@@ -380,11 +433,14 @@ export const ICON_NAMES: readonly IconName[] = [
   'swap_horiz',
   'swipe_left',
   'sync_alt',
+  'table_rows',
+  'target',
   'task_alt',
   'thumb_down',
   'thumb_up',
   'timer',
   'timer_off',
+  'today',
   'touch_app',
   'translate',
   'trending_up',
@@ -392,16 +448,20 @@ export const ICON_NAMES: readonly IconName[] = [
   'undo',
   'unfold_less',
   'unfold_more',
+  'upcoming',
   'upload',
   'upload_file',
   'verified',
   'verified_user',
   'vertical_align_top',
+  'vertical_split',
+  'videocam',
   'view_column',
   'view_kanban',
   'visibility',
   'visibility_off',
   'warning',
+  'where_to_vote',
   'work',
   'workspaces',
 ];

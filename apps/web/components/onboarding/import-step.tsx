@@ -2,8 +2,8 @@
 
 import { useId, useRef, useState } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
+import { Button } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { FIELD, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import {
   KASUWA_IMPORT_FIELDS,
   guessField,
@@ -123,11 +123,17 @@ export function ImportStep({
                 onSource(value);
                 setCrmUnavailable(false);
               }}
-              className={`flex min-h-touch items-center gap-2 rounded-lg px-3 py-2 text-body-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                checked ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface'
+              className={`flex items-center gap-2.5 rounded-10 px-3 py-3.5 text-start text-body-sm font-semibold text-text focus-visible:ring-focus ${
+                checked ? 'border-2 border-primary bg-primary-soft' : 'border border-border-strong bg-surface hover:bg-surface-sunken'
               }`}
             >
-              {value === 'csv' ? <Icon name="description" size="sm" /> : null}
+              {/* The board's source badges: the tool's initial, or a sheet for CSV. */}
+              <span
+                aria-hidden="true"
+                className="flex size-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken text-body-sm font-extrabold text-text-2"
+              >
+                {value === 'csv' ? <Icon name="description" size={20} /> : sourceName(value).charAt(0)}
+              </span>
               {sourceName(value)}
             </button>
           );
@@ -137,19 +143,17 @@ export function ImportStep({
       {source === 'csv' ? (
         <div className="flex flex-col gap-3" data-testid="import-csv">
           {mapping === null ? (
-            <label
-              className={`${SECONDARY_BUTTON} cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus`}
-            >
-              <Icon name="upload_file" size="sm" />
+            <label className="flex h-control-lg cursor-pointer items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-3.5 text-label text-text hover:bg-surface-sunken focus-within:ring-focus">
+              <Icon name="upload_file" size={20} />
               {t.t('import.csv.choose')}
               <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} className="sr-only" />
             </label>
           ) : (
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
-              <Icon name="check_circle" className="text-success-text" />
-              <span className="flex flex-1 flex-col">
-                <strong className="text-body-sm">{mapping.fileName}</strong>
-                <span data-testid="import-summary" className="text-body-sm text-text-2">
+            <div className="flex items-center gap-2.5 rounded-10 border border-border bg-surface px-3.5 py-3">
+              <Icon name="check_circle" size={22} className="text-success-text" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <strong className="truncate text-body-sm font-bold">{mapping.fileName}</strong>
+                <span data-testid="import-summary" className="text-meta text-text-2">
                   {t.t('import.csv.summary', { rows: mapping.rows, fix: columnsToFix(mapping) })}
                 </span>
               </span>
@@ -159,7 +163,7 @@ export function ImportStep({
                   onMapping(null);
                   if (fileRef.current !== null) fileRef.current.value = '';
                 }}
-                className={QUIET_BUTTON}
+                className="h-control-base rounded-md px-2.5 text-body-sm font-semibold text-primary-text hover:bg-primary-soft focus-visible:ring-focus"
               >
                 {t.t('import.csv.replace')}
               </button>
@@ -172,70 +176,97 @@ export function ImportStep({
           ) : null}
 
           {mapping !== null ? (
-            <table className="w-full border-collapse text-body-sm">
-              <thead>
-                <tr className="text-start text-caption text-text-muted">
-                  <th scope="col" className="py-2 text-start font-semibold">
-                    {t.t('import.csv.yourColumn')}
-                  </th>
-                  <th scope="col" className="py-2 text-start font-semibold">
-                    {t.t('import.csv.kasuwaField')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {mapping.columns.map((column, index) => (
-                  <tr key={`${column.name}-${index}`} className="border-t border-border">
-                    <td className="py-2 pe-3 font-mono">{column.name}</td>
-                    <td className="flex items-center gap-2 py-2">
-                      {column.field === null ? <Icon name="help" size="sm" className="text-warning-text" /> : null}
-                      <select
-                        aria-label={t.t('import.csv.fieldFor', { column: column.name })}
-                        aria-invalid={column.field === null}
-                        data-column={column.name}
-                        value={column.field ?? ''}
-                        onChange={(event) =>
-                          setField(index, event.target.value === '' ? null : (event.target.value as KasuwaImportField))
-                        }
-                        className={`${FIELD} flex-1`}
-                      >
-                        <option value="">{t.t('import.field.choose')}</option>
-                        {KASUWA_IMPORT_FIELDS.map((field) => (
-                          <option key={field} value={field}>
-                            {t.t(`import.field.${field}` as MessageId)}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+            <div className="overflow-hidden rounded-10 border border-border bg-surface">
+              <table className="w-full border-collapse text-body-sm">
+                <thead>
+                  <tr className="bg-surface-sunken text-caption font-bold uppercase tracking-wide text-text-2">
+                    <th scope="col" className="w-1/2 px-3.5 py-2.5 text-start font-bold">
+                      {t.t('import.csv.yourColumn')}
+                    </th>
+                    <th scope="col" aria-hidden="true" className="w-6 p-0" />
+                    <th scope="col" className="w-1/2 px-3.5 py-2.5 text-start font-bold">
+                      {t.t('import.csv.kasuwaField')}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {mapping.columns.map((column, index) => {
+                    const unmapped = column.field === null;
+                    return (
+                      <tr
+                        key={`${column.name}-${index}`}
+                        className={`border-t border-border ${unmapped ? 'bg-warning-soft' : ''}`}
+                      >
+                        <td className="truncate px-3.5 py-1 font-mono text-meta">{column.name}</td>
+                        <td className="w-6 p-0 text-center" aria-hidden="true">
+                          <Icon
+                            name={unmapped ? 'help' : 'arrow_forward'}
+                            size={18}
+                            className={`${unmapped ? 'text-warning-text' : 'text-text-muted'} rtl:-scale-x-100`}
+                          />
+                        </td>
+                        <td className="px-3.5 py-1">
+                          {/* The board shows the field as text; it is a plain
+                              select drawn as that text, so every row stays
+                              changeable. */}
+                          <span className="relative flex items-center">
+                            <select
+                              aria-label={t.t('import.csv.fieldFor', { column: column.name })}
+                              aria-invalid={unmapped}
+                              data-column={column.name}
+                              value={column.field ?? ''}
+                              onChange={(event) =>
+                                setField(
+                                  index,
+                                  event.target.value === '' ? null : (event.target.value as KasuwaImportField),
+                                )
+                              }
+                              className={`h-control-base w-full min-w-0 cursor-pointer appearance-none rounded-6 bg-transparent pe-7 ps-1 text-body-sm focus-visible:ring-focus ${
+                                unmapped ? 'font-semibold text-warning-text' : 'text-text'
+                              }`}
+                            >
+                              <option value="">{t.t('import.field.choose')}</option>
+                              {KASUWA_IMPORT_FIELDS.map((field) => (
+                                <option key={field} value={field}>
+                                  {t.t(`import.field.${field}` as MessageId)}
+                                </option>
+                              ))}
+                            </select>
+                            <Icon
+                              name="expand_more"
+                              size={18}
+                              className="pointer-events-none absolute end-1 text-text-muted"
+                            />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : null}
-          <p id={`${id}-csv-help`} className="text-caption text-text-muted">
+          <p id={`${id}-csv-help`} className="text-meta text-text-muted">
             {t.t('import.csv.help')}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
           <p className="text-body-sm text-text-2">{t.t('import.crm.body', { name: sourceName(source) })}</p>
-          <button
-            type="button"
-            data-testid="import-connect"
-            onClick={() => setCrmUnavailable(true)}
-            className={SECONDARY_BUTTON}
-          >
+          <Button data-testid="import-connect" onClick={() => setCrmUnavailable(true)} className="self-start px-4">
             {t.t('import.crm.connect', { name: sourceName(source) })}
-          </button>
+          </Button>
           {crmUnavailable ? (
-            <p role="status" className="rounded-lg bg-info-soft p-3 text-body-sm text-info-text">
+            <p role="status" className="rounded-10 bg-info-soft px-3.5 py-3 text-body-sm text-info-text">
               {t.t('import.crm.unavailable', { name: sourceName(source) })}
             </p>
           ) : null}
         </div>
       )}
 
-      <p className="text-body-sm text-text-2">{t.t('import.startFresh')}</p>
+      <p className="rounded-10 border border-dashed border-border-strong px-3.5 py-3 text-body-sm text-text-2">
+        {t.t('import.startFresh')}
+      </p>
     </>
   );
 }

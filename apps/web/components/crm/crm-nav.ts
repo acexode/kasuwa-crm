@@ -1,20 +1,24 @@
 import type { MessageId } from '@kasuwa/i18n/bundle';
-import type { IconName } from '@kasuwa/ui';
+import type { FilledIconName } from '@kasuwa/ui';
 
 /**
- * The CRM app shell's main navigation (P04, `nav` in the List Screen export):
- * Home, Inbox, Leads, Contacts, Accounts, Deals, Tickets, Reports.
+ * The CRM app shell's main navigation (T-0130): the 72px icon rail at 1440 and
+ * 1024 (P03, P04, P07), in the designs' order — Home, Inbox, Leads, Contacts,
+ * Accounts, Activities, Deals, Tickets, Calls, Reports.
  *
- * `href: null` means NOT BUILT, and an unbuilt destination is drawn as a
- * non-link. A menu entry that navigates to a 404 is worse than one that
- * visibly does nothing — the same rule as the admin settings menu and the
- * language menu. Each entry gains its `href` when its screen ships.
+ * Three kinds of entry:
+ *   - BUILT (`href` set): a link where its flag is on in this process (the
+ *     server's `crmLiveNav()`), and drawn disabled where it is off, so no entry
+ *     ever leads to a 404.
+ *   - NOT BUILT YET, with a module flag (`placeholder: true`): drawn, disabled,
+ *     as the design draws it, only where `placeholder:<id>` is live
+ *     (D-L194); not drawn at all where its flag is off.
+ *   - Home: P03, built by T-0132 (D-L196) behind `crm_home`. First in the
+ *     list, so it is also where a signed-in browser lands (`landingPath()`).
  *
- * A BUILT screen is still behind its flag (`crm_records`, `crm_accounts`,
- * `crm_leads`, `crm_activities`, `crm_pipeline`), so
- * an `href` alone does not make a link: the shell links only the ids the
- * server says are on in this process (`crmLiveNav()` in
- * `lib/feature-flags.ts`), and draws the rest like an unbuilt entry.
+ * Every icon but Reports' is in the filled face too (`icon-subset-filled.txt`),
+ * because the phone bottom bar draws the active entry's icon filled (P26), and
+ * Reports never sits on the bottom bar.
  *
  * No `'use client'`: the message ids are read on the server too.
  */
@@ -22,28 +26,86 @@ import type { IconName } from '@kasuwa/ui';
 export interface CrmNavItem {
   readonly id: string;
   readonly label: MessageId;
-  readonly icon: IconName;
+  /** Reports' and Studio's glyphs are not in the filled face: they are never drawn filled. */
+  readonly icon: FilledIconName | 'bar_chart' | 'account_tree';
   readonly href: string | null;
-  /** One of the five on the 360 px bottom bar. */
-  readonly mobile: boolean;
+  /** An unbuilt module's entry, drawn only where its flag is on (`placeholder:<id>`). */
+  readonly placeholder: boolean;
 }
 
 export const CRM_NAV: readonly CrmNavItem[] = [
-  { id: 'home', label: 'records.nav.home', icon: 'home', href: null, mobile: true },
-  { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: null, mobile: true },
-  { id: 'leads', label: 'records.nav.leads', icon: 'person_add', href: '/leads', mobile: false },
-  { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', mobile: true },
-  { id: 'accounts', label: 'records.nav.accounts', icon: 'domain', href: '/accounts', mobile: false },
-  { id: 'activities', label: 'records.nav.activities', icon: 'event_note', href: '/activities', mobile: false },
-  { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: '/pipelines', mobile: true },
-  { id: 'tickets', label: 'records.nav.tickets', icon: 'confirmation_number', href: null, mobile: false },
-  { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, mobile: true },
+  { id: 'home', label: 'records.nav.home', icon: 'home', href: '/home', placeholder: false },
+  { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: null, placeholder: true },
+  { id: 'leads', label: 'records.nav.leads', icon: 'person_add', href: '/leads', placeholder: false },
+  { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', placeholder: false },
+  { id: 'accounts', label: 'records.nav.accounts', icon: 'domain', href: '/accounts', placeholder: false },
+  { id: 'activities', label: 'records.nav.activities', icon: 'event_note', href: '/activities', placeholder: false },
+  { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: '/pipelines', placeholder: false },
+  { id: 'tickets', label: 'records.nav.tickets', icon: 'confirmation_number', href: null, placeholder: true },
+  { id: 'calls', label: 'records.nav.calls', icon: 'headset_mic', href: null, placeholder: true },
+  // P10 (T-0139): the design's "Studio", holding the script builder. No link until a
+  // capability read says who may author (R3, T-0079); current on the script screens.
+  { id: 'studio', label: 'records.nav.studio', icon: 'account_tree', href: null, placeholder: true },
+  { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, placeholder: true },
 ];
+
+/** The phone bottom bar's Alerts tab (P26 E2): the notification centre, never on the rail. */
+export const ALERTS_TAB: CrmNavItem = { id: 'notifications', label: 'notifications.tab', icon: 'notifications', href: '/notifications', placeholder: false };
 
 /** The entry's link, or `null` when it is unbuilt or its flag is off here. */
 export function liveHref(item: CrmNavItem, live: readonly string[]): string | null {
   return item.href !== null && live.includes(item.id) ? item.href : null;
 }
+
+/** The entries this process draws: every built one, and each placeholder whose flag is on. */
+export function shownNav(live: readonly string[]): readonly CrmNavItem[] {
+  return CRM_NAV.filter((item) => !item.placeholder || live.includes(`placeholder:${item.id}`));
+}
+
+/**
+ * The phone bottom bar (P04/02, P03): Home, Inbox, the current object, Deals,
+ * then More, which the shell draws. The third slot is the screen's own entry
+ * when it is not already on the bar, and Contacts otherwise.
+ *
+ * A screen may name its own two object slots instead (`objects`): P03 Home
+ * draws Deals and Calls for a seller, Tickets and Calls for a support or BPO
+ * agent. Only where every named entry is drawn in this process: an unbuilt
+ * module's entry needs its flag, and a bar with a hole in it is worse than
+ * the default one.
+ */
+export function bottomNav(live: readonly string[], current: string, objects?: readonly string[]): readonly CrmNavItem[] {
+  const shown = shownNav(live);
+  const lead = shown.filter((item) => item.id === 'home' || item.id === 'inbox');
+  // P26 E2 (T-0137): on the notification centre the bar is Home, Inbox, Deals, Alerts (active), More.
+  // Only there: the Alerts label is in the centre's bundle, and the rail has no such entry.
+  if (current === 'notifications' && live.includes('notifications')) {
+    return [...shown.filter((item) => item.id === 'home' || item.id === 'inbox' || item.id === 'deals'), ALERTS_TAB];
+  }
+  if (objects !== undefined) {
+    const picked = objects.flatMap((id) => shown.filter((item) => item.id === id));
+    if (picked.length === objects.length) return [...lead, ...picked];
+  }
+  const fixed = new Set(['home', 'inbox', 'deals']);
+  const object =
+    shown.find((item) => item.id === current && !fixed.has(item.id)) ??
+    shown.find((item) => item.id === 'contacts');
+  return [
+    ...lead,
+    ...(object === undefined ? [] : [object]),
+    ...shown.filter((item) => item.id === 'deals'),
+  ];
+}
+
+/**
+ * The phone app bar's default title for screens that are not nav entries. Not
+ * in the shell's bundle: each is already in its own screen's (the search
+ * strings must stay out of a CRM page where `crm_search` is off, D-L137 L3).
+ */
+export const CRM_SCREEN_TITLES: Readonly<Record<string, MessageId>> = {
+  search: 'search.title',
+  notifications: 'notifications.title',
+  scripts: 'scripting.builder.title',
+};
 
 export const CRM_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'app.name',
@@ -56,5 +118,11 @@ export const CRM_SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'auth.account',
   'records.nav.label',
   'records.nav.soon',
+  'records.nav.more',
+  'shell.search.placeholder',
+  'design.components.kbd.search',
+  'shell.menu.open',
+  'shell.menu.close',
+  'shell.back',
   ...CRM_NAV.map((item) => item.label),
 ];
