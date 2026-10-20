@@ -172,6 +172,7 @@ export async function crmLiveNav(): Promise<string[]> {
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
   ]);
+  const placeholders = await listPlaceholderFlags();
   return [
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
@@ -197,7 +198,27 @@ export async function crmLiveNav(): Promise<string[]> {
           ...(csvImport && contacts ? ['notifications:import'] : []),
         ]
       : []),
+    // Not nav items: the P04 lists' placeholders (T-0133, D-L194), by flag name.
+    ...placeholders,
   ];
+}
+
+/** The P04 list placeholder flags (T-0133, D-L194) that are on in this process. */
+const LIST_PLACEHOLDER_FLAGS = ['map_view', 'bulk_actions', 'saved_views', 'last_activity', 'quick_actions', 'more_filters'] as const;
+
+/**
+ * `map_view`, `bulk_actions`, `saved_views`, `last_activity`,
+ * `quick_actions` and `more_filters` (T-0133, D-L194): designed P04 elements with no backend yet,
+ * drawn in the design's own empty or disabled state. Presentation only: none
+ * of them reaches an endpoint, and each grants nothing.
+ */
+async function listPlaceholderFlags(): Promise<string[]> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const on = await Promise.all(
+    LIST_PLACEHOLDER_FLAGS.map((flag) => client.getBooleanValue(flag, false, toEvaluationContext({ tenantId: CRM_SHELL }))),
+  );
+  return LIST_PLACEHOLDER_FLAGS.filter((_, index) => on[index] === true);
 }
 
 /**

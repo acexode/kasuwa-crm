@@ -3,8 +3,9 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { guarded } from '../custom/lazy-boundary';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId, type Translator } from '@kasuwa/i18n/bundle';
+import type { IconName } from '@kasuwa/ui';
 import { Icon } from '../icon';
 import { CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
@@ -14,27 +15,43 @@ import { dropQueryFromAddressBar, listQ, numberTyped } from '../../lib/search-qu
 import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter, type CustomFilters } from '../../lib/custom-values-filters';
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomDefinitions } from '../custom/use-custom-fields';
-import {
-  FilterOptions,
-  ListError,
-  ListLoading,
-  LoadMore,
-  LockedValue,
-  Muted,
-  NumberSearchHint,
-  OfflineBanner,
-  HeaderLock,
-} from '../records/list-parts';
+import { FilterOptions, ListError, ListLoading, LockedValue, Muted, NumberSearchHint, OfflineBanner } from '../records/list-parts';
 import type { ChooserProps } from '../records/column-chooser';
-import { CHIP, CHIP_OFF, CHIP_ON, FOCUS, POPOVER } from '../records/list-classes';
+import { FOCUS, POPOVER, TH } from '../records/list-classes';
+import { ListHeader, NewButton, ViewSwitcher, heldCount, type MenuItem } from '../records/list-chrome';
+import { ActiveFilterChips, ColumnsButton, FilterChip, FilterSheetButton, SearchField, UnavailableChip } from '../records/list-toolbar';
+import {
+  HeaderLabel,
+  LastActivityEmpty,
+  NameBlock,
+  OwnerValue,
+  PhoneValue,
+  RecordAvatar,
+  SELECT_TH,
+  STATUS_TONE,
+  SelectAll,
+  SelectRow,
+  StatusWord,
+  TABLE,
+  TagList,
+  WaDot,
+  cellClass,
+  nameTd,
+  nameTh,
+  selectTd,
+  subLine,
+} from '../records/list-table';
+import { PagingFooter, usePaging, type PageSize } from '../records/paging';
+import { BULK_ASSIGN, BULK_CAMPAIGN, BULK_MERGE, BULK_UPDATE, BULK_WHATSAPP, BulkBar, useSelection } from '../records/bulk-bar';
+import { CardName, NewFab, RecordCard, SwipeHint, type CardAction } from '../records/record-card';
+import { useMyProgrammes } from '../records/use-my-programmes';
+import { nameOrWithheld } from '../records/name';
 import {
   COLUMNS,
   FILTERS,
   NO_FILTERS,
   activeFilterKeys,
   defaultHiddenColumns,
-  formatPhone,
-  initials,
   listState,
   lockedColumns,
   optionLabel,
@@ -46,18 +63,18 @@ import {
   type FilterState,
 } from './contacts-model';
 import { useContactList } from './use-contact-list';
-import { DuplicatesLink, ImportLink, UnavailableAction } from './contacts-parts';
 
 // Loaded when opened: neither the phone's filter sheet nor the column chooser is on the list's first paint.
 const ColumnChooser = guarded(
   dynamic<ChooserProps<ColumnKey>>(() => import('../records/column-chooser').then((module) => module.ColumnChooser<ColumnKey>), { ssr: false }),
 );
 const NoRows = guarded(dynamic(() => import('./contacts-no-rows').then((module) => module.NoRows), { ssr: false }));
-const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
+const FilterSheet = guarded(dynamic(() => import('../records/filter-sheet').then((module) => module.FilterSheet), { ssr: false }));
 
 /**
  * `P04/02` — the Contacts list — with `P04/05` (empty, no results) and `P04/06`
- * (loading, offline), behind the CRM records flag, which only the server page reads (T-0042).
+ * (loading, offline), behind the CRM records flag, which only the server page
+ * reads (T-0042), drawn to the export by T-0133 (D-L193).
  *
  * ---------------------------------------------------------------------------
  * A LOCK IS NOT AN EMPTY CELL, AND AN EMPTY CELL IS NOT A LOCK.
@@ -65,30 +82,54 @@ const FilterSheet = guarded(dynamic(() => import('./contacts-filter-sheet').then
  * Field security omits a property and names it in `withheldFields`; `null`
  * means the record has no value. They are drawn differently on purpose: a
  * lock tells an agent the value exists and their role cannot see it, and
- * "Not set" tells them nobody has filled it in. Collapsing the two sends an
- * agent to ask a customer for an email the company already holds. Locks are
- * decided PER ROW: two rows on one page can come from two programmes with
- * different field security.
+ * "Not set" tells them nobody has filled it in. Locks are decided PER ROW:
+ * two rows on one page can come from two programmes.
  *
- * THE PROGRAMME CHIP NAMES NO PROGRAMME (D-L64). The contract gives the screen
- * programme ids, never names, and an id is not a label. Until T-0043 adds a
- * scoped name lookup the chip says only that the list is limited to the
- * caller's programmes. It sends nothing: scope is resolved by the session.
+ * THE PROGRAMME PILL NAMES THE CALLER'S OWN PROGRAMMES (T-0043's scoped read)
+ * and is not a switcher: scope is resolved by the session, and nothing here
+ * sends a programme.
  *
  * NO TOTALS (D-P13). No "1–25 of 148", no "Page 1 of 6", no count in the
- * title. The list grows with "Load more" while `nextCursor` says there is more.
+ * title: the count chip says "25+" at most, and the footer pages forward on
+ * `nextCursor`. Owner and account print the names the row embeds (T-0043,
+ * T-0061), never an id and never a stand-in like "Assigned".
  * ---------------------------------------------------------------------------
  */
 
-const STATUS_TONE: Readonly<Record<string, string>> = {
-  new: 'bg-info-soft text-info-text',
-  contacted: 'bg-primary-soft text-primary-text',
-  qualified: 'bg-success-soft text-success-text',
-  unqualified: 'bg-surface-sunken text-text-2',
-  customer: 'bg-accent-soft text-accent-text',
+type Popover = `filter:${FilterKey}` | 'columns' | 'sheet' | null;
+
+/** P04's chip order and glyphs; WhatsApp opt-in is this list's own extra filter. */
+const CHIP_ORDER: readonly FilterKey[] = ['owner', 'status', 'source', 'dnd', 'whatsappOptIn'];
+const CHIP_ICON: Readonly<Record<FilterKey, IconName>> = {
+  owner: 'person',
+  status: 'flag',
+  source: 'input',
+  dnd: 'do_not_disturb_on',
+  whatsappOptIn: 'chat',
 };
 
-type Popover = `filter:${FilterKey}` | 'columns' | 'sheet' | null;
+/** The P04 chips no `listContacts` parameter backs (`more_filters`, D-L194), drawn after Source. */
+const UNAVAILABLE_CHIPS = [
+  { name: 'stateLga', icon: 'location_on', label: 'records.filter.stateLga' },
+  { name: 'preferredLanguage', icon: 'translate', label: 'records.filter.language' },
+  { name: 'consentState', icon: 'verified_user', label: 'records.filter.consent' },
+] as const;
+
+/** The P04/02 widths, by column. */
+const WIDTH: Readonly<Record<Exclude<ColumnKey, 'displayName'> | 'lastActivity', string>> = {
+  phones: 'w-64',
+  whatsappOptIn: 'w-16',
+  emails: 'w-56',
+  accountId: 'w-48',
+  ownerUserId: 'w-44',
+  lastActivity: 'w-36',
+  tags: 'w-56',
+  status: 'w-36',
+  source: 'w-36',
+  state: 'w-44',
+  consentState: 'w-36',
+  preferredChannel: 'w-40',
+};
 
 export function ContactsScreen({
   locale,
@@ -102,7 +143,7 @@ export function ContactsScreen({
   locale: string;
   messages: MessageBundle;
   locales: readonly LanguageOption[];
-  /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links. */
+  /** Nav ids whose route is on here (`crmLiveNav()`), for the shell's links, and the P04 placeholder flags. */
   live: readonly string[];
   /**
    * The `q` the page was opened with (a P27 "see all", T-0087 R8), already
@@ -126,14 +167,18 @@ export function ContactsScreen({
     dropQueryFromAddressBar();
   }, []);
   const [filters, setFilters] = useState<FilterState>(NO_FILTERS);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
   const [hidden, setHidden] = useState<readonly ColumnKey[]>(defaultHiddenColumns);
   const [popover, setPopover] = useState<Popover>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  const searchId = useId();
   const custom = useCustomDefinitions('contact', customFields);
+  const programmes = useMyProgrammes();
   const [customFilters, setCustomFilters] = useState<CustomFilters>(NO_CUSTOM_FILTERS);
-  const view = useMemo(() => ({ filters, custom: customFilters, ...(importId === undefined ? {} : { importId }) }), [filters, customFilters, importId]);
+  const view = useMemo(
+    () => ({ filters, custom: customFilters, pageSize, ...(importId === undefined ? {} : { importId }) }),
+    [filters, customFilters, pageSize, importId],
+  );
   // The one place the import screen is linked from here (`live` is the server's word for what is on).
   const importHref = live.includes('import') ? '/contacts/import' : null;
   // And the one place the duplicates screen is linked from (T-0097).
@@ -141,6 +186,15 @@ export function ContactsScreen({
   // A number typed here is not sent (the API refuses it in `q`): the hint points at Search.
   const numberHeld = numberTyped(q);
   const list = useContactList(listQ(q), view);
+
+  const flags = {
+    mapView: live.includes('map_view'),
+    bulk: live.includes('bulk_actions'),
+    savedViews: live.includes('saved_views'),
+    lastActivity: live.includes('last_activity'),
+    quickActions: live.includes('quick_actions'),
+    moreFilters: live.includes('more_filters'),
+  };
 
   const searched =
     list.answered.q.trim() !== '' ||
@@ -150,6 +204,7 @@ export function ContactsScreen({
   const state = listState({ phase: list.phase, rowCount: list.rows.length, searching: searched });
   const locked = lockedColumns(list.rows);
   const visibleColumns = COLUMNS.filter((column) => !hidden.includes(column.key));
+  const activeCount = activeFilterKeys(filters).length;
 
   const open = (next: Exclude<Popover, null>, trigger: HTMLElement) => {
     triggerRef.current = trigger;
@@ -189,38 +244,53 @@ export function ContactsScreen({
     setFilters(NO_FILTERS);
     setCustomFilters(NO_CUSTOM_FILTERS);
   };
+  const lastActive = [...CHIP_ORDER].reverse().find((key) => filters[key].length > 0);
+  const removeLast = lastActive === undefined ? null : () => setFilters((current) => ({ ...current, [lastActive]: [] }));
 
   const offline = !list.online;
 
+  const menuItems: MenuItem[] = [
+    importHref === null
+      ? { kind: 'unavailable', action: 'import-csv', icon: 'upload_file', label: 'records.action.importCsv' }
+      : { kind: 'link', href: importHref, action: 'import-csv', icon: 'upload_file', label: 'records.action.importCsv' },
+    { kind: 'unavailable', action: 'export-contacts', icon: 'download', label: 'records.action.export' },
+    ...(duplicatesHref === null
+      ? []
+      : [{ kind: 'link', href: duplicatesHref, action: 'duplicates', icon: 'group', label: 'records.action.duplicates' } as const]),
+  ];
+
+  const filtersInOrder = CHIP_ORDER.map((key) => FILTERS.find((spec) => spec.key === key)).filter(
+    (spec): spec is FilterSpec => spec !== undefined,
+  );
+
   return (
     <CrmShell t={t} locale={locale} locales={locales} current="contacts" live={live}>
-      <div data-screen="P04/02" data-list-state={state} className="flex min-w-0 flex-col gap-4">
-        {offline ? <OfflineBanner t={t} locale={locale} syncedAt={list.syncedAt} /> : null}
+      <div data-screen="P04/02" data-list-state={state} className="flex min-w-0 flex-col md:gap-3">
+        {offline ? (
+          <OfflineBanner
+            t={t}
+            locale={locale}
+            syncedAt={list.syncedAt}
+            onRetry={() => {
+              if (navigator.onLine) list.reload();
+            }}
+          />
+        ) : null}
 
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-h2">{t.t('records.title')}</h1>
-            <span
-              data-testid="programme-chip"
-              className="inline-flex min-w-0 items-center gap-2 rounded-full border border-accent bg-accent-soft px-3 py-1 text-body-sm font-semibold text-accent-text"
-            >
-              <Icon name="lock" size="sm" />
-              {t.t('records.programme.chip')}
-            </span>
-            <span className="flex-1" />
-            {duplicatesHref === null ? null : <DuplicatesLink t={t} href={duplicatesHref} offline={offline} />}
-            {importHref === null ? (
-              <UnavailableAction t={t} action="import-csv" icon="upload_file" label="records.action.import" />
-            ) : (
-              <ImportLink t={t} href={importHref} action="import-csv" label="records.action.import" offline={offline} />
-            )}
-            <UnavailableAction t={t} action="capture-new" icon="add" label="records.action.new" primary />
-          </div>
-          <p className="text-body-sm text-text-2">{t.t('records.programme.note')}</p>
-        </div>
+        <ListHeader
+          t={t}
+          title="records.title"
+          count={heldCount(locale, list.rows.length, list.nextCursor !== null)}
+          programmes={programmes.list}
+          savedViews={flags.savedViews ? { allLabel: 'records.views.all', unsaved: activeCount > 0 || q.trim() !== '' } : null}
+          switcher={<ViewSwitcher t={t} value="table" built={['table']} mapView={flags.mapView} onChange={() => undefined} />}
+          menuItems={menuItems}
+          primary={<NewButton t={t} label="records.action.new" action="capture-new" offline={offline} />}
+          offline={offline}
+        />
 
         {importId === undefined ? null : (
-          <p data-testid="import-filter" className="flex flex-wrap items-center gap-2 text-body-sm text-text-2">
+          <p data-testid="import-filter" className="flex flex-wrap items-center gap-2 text-body-sm text-text-2 max-md:pt-2">
             {t.t('records.importFilter.note')}
             <Link href="/contacts" prefetch={false} className="font-semibold text-primary-text underline">
               {t.t('records.importFilter.clear')}
@@ -228,133 +298,105 @@ export function ContactsScreen({
           </p>
         )}
 
-        <div role="search" className="flex min-w-0 flex-wrap items-center gap-2">
-          <label htmlFor={searchId} className="flex min-h-touch min-w-0 flex-1 items-center gap-2 rounded-md border border-border-strong bg-surface px-3 md:max-w-sm">
-            <Icon name="search" size="sm" className="text-text-muted" />
-            <input
-              id={searchId}
-              type="search"
-              value={q}
-              maxLength={100}
-              autoComplete="off"
-              aria-label={t.t('records.search.label')}
-              placeholder={t.t('records.search.placeholder')}
-              onChange={(event) => setQ(event.target.value)}
-              className={`min-h-touch min-w-0 flex-1 bg-transparent text-body-md text-text placeholder:text-text-muted ${FOCUS}`}
-            />
-          </label>
+        <div role="search" className="flex min-w-0 flex-wrap items-center gap-2 max-md:-mx-4 max-md:border-b max-md:border-border max-md:bg-surface max-md:px-3 max-md:py-2.5">
+          <SearchField
+            t={t}
+            value={q}
+            label="records.search.label"
+            placeholder="records.search.placeholderWide"
+            phonePlaceholder="records.search.placeholder"
+            onChange={setQ}
+          />
+          <FilterSheetButton t={t} active={activeCount} open={popover === 'sheet'} onOpen={(trigger) => open('sheet', trigger)} />
 
-          <button
-            type="button"
-            data-testid="filter-sheet-button"
-            aria-haspopup="dialog"
-            aria-expanded={popover === 'sheet'}
-            aria-label={t.t('records.filter.label')}
-            onClick={(event) => open('sheet', event.currentTarget)}
-            className={`relative flex min-h-touch min-w-touch items-center justify-center rounded-md border border-border-strong bg-surface md:hidden ${FOCUS}`}
-          >
-            <Icon name="tune" size="sm" />
-            {activeFilterKeys(filters).length > 0 ? (
-              <span aria-hidden="true" className="absolute end-1 top-1 h-2 w-2 rounded-full bg-primary" />
-            ) : null}
-          </button>
+          <div role="group" aria-label={t.t('records.filter.label')} className="hidden md:contents">
+            {filtersInOrder.map((spec) => (
+              <ContactChip key={spec.key} t={t} spec={spec} filters={filters} popover={popover} popoverRef={popoverRef} onOpen={open} onClose={close} setFilters={setFilters} />
+            )).flatMap((chip, index) =>
+              index === 2 && flags.moreFilters
+                ? [chip, ...UNAVAILABLE_CHIPS.map((item) => <UnavailableChip key={item.name} t={t} name={item.name} icon={item.icon} label={item.label} />)]
+                : [chip],
+            )}
+          </div>
 
-          <div role="group" aria-label={t.t('records.filter.label')} className="hidden flex-wrap items-center gap-2 md:flex">
-            {FILTERS.map((spec) => (
-              <div key={spec.key} className="relative" ref={popover === `filter:${spec.key}` ? popoverRef : undefined}>
-                <button
-                  type="button"
-                  data-filter={spec.key}
-                  aria-haspopup="true"
-                  aria-expanded={popover === `filter:${spec.key}`}
-                  onClick={(event) => open(`filter:${spec.key}`, event.currentTarget)}
-                  className={`${CHIP} ${filters[spec.key].length > 0 ? CHIP_ON : CHIP_OFF}`}
-                >
-                  {chipText(t, spec, filters)}
-                  <Icon name="expand_more" size="sm" />
-                </button>
-                {popover === `filter:${spec.key}` ? (
-                  <div className={`absolute start-0 top-full mt-1 w-64 ${POPOVER}`}>
-                    <ContactFilterOptions t={t} spec={spec} filters={filters} onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))} />
-                    <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setFilters((current) => ({ ...current, [spec.key]: [] }))}
-                        className={QUIET_BUTTON}
-                      >
-                        {t.t('records.filter.clear')}
-                      </button>
-                      <button type="button" data-testid="filter-apply" onClick={() => close(true)} className={SECONDARY_BUTTON}>
-                        {t.t('records.filter.done')}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            {activeFilterKeys(filters).length > 0 ? (
-              <button type="button" onClick={() => setFilters(NO_FILTERS)} className={QUIET_BUTTON}>
+          <div className="hidden md:contents">
+            {activeCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setFilters(NO_FILTERS)}
+                className="h-control-sm px-2.5 text-meta font-bold text-primary-text underline underline-offset-2"
+              >
                 {t.t('records.filter.clearAll')}
               </button>
             ) : null}
+            <span className="flex-1" />
+            <div className="relative" ref={popover === 'columns' ? popoverRef : undefined}>
+              <ColumnsButton t={t} open={popover === 'columns'} onOpen={(trigger) => open('columns', trigger)} />
+              {popover === 'columns' ? (
+                <ColumnChooser
+                  t={t}
+                  columns={COLUMNS}
+                  hidden={hidden}
+                  locked={locked}
+                  onToggle={(key) => setHidden((current) => toggleColumn(current, key))}
+                />
+              ) : null}
+            </div>
           </div>
-
-          <span className="hidden flex-1 md:block" />
-
-          <div className="relative hidden md:block" ref={popover === 'columns' ? popoverRef : undefined}>
-            <button
-              type="button"
-              data-testid="column-chooser"
-              aria-haspopup="true"
-              aria-expanded={popover === 'columns'}
-              onClick={(event) => open('columns', event.currentTarget)}
-              className={SECONDARY_BUTTON}
-            >
-              <Icon name="visibility" size="sm" />
-              {t.t('records.columns.button')}
-            </button>
-            {popover === 'columns' ? (
-              <ColumnChooser
-                t={t}
-                columns={COLUMNS}
-                hidden={hidden}
-                locked={locked}
-                onToggle={(key) => setHidden((current) => toggleColumn(current, key))}
-              />
-            ) : null}
-          </div>
+          <ActiveFilterChips
+            t={t}
+            chips={activeFilterKeys(filters).flatMap((key) =>
+              filters[key].map((value) => ({
+                key: `${key}:${value}`,
+                text: `${t.t(FILTERS.find((spec) => spec.key === key)?.label ?? 'records.filter.label')}: ${t.t(optionLabel(key, value))}`,
+                onRemove: () => setFilters((current) => toggleFilter(current, key, value)),
+              })),
+            )}
+          />
         </div>
 
         {numberHeld ? <NumberSearchHint t={t} searchLive={live.includes('search')} /> : null}
 
         {filterableFields(custom.fields).length > 0 ? (
-        <LazyCustomFilterBar
-          t={t}
-          fields={custom.fields}
-          filters={customFilters}
-          onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
-        />
+          <LazyCustomFilterBar
+            t={t}
+            fields={custom.fields}
+            filters={customFilters}
+            onChange={(key, value) => setCustomFilters((current) => setCustomFilter(current, key, value))}
+          />
         ) : null}
 
         <Body
           t={t}
+          locale={locale}
           state={state}
           list={list}
-          rows={list.rows}
           columns={visibleColumns.map((column) => column.key)}
           locked={locked}
+          flags={flags}
+          pageSize={pageSize}
           answered={{ q: list.answered.q, view: list.answered.view.filters }}
           offline={offline}
           onClear={clearAll}
+          onRemoveLast={removeLast}
+          onPageSize={setPageSize}
           importHref={importHref}
         />
+
+        <NewFab t={t} action="capture-new-fab" offline={offline} />
 
         {popover === 'sheet' ? (
           <FilterSheet
             t={t}
-            filters={filters}
+            groups={filtersInOrder.map((spec) => ({
+              key: spec.key,
+              label: t.t(spec.label),
+              options: spec.options.map((value) => ({ value, label: t.t(optionLabel(spec.key, value)) })),
+              selected: filters[spec.key],
+            }))}
+            showLabel="records.filter.show"
             sheetRef={popoverRef}
-            onToggle={(key, value) => setFilters((current) => toggleFilter(current, key, value))}
+            onToggle={(key, value) => setFilters((current) => toggleFilter(current, key as FilterKey, value))}
             onClear={() => setFilters(NO_FILTERS)}
             onClose={() => close(true)}
           />
@@ -373,26 +415,57 @@ function chipText(t: Translator, spec: FilterSpec, filters: FilterState): string
   });
 }
 
-/** Import and create are not built (createContact is contract-only), so they are visibly off. */
-function ContactFilterOptions({
+function ContactChip({
   t,
   spec,
   filters,
-  onToggle,
+  popover,
+  popoverRef,
+  onOpen,
+  onClose,
+  setFilters,
 }: {
   t: Translator;
   spec: FilterSpec;
   filters: FilterState;
-  onToggle: (value: string) => void;
+  popover: Popover;
+  popoverRef: React.RefObject<HTMLDivElement | null>;
+  onOpen: (next: Exclude<Popover, null>, trigger: HTMLElement) => void;
+  onClose: (returnFocus: boolean) => void;
+  setFilters: (change: (current: FilterState) => FilterState) => void;
 }) {
+  const open = popover === `filter:${spec.key}`;
   return (
-    <FilterOptions
-      menu={spec.key}
-      label={t.t(spec.label)}
-      options={spec.options.map((value) => ({ value, label: t.t(optionLabel(spec.key, value)) }))}
-      selected={filters[spec.key]}
-      onToggle={onToggle}
-    />
+    <div className="relative" ref={open ? popoverRef : undefined}>
+      <FilterChip
+        filter={spec.key}
+        icon={CHIP_ICON[spec.key]}
+        active={filters[spec.key].length > 0}
+        open={open}
+        onOpen={(trigger) => onOpen(`filter:${spec.key}`, trigger)}
+      >
+        {chipText(t, spec, filters)}
+      </FilterChip>
+      {open ? (
+        <div className={`absolute start-0 top-full mt-1 w-64 ${POPOVER}`}>
+          <FilterOptions
+            menu={spec.key}
+            label={t.t(spec.label)}
+            options={spec.options.map((value) => ({ value, label: t.t(optionLabel(spec.key, value)) }))}
+            selected={filters[spec.key]}
+            onToggle={(value) => setFilters((current) => toggleFilter(current, spec.key, value))}
+          />
+          <div className="mt-2 flex justify-end gap-2 border-t border-border pt-2">
+            <button type="button" onClick={() => setFilters((current) => ({ ...current, [spec.key]: [] }))} className={QUIET_BUTTON}>
+              {t.t('records.filter.clear')}
+            </button>
+            <button type="button" data-testid="filter-apply" onClick={() => onClose(true)} className={SECONDARY_BUTTON}>
+              {t.t('records.filter.done')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -402,27 +475,38 @@ function ContactFilterOptions({
 
 function Body({
   t,
+  locale,
   state,
   list,
-  rows,
   columns,
   locked,
+  flags,
+  pageSize,
   answered,
   offline,
   onClear,
+  onRemoveLast,
+  onPageSize,
   importHref,
 }: {
   t: Translator;
+  locale: string;
   state: ReturnType<typeof listState>;
   list: ReturnType<typeof useContactList>;
-  rows: readonly Contact[];
   columns: readonly ColumnKey[];
   locked: readonly ColumnKey[];
+  flags: { readonly bulk: boolean; readonly lastActivity: boolean; readonly quickActions: boolean };
+  pageSize: PageSize;
   answered: { readonly q: string; readonly view: FilterState };
   offline: boolean;
   onClear: () => void;
+  onRemoveLast: (() => void) | null;
+  onPageSize: (size: PageSize) => void;
   importHref: string | null;
 }) {
+  const paging = usePaging(list, pageSize);
+  const selection = useSelection(list.answered.q, list.answered.view);
+
   if (state === 'loading') {
     return <ListLoading t={t} slow={list.slow} label="records.loading" />;
   }
@@ -442,103 +526,207 @@ function Body({
   }
 
   if (state === 'empty' || state === 'no-results') {
-    return <NoRows t={t} state={state} answered={answered} onClear={onClear} importHref={importHref} offline={offline} />;
+    return (
+      <NoRows t={t} state={state} answered={answered} onClear={onClear} onRemoveLast={onRemoveLast} importHref={importHref} offline={offline} />
+    );
   }
 
+  const rows = paging.rows;
+  const cells = columns.filter((key): key is Exclude<ColumnKey, 'displayName'> => key !== 'displayName');
+  const ownerAt = cells.indexOf('ownerUserId');
+  const pageIds = rows.map((row) => row.id);
+  const selectedOnPage = pageIds.filter((id) => selection.selected.has(id)).length;
+  const bulk = flags.bulk;
+
   return (
-    <div className="flex flex-col gap-3">
-      {/* A scrolling region is a keyboard stop, or keyboard users cannot reach the
-          columns past the edge (WCAG 2.1.1). Tabular figures rather than the
-          monospace face for numbers: that face is ~31 KB of font at 256 kbps. */}
-      <div
-        role="region"
-        aria-label={t.t('records.title')}
-        tabIndex={0}
-        className={`hidden overflow-x-auto rounded-lg border border-border bg-surface md:block ${FOCUS}`}
-      >
-        <table className="w-full min-w-max border-collapse text-body-sm">
-          <caption className="sr-only">{t.t('records.title')}</caption>
-          <thead className="bg-surface-sunken text-caption text-text-muted">
-            <tr>
-              {columns.map((key) => {
-                const column = COLUMNS.find((spec) => spec.key === key);
-                return (
-                  <th key={key} role="columnheader" scope="col" data-column={key} className="p-3 text-start font-bold">
-                    <span className="inline-flex items-center gap-1">
-                      {column === undefined ? null : t.t(column.label)}
-                      {locked.includes(key) ? <HeaderLock t={t} /> : null}
-                    </span>
+    <div className="flex flex-col gap-2.5">
+      {bulk ? (
+        <BulkBar
+          t={t}
+          count={selection.selected.size}
+          actions={[BULK_ASSIGN, BULK_CAMPAIGN, BULK_UPDATE, BULK_MERGE, BULK_WHATSAPP]}
+          onSelectPage={() => selection.setAll(pageIds, true)}
+          onClear={selection.clear}
+        />
+      ) : null}
+
+      <div className="hidden md:block">
+        {/* A scrolling region is a keyboard stop, or keyboard users cannot reach the
+            columns past the edge (WCAG 2.1.1). */}
+        <div
+          role="region"
+          aria-label={t.t('records.title')}
+          tabIndex={0}
+          className={`overflow-x-auto rounded-t-lg border border-border bg-surface ${FOCUS}`}
+        >
+          <table className={TABLE}>
+            <caption className="sr-only">{t.t('records.title')}</caption>
+            <colgroup>
+              {bulk ? <col className="w-11" /> : null}
+              <col className="w-64" />
+              {cells.flatMap((key, index) => [
+                <col key={key} className={WIDTH[key]} />,
+                ...(flags.lastActivity && index === ownerAt ? [<col key="lastActivity" className={WIDTH.lastActivity} />] : []),
+              ])}
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                {bulk ? (
+                  <th scope="col" className={SELECT_TH}>
+                    <SelectAll t={t} count={pageIds.length} selected={selectedOnPage} onChange={(all) => selection.setAll(pageIds, all)} />
                   </th>
+                ) : null}
+                <th role="columnheader" scope="col" data-column="displayName" className={nameTh(bulk)}>
+                  <HeaderLabel t={t} label="records.col.displayName" locked={locked.includes('displayName')} />
+                </th>
+                {cells.flatMap((key, index) => {
+                  const column = COLUMNS.find((spec) => spec.key === key);
+                  const header = (
+                    <th
+                      key={key}
+                      role="columnheader"
+                      scope="col"
+                      data-column={key}
+                      aria-label={key === 'whatsappOptIn' ? t.t('records.col.whatsappOptIn') : undefined}
+                      className={`${TH} ${key === 'whatsappOptIn' ? 'text-center' : ''}`}
+                    >
+                      {key === 'whatsappOptIn' ? (
+                        <span aria-hidden="true">{t.t('records.col.wa')}</span>
+                      ) : (
+                        <HeaderLabel t={t} label={column?.label ?? 'records.col.displayName'} locked={locked.includes(key)} />
+                      )}
+                    </th>
+                  );
+                  return flags.lastActivity && index === ownerAt
+                    ? [
+                        header,
+                        <th key="lastActivity" scope="col" data-column-placeholder="lastActivity" className={TH}>
+                          {t.t('records.col.lastActivity')}
+                        </th>,
+                      ]
+                    : [header];
+                })}
+                <th scope="col" aria-hidden="true" className={TH} />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const selected = selection.selected.has(row.id);
+                return (
+                  <tr key={row.id} data-row-id={row.id} data-selected={selected ? 'true' : undefined} className="group">
+                    {bulk ? (
+                      <td className={selectTd(selected)}>
+                        <SelectRow t={t} name={nameOrWithheld(t, row.displayName)} checked={selected} onChange={() => selection.toggle(row.id)} />
+                      </td>
+                    ) : null}
+                    <th scope="row" data-field="displayName" className={`${nameTd(selected, bulk)} text-start`}>
+                      <NameBlock t={t} name={row.displayName} sub={placeLine(row)} />
+                    </th>
+                    {cells.flatMap((key, index) => {
+                      const cell = <FieldCell key={key} t={t} row={row} field={key} selected={selected} />;
+                      return flags.lastActivity && index === ownerAt
+                        ? [
+                            cell,
+                            <td key="lastActivity" className={cellClass(selected)}>
+                              <LastActivityEmpty t={t} />
+                            </td>,
+                          ]
+                        : [cell];
+                    })}
+                    <td aria-hidden="true" className={cellClass(selected)} />
+                  </tr>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} data-row-id={row.id} className="border-t border-border align-top hover:bg-surface-sunken">
-                {columns.map((key) =>
-                  key === 'displayName' ? (
-                    <th key={key} scope="row" data-field={key} className="p-3 text-start font-normal">
-                      <NameCell t={t} row={row} />
-                    </th>
-                  ) : (
-                    <FieldCell key={key} t={t} row={row} field={key} as="td" />
-                  ),
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+        <PagingFooter t={t} locale={locale} paging={paging} size={pageSize} offline={offline} onSize={onPageSize} />
       </div>
 
-      <ul className="flex flex-col gap-2 md:hidden">
+      {flags.quickActions ? <SwipeHint t={t} label="records.card.hint" /> : null}
+      <ul className="-mx-4 flex flex-col border-t border-border md:hidden">
         {rows.map((row) => (
-          <li key={row.id} data-row-id={row.id} className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-surface p-3">
-            <div data-field="displayName" className="min-w-0">
-              <NameCell t={t} row={row} />
-            </div>
-            <FieldCell t={t} row={row} field="phones" as="div" />
-            <div className="flex flex-wrap items-center gap-2">
-              {columns.includes('status') ? <FieldCell t={t} row={row} field="status" as="div" /> : null}
-              {columns.includes('tags') ? <FieldCell t={t} row={row} field="tags" as="div" /> : null}
-            </div>
-          </li>
+          <ContactCard key={row.id} t={t} row={row} columns={columns} quickActions={flags.quickActions} />
         ))}
       </ul>
+      <div className="md:hidden">
+        <PagingFooter t={t} locale={locale} paging={paging} size={pageSize} offline={offline} onSize={onPageSize} />
+      </div>
 
       {list.moreError === null ? null : (
         <p role="alert" className="text-body-sm text-danger-text">
           {t.t(`records.error.${list.moreError.code}` as MessageId)}
         </p>
       )}
-
-      {list.nextCursor === null ? null : (
-        <LoadMore t={t} loading={list.loadingMore} offline={offline} onLoadMore={list.loadMore} />
-      )}
     </div>
   );
 }
 
-function NameCell({ t, row }: { t: Translator; row: Contact }) {
-  const name = row.displayName;
+/** "Lagos · Ikeja": the name's second line, from what is readable. */
+function placeLine(row: Contact): string | null {
+  return subLine([
+    typeof row.state === 'string' && !isWithheld(row, 'state') ? row.state : null,
+    typeof row.lga === 'string' && !isWithheld(row, 'lga') ? row.lga : null,
+  ]);
+}
+
+function networkOf(row: Contact): string | null {
+  return typeof row.phoneNetwork === 'string' && row.phoneNetwork !== '' && !isWithheld(row, 'phoneNetwork') ? row.phoneNetwork : null;
+}
+
+function ownerName(t: Translator, row: Contact): string | null {
+  if (isWithheld(row, 'ownerUserId') || isWithheld(row, 'owner')) return null;
+  if (row.ownerUserId === null || row.ownerUserId === undefined) return t.t('records.owner.unassigned');
+  return row.owner?.displayName ?? null;
+}
+
+/** The 360 px card: name and WA, phone and network, the owner, the status pill. */
+function ContactCard({ t, row, columns, quickActions }: { t: Translator; row: Contact; columns: readonly ColumnKey[]; quickActions: boolean }) {
+  const name = nameOrWithheld(t, row.displayName);
+  const phone = row.phones?.[0];
+  const actions: CardAction[] = quickActions
+    ? [
+        { key: 'call', icon: 'call', label: 'records.card.call', onClick: null, tone: 'primary' },
+        { key: 'whatsapp', icon: 'chat', label: row.whatsappOptIn === true ? 'records.card.whatsapp' : 'records.card.noOptIn', onClick: null, tone: 'success' },
+        { key: 'sms', icon: 'sms', label: 'records.card.sms', onClick: null, tone: 'info' },
+      ]
+    : [];
+  const owner = ownerName(t, row);
+  const meta = [
+    row.account !== null && row.account !== undefined && !isWithheld(row, 'accountId') ? row.account.name : null,
+    owner,
+  ].filter((part): part is string => part !== null && part !== '');
   return (
-    <span className="flex min-w-0 items-center gap-3">
-      <span
-        aria-hidden="true"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption font-bold text-primary-text"
-      >
-        {name === undefined ? <Icon name="lock" size="sm" /> : initials(name)}
-      </span>
-      {name === undefined ? (
-        <span data-name-withheld="" className="min-w-0 truncate text-body-sm text-text-muted">
-          {t.t('records.name.withheld')}
+    <RecordCard t={t} rowId={row.id} name={name} actions={actions} avatar={<RecordAvatar name={row.displayName} size={44} />}>
+      <CardName t={t} name={name} withheld={row.displayName === undefined} whatsapp={row.whatsappOptIn === true && !isWithheld(row, 'whatsappOptIn')} />
+      {isWithheld(row, 'phones') ? (
+        <span data-field="phones" data-locked="true" className="text-meta text-text-muted">
+          <LockedValue t={t} />
         </span>
-      ) : (
-        <b data-record-text="" className="min-w-0 truncate text-body-sm">
-          {name}
-        </b>
+      ) : phone === undefined ? null : (
+        <span data-field="phones">
+          <PhoneValue t={t} e164={phone.e164} network={networkOf(row)} dnd={row.dnd === true && !isWithheld(row, 'dnd')} more={0} compact />
+        </span>
       )}
-    </span>
+      {meta.length === 0 ? null : (
+        <span data-record-text="" className="truncate text-caption text-text-2">
+          {meta.join(' · ')}
+        </span>
+      )}
+      <span className="mt-0.75 flex flex-wrap items-center gap-1.5">
+        {columns.includes('status') && typeof row.status === 'string' && !isWithheld(row, 'status') ? (
+          <span data-field="status">
+            <StatusWord label={t.t(`records.status.${row.status}` as MessageId)} tone={STATUS_TONE[row.status] ?? ''} small />
+          </span>
+        ) : null}
+        {columns.includes('tags') && (row.tags ?? []).length > 0 && !isWithheld(row, 'tags') ? (
+          <span data-field="tags">
+            <TagList t={t} tags={row.tags ?? []} />
+          </span>
+        ) : null}
+      </span>
+    </RecordCard>
   );
 }
 
@@ -547,117 +735,99 @@ function FieldCell({
   t,
   row,
   field,
-  as,
+  selected,
 }: {
   t: Translator;
   row: Contact;
-  field: ColumnKey;
-  as: 'td' | 'div';
+  field: Exclude<ColumnKey, 'displayName'>;
+  selected: boolean;
 }) {
-  const Tag = as;
-  const padding = as === 'td' ? 'p-3' : '';
   if (isWithheld(row, field)) {
     return (
-      <Tag data-field={field} data-locked="true" className={`${padding} text-text-muted`}>
+      <td data-field={field} data-locked="true" className={cellClass(selected, 'text-meta text-text-muted')}>
         <LockedValue t={t} />
-      </Tag>
+      </td>
     );
   }
   return (
-    <Tag data-field={field} className={padding}>
+    <td data-field={field} className={cellClass(selected, field === 'whatsappOptIn' ? 'text-center' : '')}>
       <FieldValue t={t} row={row} field={field} />
-    </Tag>
+    </td>
   );
 }
 
-function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: ColumnKey }) {
-  const notSet = <Muted>{t.t('records.cell.empty')}</Muted>;
+function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Exclude<ColumnKey, 'displayName'> }) {
+  const notSet = (
+    <span className="text-meta">
+      <Muted>{t.t('records.cell.empty')}</Muted>
+    </span>
+  );
   switch (field) {
-    case 'displayName':
-      return <NameCell t={t} row={row} />;
     case 'phones': {
-      const phone = row.phones?.[0];
+      const phones = row.phones ?? [];
+      const phone = phones[0];
+      if (phone === undefined) return notSet;
       return (
-        <span className="flex flex-wrap items-center gap-2">
-          {phone === undefined ? notSet : <span data-record-text="" dir="ltr" className="whitespace-nowrap tabular-nums">{formatPhone(phone.e164)}</span>}
-          {row.phoneNetwork === null || row.phoneNetwork === undefined || isWithheld(row, 'phoneNetwork') ? null : (
-            <span data-record-text="" className="rounded-sm bg-surface-sunken px-1 text-caption font-semibold text-text-2">
-              {row.phoneNetwork}
-            </span>
-          )}
-          {row.dnd === true && !isWithheld(row, 'dnd') ? (
-            <span className="inline-flex items-center gap-1 rounded-sm bg-danger-soft px-1 text-caption font-bold text-danger-text">
-              <Icon name="do_not_disturb_on" size="sm" />
-              {t.t('records.dnd.badge')}
-              <span className="sr-only">{t.t('records.dnd.label')}</span>
-            </span>
-          ) : null}
-        </span>
+        <PhoneValue
+          t={t}
+          e164={phone.e164}
+          network={networkOf(row)}
+          dnd={row.dnd === true && !isWithheld(row, 'dnd')}
+          more={phones.length - 1}
+        />
       );
     }
     case 'whatsappOptIn':
-      return row.whatsappOptIn === true ? (
-        <span className="inline-flex items-center text-success-text">
-          <Icon name="chat" size="sm" />
-          <span className="sr-only">{t.t('records.wa.in')}</span>
-        </span>
-      ) : (
-        <span className="inline-flex items-center text-text-muted">
-          <span aria-hidden="true">{'–'}</span>
-          <span className="sr-only">{t.t('records.wa.out')}</span>
-        </span>
-      );
+      return <WaDot t={t} optedIn={row.whatsappOptIn === true} />;
     case 'emails': {
       const emails = row.emails ?? [];
-      if (emails.length === 0) return notSet;
+      if (emails[0] === undefined) return notSet;
       return (
-        <span className="flex flex-wrap items-center gap-1">
-          <span data-record-text="">{emails[0]}</span>
-          {emails.length > 1 ? <Muted>{t.t('records.more', { count: emails.length - 1 })}</Muted> : null}
+        <span data-record-text="" className="block truncate text-meta text-text-2">
+          {emails[0]}
         </span>
       );
     }
     case 'accountId':
-      return row.accountId === null || row.accountId === undefined ? (
-        <Muted>{t.t('records.account.none')}</Muted>
+      if (row.accountId === null || row.accountId === undefined) {
+        return (
+          <span className="text-meta">
+            <Muted>{t.t('records.account.none')}</Muted>
+          </span>
+        );
+      }
+      return row.account === null || row.account === undefined ? (
+        notSet
       ) : (
-        <span>{t.t('records.account.linked')}</span>
-      );
-    case 'ownerUserId':
-      return row.ownerUserId === null || row.ownerUserId === undefined ? (
-        <Muted>{t.t('records.owner.unassigned')}</Muted>
-      ) : (
-        <span>{t.t('records.owner.assigned')}</span>
-      );
-    case 'tags': {
-      const tags = row.tags ?? [];
-      if (tags.length === 0) return notSet;
-      return (
-        <span className="flex flex-wrap items-center gap-1">
-          {tags.slice(0, 2).map((tag) => (
-            <span key={tag} data-record-text="" className="rounded-full bg-surface-sunken px-2 text-caption font-semibold text-text-2">
-              {tag}
-            </span>
-          ))}
-          {tags.length > 2 ? <Muted>{t.t('records.more', { count: tags.length - 2 })}</Muted> : null}
+        <span data-record-text="" className="block truncate text-meta">
+          {row.account.name}
         </span>
       );
+    case 'ownerUserId':
+      if (row.ownerUserId === null || row.ownerUserId === undefined) return <OwnerValue t={t} name={null} />;
+      if (row.owner === null || row.owner === undefined || row.owner.displayName === null) return <OwnerValue t={t} name={null} former />;
+      return <OwnerValue t={t} name={row.owner.displayName} />;
+    case 'tags': {
+      const tags = row.tags ?? [];
+      return tags.length === 0 ? notSet : <TagList t={t} tags={tags} />;
     }
     case 'status':
       return row.status === null || row.status === undefined ? (
         notSet
       ) : (
-        <span className={`inline-flex rounded-full px-2 text-caption font-bold ${STATUS_TONE[row.status] ?? ''}`}>
-          {t.t(`records.status.${row.status}` as MessageId)}
-        </span>
+        <StatusWord label={t.t(`records.status.${row.status}` as MessageId)} tone={STATUS_TONE[row.status] ?? ''} />
       );
     case 'source':
-      return row.source === null || row.source === undefined ? notSet : <span>{t.t(`records.source.${row.source}` as MessageId)}</span>;
+      return row.source === null || row.source === undefined ? (
+        notSet
+      ) : (
+        <span className="text-meta">{t.t(`records.source.${row.source}` as MessageId)}</span>
+      );
     case 'state':
       return row.state === null || row.state === undefined ? (
         notSet
       ) : (
-        <span className="flex flex-wrap gap-1">
+        <span className="flex flex-wrap gap-1 text-meta">
           <span data-record-text="">{row.state}</span>
           {row.lga === null || row.lga === undefined || isWithheld(row, 'lga') ? null : (
             <span data-record-text="" className="text-text-muted">
@@ -667,12 +837,16 @@ function FieldValue({ t, row, field }: { t: Translator; row: Contact; field: Col
         </span>
       );
     case 'consentState':
-      return row.consentState === undefined ? notSet : <span>{t.t(`records.consent.${row.consentState}` as MessageId)}</span>;
+      return row.consentState === undefined ? notSet : <span className="text-meta">{t.t(`records.consent.${row.consentState}` as MessageId)}</span>;
     case 'preferredChannel':
       return row.preferredChannel === null || row.preferredChannel === undefined ? (
         notSet
       ) : (
-        <span>{t.t(`records.channel.${row.preferredChannel}` as MessageId)}</span>
+        <span className="text-meta">{t.t(`records.channel.${row.preferredChannel}` as MessageId)}</span>
       );
   }
 }
+
+/** Unused icon import guard for the chip glyph map's type. */
+export type { IconName };
+export { Icon };
