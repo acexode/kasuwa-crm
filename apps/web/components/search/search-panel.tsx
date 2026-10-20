@@ -1,173 +1,286 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
-import type { IconName } from '@kasuwa/ui';
+import { Spinner } from '@kasuwa/ui/components';
 import { Icon } from '../icon';
-import { QUIET_BUTTON } from '../auth/button-classes';
-import { FOCUS } from '../records/list-classes';
 import type { RecordsError } from '../../lib/records-api';
-import {
-  hitHref,
-  personName,
-  seeAllHref,
-  type SearchGroup,
-  type SearchHit,
-  type SearchType,
-} from '../../lib/search-api';
-import { groupLabel, seeAllLabel } from './message-ids';
-import { useSearch, type PanelState } from './use-search';
+import type { SearchType } from '../../lib/search-api';
+import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE, TYPE_ICON, TYPE_TINT, highlight, type SearchRow } from './search-model';
 
 /**
- * The P27 search panel (T-0087): the box, its grouped hits and its states,
- * drawn inline on `/search` (A1, A2, A4, A5) and inside the command palette
- * (D1's record rows). One panel, one client, so the two cannot drift.
+ * The P27 parts every search surface draws (T-0138): the top-bar dropdown
+ * (A–A5), the results page (C) and the record rows of the command palette
+ * (D1). One set, so the three cannot drift from each other or the export.
  *
- * ---------------------------------------------------------------------------
- * THE ARIA 1.2 COMBOBOX (R6). The input is `role="combobox"` and keeps focus
- * while ArrowDown and ArrowUp move `aria-activedescendant` over the options in
- * DOM order; Enter opens the active one. The listbox is drawn only when there
- * is something in it (an empty listbox is not a listbox), each group is a
- * `role="group"` named by its translated type label, and each hit is an
- * `option` with an id of its own: a lead is in the contact AND the lead group,
- * so ids come from the group and the position, never from the record.
- *
- * NO COUNTS (D-P13). At most three hits per group, in the order served; no
- * total, "more" or estimate anywhere. "See all" goes to the type's own list
- * with exactly the `q` searched (R8), for every answered NAME query, an empty
- * one included, and never for a lookup: that would put a phone number in a
- * URL. Deals have no list.
- *
- * ONLY WHAT IS SERVED (R14, R15). `displayName` as served, never composed;
- * when it is withheld, one readable name part; with none, a lock and a neutral
- * label, never the id. A hit links only from a well-formed uuid. Record text
- * is text: React escapes it, and nothing here sets inner HTML.
- *
- * FOUR STATES, KEPT APART (R16): loading, no matches, failed and refused. A
- * number being typed is none of them: it gets the neutral "keep typing" hint
- * (R27). Nothing typed, or too little, draws nothing at all — and there are no
- * recent searches to draw (R19).
- * ---------------------------------------------------------------------------
+ * Record text is text: React escapes it, and nothing here sets inner HTML.
+ * Every state keeps its test id from T-0087: `search-loading`, `search-empty`,
+ * `search-error`, `search-hint` and `search-invalid`.
  */
 
-const HIT_ICON: Readonly<Record<SearchType, IconName>> = {
-  contact: 'person',
-  lead: 'campaign',
-  account: 'domain',
-  deal: 'handshake',
-};
+/** The section labels: 12/700, 0.04em, upper case, text-2. */
+export const SECTION_LABEL = 'text-caption font-bold uppercase leading-4 tracking-[0.04em] text-text-2';
+/** The shell's focus ring, for every control drawn here. */
+export const FOCUS = 'outline-none focus-visible:ring-focus';
 
-const HIT_TINT: Readonly<Record<SearchType, string>> = {
-  contact: 'bg-info-soft text-info-text',
-  lead: 'bg-accent-soft text-accent-text',
-  account: 'bg-primary-soft text-primary-text',
-  deal: 'bg-success-soft text-success-text',
-};
-
-const SEE_ALL_TYPES = ['contact', 'lead', 'account'] as const;
-
-interface Option {
-  readonly id: string;
-  readonly type: SearchType;
-  readonly hit: SearchHit;
-  readonly href: string | null;
-}
-
-function optionsOf(baseId: string, groups: readonly SearchGroup[], dealsLive: boolean): Option[] {
-  return groups.flatMap((group) =>
-    group.hits.map((hit, index) => ({
-      id: `${baseId}-${group.type}-${index}`,
-      type: group.type,
-      hit,
-      href: hitHref(group.type, hit.id, dealsLive),
-    })),
-  );
-}
-
-function HitBody({ option, t }: { option: Option; t: Translator }) {
-  const { hit, type } = option;
-  const name = hit.kind === 'person' ? personName(hit) : hit.name;
-  const company =
-    hit.kind === 'person' && typeof hit.companyName === 'string' && hit.companyName.trim() !== '' && hit.companyName !== name
-      ? hit.companyName
-      : null;
+/** The typed words marked in a name: 800 on accent-soft, radius 3 (P27 `segs`). */
+export function Highlighted({ text, query }: { text: string; query: string }) {
   return (
     <>
-      <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${HIT_TINT[type]}`}>
-        <Icon name={HIT_ICON[type]} size="sm" />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        {name === null ? (
-          <span data-field="name" data-locked="true" className="flex min-w-0 items-center gap-1 text-body-md text-text-2">
-            <Icon name="lock" size="sm" />
-            <span className="truncate">{t.t('search.hit.nameWithheld')}</span>
-          </span>
+      {highlight(text, query).map((segment, index) =>
+        segment.match ? (
+          <mark key={index} className="rounded-[3px] bg-accent-soft font-extrabold text-inherit">
+            {segment.text}
+          </mark>
         ) : (
-          <span data-field="name" data-record-text="" className="truncate text-body-md font-semibold text-text">
-            {name}
-          </span>
-        )}
-        {company === null ? null : (
-          <span data-field="company" data-record-text="" className="truncate text-body-sm text-text-2">
-            {company}
-          </span>
-        )}
-      </span>
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
     </>
   );
 }
 
-function StateMessage({ state, t }: { state: PanelState; t: Translator }) {
-  switch (state.kind) {
-    case 'keepTyping':
-      return (
-        <p data-testid="search-hint" className="flex items-start gap-2 rounded-md bg-surface-sunken p-3 text-body-sm text-text-2">
-          <Icon name="info" size="sm" />
-          {t.t('search.keepTyping')}
-        </p>
-      );
-    case 'invalid':
-      return (
-        <p
-          data-testid="search-invalid"
-          data-field={state.field}
-          className="flex items-start gap-2 rounded-md border border-warning bg-warning-soft p-3 text-body-sm text-warning-text"
-        >
-          <Icon name="warning" size="sm" />
-          {t.t(state.field === 'phone' ? 'search.invalidPhone' : 'search.invalidEmail')}
-        </p>
-      );
-    case 'loading':
-      return (
-        <div data-testid="search-loading" aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">{t.t('search.loading')}</span>
-          {[0, 1, 2].map((row) => (
-            <div key={row} aria-hidden="true" className="flex items-center gap-3 py-1">
-              <span className="h-9 w-9 shrink-0 rounded-md bg-surface-sunken" />
-              <span className="flex flex-1 flex-col gap-1">
-                <span className="h-4 w-40 max-w-full rounded-sm bg-surface-sunken" />
-                <span className="h-3 w-24 rounded-sm bg-surface-sunken" />
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    case 'results':
-      if (state.groups.some((group) => group.hits.length > 0)) return null;
-      return (
-        <div data-testid="search-empty" className="flex flex-col items-start gap-1 py-2">
-          <p className="flex items-center gap-2 text-body-md font-bold text-text">
-            <Icon name="search_off" size="sm" />
-            {t.t('search.empty.title')}
-          </p>
-          <p className="text-body-sm text-text-2">{t.t('search.empty.body')}</p>
-        </div>
-      );
-    default:
-      return null;
+/** The name, highlighted; with no readable name, a lock and a neutral label, never the id (D-L68). */
+export function RowName({ row, query, t }: { row: SearchRow; query: string; t: Translator }) {
+  if (row.name === null) {
+    return (
+      <span data-field="name" data-locked="true" className="flex min-w-0 items-center gap-1 font-normal text-text-2">
+        <Icon name="lock" size={16} />
+        <span className="truncate">{t.t('search.hit.nameWithheld')}</span>
+      </span>
+    );
   }
+  return (
+    <span data-field="name" data-record-text="" className="min-w-0 truncate">
+      <Highlighted text={row.name} query={query} />
+    </span>
+  );
+}
+
+/** The 32px (radius 8, 18px glyph) or 40px (radius 10, 20px glyph) type tile. */
+export function TypeTile({ type, large = false }: { type: SearchType; large?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex shrink-0 items-center justify-center ${large ? 'size-10 rounded-10' : 'size-8 rounded-md'} ${TYPE_TINT[type]}`}
+    >
+      <Icon name={TYPE_ICON[type]} size={large ? 20 : 18} />
+    </span>
+  );
+}
+
+/** A lead's status: 11/700 on its soft fill, radius 999; 22px in the dropdown, 20px on the results page. */
+export function StatusPill({ status, t, small = false }: { status: string; t: Translator; small?: boolean }) {
+  const label = LEAD_STATUS_LABEL[status];
+  if (label === undefined) return null;
+  return (
+    <span
+      data-field="status"
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full text-micro ${small ? 'h-5 px-[7px]' : 'h-5.5 px-2'} ${
+        LEAD_STATUS_TONE[status] ?? 'bg-surface-sunken text-text-2'
+      }`}
+    >
+      {t.t(label)}
+    </span>
+  );
+}
+
+/** A key in a footer or a command row: 20px, mono 11/600, border on sunken (on surface in the palette's sunken footer). */
+export function KeyCap({ children, onSunken = false }: { children: ReactNode; onSunken?: boolean }) {
+  return (
+    <kbd
+      className={`inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-border px-1 font-mono text-micro font-semibold text-text-2 ${
+        onSunken ? 'bg-surface' : 'bg-surface-sunken'
+      }`}
+    >
+      {children}
+    </kbd>
+  );
+}
+
+/** One footer hint: a key and its word ("↑↓ Move"). */
+export function KeyHint({ keyLabel, label, onSunken = false }: { keyLabel: ReactNode; label: string; onSunken?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <KeyCap onSunken={onSunken}>{keyLabel}</KeyCap>
+      {label}
+    </span>
+  );
+}
+
+/** The arrow, return and shift glyphs: keys, not words, so they are not translated. */
+export const KEYS = { move: '↑↓', enter: '↵', question: '?', shift: '⇧' } as const;
+
+/**
+ * The info-soft phone strip (P27 A2, C1). For a whole number it says how the
+ * number is matched; for a number still being typed it carries the existing
+ * "type the whole number" guidance (D-L195), never the design's partial match.
+ */
+export function PhoneStrip({ t, typing, page = false }: { t: Translator; typing: boolean; page?: boolean }) {
+  return (
+    <p
+      data-testid={typing ? 'search-hint' : 'search-phone'}
+      className={
+        page
+          ? 'm-0 flex items-start gap-2.5 rounded-10 bg-info-soft px-3.5 py-2.5 text-meta text-text'
+          : 'm-0 flex items-start gap-2 bg-info-soft px-4 py-2 text-caption font-normal leading-[17px] text-text'
+      }
+    >
+      <Icon name="dialpad" size={page ? 20 : 18} className="shrink-0 text-info-text" />
+      <span>
+        <b>{t.t('search.phone.title')}</b> {t.t(typing ? 'search.keepTyping' : 'search.phone.body')}
+      </span>
+    </p>
+  );
+}
+
+/**
+ * A number or address the lookup refused as not whole. A phone number is
+ * drawn as the design's partial-number strip (P27 A2), carrying the existing
+ * "type the whole number" guidance and never a partial match (D-L195); an
+ * address keeps the warning style.
+ */
+export function InvalidStrip({ t, field, page = false }: { t: Translator; field: 'phone' | 'email'; page?: boolean }) {
+  const phone = field === 'phone';
+  return (
+    <p
+      data-testid="search-invalid"
+      data-field={field}
+      className={`m-0 flex items-start ${phone ? 'bg-info-soft text-text' : 'bg-warning-soft text-warning-text'} ${
+        page ? 'gap-2.5 rounded-10 px-3.5 py-2.5 text-meta' : 'gap-2 px-4 py-2 text-caption font-normal leading-[17px]'
+      }`}
+    >
+      <Icon name={phone ? 'dialpad' : 'warning'} size={page ? 20 : 18} className={`shrink-0 ${phone ? 'text-info-text' : ''}`} />
+      {phone ? (
+        <span>
+          <b>{t.t('search.phone.title')}</b> {t.t('search.invalidPhone')}
+        </span>
+      ) : (
+        t.t('search.invalidEmail')
+      )}
+    </p>
+  );
+}
+
+/** Skeleton bars: sunken, radius 4. */
+function Bar({ className }: { className: string }) {
+  return <span className={`block rounded-sm bg-surface-sunken ${className}`} />;
+}
+
+const SKELETON_ROWS: readonly (readonly (readonly [string, string])[])[] = [
+  [
+    ['w-[42%]', 'w-[64%]'],
+    ['w-[34%]', 'w-[52%]'],
+  ],
+  [
+    ['w-[56%]', 'w-[38%]'],
+    ['w-[48%]', 'w-[60%]'],
+  ],
+];
+
+/**
+ * P27 A4: a spinner line, then two skeleton groups of two rows, each group
+ * with its label stub and each row with a right-hand stub. Never "no matches".
+ */
+export function LoadingRows({ t, page = false }: { t: Translator; page?: boolean }) {
+  return (
+    <div data-testid="search-loading" aria-busy="true" className="flex flex-col gap-0.5 py-1.5">
+      <span className="flex items-center gap-2 px-4 pb-2 pt-1.5 text-caption font-normal text-text-muted">
+        <Spinner className="size-3 text-primary" />
+        {t.t('search.loading.line')}
+      </span>
+      {SKELETON_ROWS.map((group, groupIndex) => (
+        <span key={groupIndex} aria-hidden="true" className="flex flex-col gap-0.5">
+          <Bar className={`mx-4 h-2.5 ${groupIndex === 0 ? 'my-1.5 w-[90px]' : 'mb-1.5 mt-3.5 w-[70px]'}`} />
+          {group.map(([title, sub], index) => (
+            <span key={index} className={`flex items-center gap-3 px-4 ${page ? 'h-[68px]' : 'h-[52px]'}`}>
+              <span className={`shrink-0 bg-surface-sunken ${page ? 'size-10 rounded-10' : 'size-8 rounded-md'}`} />
+              <span className="flex flex-1 flex-col gap-1.5">
+                <Bar className={`h-3 ${title}`} />
+                <Bar className={`h-2.5 ${sub}`} />
+              </span>
+              <Bar className="h-2.5 w-[52px]" />
+            </span>
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * P27 A5: the centred no-matches state. A 48px sunken disc with search_off,
+ * `No matches for "…"`, one hint, then Create contact (primary) and Create
+ * lead. Neither create flow exists in the app yet, so both are drawn in the
+ * list screens' "Not available yet" state, never as a link to nothing. A
+ * lookup never repeats the number or address it was given.
+ */
+export function NoMatches({
+  t,
+  query,
+  lookup,
+  filtered = false,
+  onClearFilters,
+  page = false,
+}: {
+  t: Translator;
+  query: string;
+  lookup: boolean;
+  filtered?: boolean;
+  onClearFilters?: () => void;
+  page?: boolean;
+}) {
+  const shown = [...query].length > 22 ? `${[...query].slice(0, 22).join('')}…` : query;
+  const title: string = filtered
+    ? t.t('search.filtered.title')
+    : lookup
+      ? t.t('search.empty.title')
+      : t.t('search.noMatch.title', { q: shown });
+  const body: MessageId = filtered ? 'search.filtered.body' : lookup ? 'search.noMatch.lookupBody' : 'search.empty.body';
+  return (
+    <div data-testid="search-empty" className={`flex flex-col items-center gap-2 text-center ${page ? 'px-6 py-10' : 'px-6 pb-5 pt-7'}`}>
+      <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-surface-sunken text-text-2">
+        <Icon name="search_off" size={26} />
+      </span>
+      <b className="text-card-title">{title}</b>
+      <span className="max-w-[420px] text-meta text-text-2">{t.t(body)}</span>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        <CreateButton
+          t={t}
+          primary
+          label={lookup || query === '' ? t.t('search.create.contact') : t.t('search.create.contactNamed', { q: shown })}
+        />
+        {filtered && onClearFilters !== undefined ? (
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className={`inline-flex h-control-md items-center rounded-md border border-border bg-surface px-3.5 text-body-sm font-semibold text-text is-hover:bg-surface-sunken ${FOCUS}`}
+          >
+            {t.t('search.filtered.clear')}
+          </button>
+        ) : (
+          <CreateButton t={t} label={t.t('search.create.lead')} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CreateButton({ t, label, primary = false }: { t: Translator; label: string; primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-disabled="true"
+      title={t.t('records.action.unavailable')}
+      className={`inline-flex h-control-md cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-md px-3.5 text-body-sm font-semibold ${FOCUS} ${
+        primary ? 'bg-primary text-on-primary' : 'border border-border bg-surface text-text'
+      }`}
+    >
+      {primary ? <Icon name="person_add" size={20} /> : null}
+      {label}
+      <span className="sr-only">{t.t('records.action.unavailable')}</span>
+    </button>
+  );
 }
 
 /**
@@ -190,7 +303,17 @@ function errorCopy(error: RecordsError): MessageId {
   }
 }
 
-function SearchError({ error, t, onRetry }: { error: RecordsError; t: Translator; onRetry: () => void }) {
+export function SearchError({
+  error,
+  t,
+  onRetry,
+  page = false,
+}: {
+  error: RecordsError;
+  t: Translator;
+  onRetry: () => void;
+  page?: boolean;
+}) {
   const waitUntil = error.code === 'too_many_requests' && error.retryAt !== undefined ? Date.parse(error.retryAt) : Number.NaN;
   const [waiting, setWaiting] = useState(() => Number.isFinite(waitUntil) && waitUntil > Date.now());
   useEffect(() => {
@@ -209,202 +332,21 @@ function SearchError({ error, t, onRetry }: { error: RecordsError; t: Translator
       role="alert"
       data-testid="search-error"
       data-error-code={error.code}
-      className="flex flex-col items-start gap-2 rounded-lg border border-danger bg-danger-soft p-3 text-body-sm text-danger-text"
+      className={`flex flex-col items-center gap-2 text-center ${page ? 'px-6 py-10' : 'px-6 pb-5 pt-7'}`}
     >
-      <p className="flex items-center gap-2 font-bold">
-        <Icon name="error" size="sm" />
-        {t.t('search.error.title')}
-      </p>
-      <p>{t.t(errorCopy(error))}</p>
-      <button type="button" onClick={onRetry} disabled={waiting} className={`${QUIET_BUTTON} disabled:cursor-not-allowed disabled:opacity-60`}>
+      <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger-text">
+        <Icon name="error" size={26} />
+      </span>
+      <b className="text-card-title">{t.t('search.error.title')}</b>
+      <span className="max-w-[420px] text-meta text-text-2">{t.t(errorCopy(error))}</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={waiting}
+        className={`mt-2 inline-flex h-control-md items-center rounded-md border border-border bg-surface px-3.5 text-body-sm font-semibold text-text is-hover:bg-surface-sunken disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text ${FOCUS}`}
+      >
         {t.t('records.retry')}
       </button>
-    </div>
-  );
-}
-
-export function SearchPanel({
-  t,
-  initialText = '',
-  autoFocus = false,
-  onNavigate,
-  footer,
-  dealsLive = false,
-}: {
-  t: Translator;
-  /** A name the page was asked to search for (never an identifier: `nameFromUrl`). */
-  initialText?: string;
-  autoFocus?: boolean;
-  /** Called when a hit or a list is opened, before the navigation (the palette closes). */
-  onNavigate?: () => void;
-  /** The deal screen answers in this process (`crmLiveNav()` lists `deals`): deal hits link to it (D-L137). */
-  dealsLive?: boolean;
-  footer?: ReactNode;
-}) {
-  const router = useRouter();
-  const baseId = useId();
-  const listboxId = `${baseId}-results`;
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [text, setText] = useState(initialText);
-  const [active, setActive] = useState(-1);
-  const { state, retry } = useSearch(text);
-
-  const groups = state.kind === 'results' ? state.groups.filter((group) => group.hits.length > 0) : [];
-  const options = optionsOf(baseId, groups, dealsLive);
-  const expanded = options.length > 0;
-  const activeOption = active >= 0 ? options[active] : undefined;
-
-  useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
-  }, [autoFocus]);
-
-  // A new answer (or a new query) starts with nothing active.
-  const signature = options.map((option) => option.id + option.hit.id).join('|');
-  useEffect(() => {
-    setActive(-1);
-  }, [signature]);
-
-  const open = (href: string) => {
-    onNavigate?.();
-    router.push(href);
-  };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (options.length === 0) return;
-      event.preventDefault();
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      setActive((current) => {
-        if (current < 0) return step === 1 ? 0 : options.length - 1;
-        return (current + step + options.length) % options.length;
-      });
-      return;
-    }
-    if (event.key === 'Enter' && activeOption !== undefined) {
-      event.preventDefault();
-      if (activeOption.href !== null) open(activeOption.href);
-    }
-  };
-
-  // Keep the active option in view as the arrows move it.
-  useEffect(() => {
-    if (activeOption === undefined) return;
-    document.getElementById(activeOption.id)?.scrollIntoView({ block: 'nearest' });
-  }, [activeOption]);
-
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-h-touch min-w-0 items-center gap-2 rounded-md border border-border-strong bg-surface px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus">
-        <Icon name="search" size="sm" className="text-text-muted" />
-        <input
-          ref={inputRef}
-          data-testid="search-input"
-          type="text"
-          role="combobox"
-          inputMode="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={text}
-          aria-label={t.t('search.input.label')}
-          placeholder={t.t('search.input.placeholder')}
-          aria-autocomplete="list"
-          aria-expanded={expanded}
-          aria-controls={expanded ? listboxId : undefined}
-          aria-activedescendant={activeOption?.id}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={onKeyDown}
-          className="min-h-touch min-w-0 flex-1 bg-transparent text-body-md text-text placeholder:text-text-muted focus:outline-none"
-        />
-      </div>
-
-      <div role="status" aria-live="polite">
-        <StateMessage state={state} t={t} />
-        {/* How many hits are DRAWN, for screen readers only (D-L137 L5): never a total, a "more" or anything hidden. */}
-        {expanded ? (
-          <span data-search-announcement="" className="sr-only">
-            {t.t('search.results.count', { count: options.length })}
-          </span>
-        ) : null}
-      </div>
-
-      {state.kind === 'error' ? <SearchError error={state.error} t={t} onRetry={retry} /> : null}
-
-      {expanded ? (
-        <div role="listbox" id={listboxId} aria-label={t.t('search.results.label')} className="flex min-w-0 flex-col gap-3">
-          {groups.map((group) => {
-            const labelId = `${baseId}-${group.type}-label`;
-            return (
-              <div key={group.type} role="group" aria-labelledby={labelId} data-group={group.type} className="flex min-w-0 flex-col">
-                <div id={labelId} role="presentation" className="px-2 pb-1 text-caption font-bold uppercase text-text-muted">
-                  {t.t(groupLabel(group.type))}
-                </div>
-                {options
-                  .filter((option) => option.type === group.type)
-                  .map((option) => {
-                    const selected = activeOption?.id === option.id;
-                    const className = `flex min-h-touch min-w-0 items-center gap-3 rounded-md px-2 py-1 ${
-                      selected ? 'bg-primary-soft' : 'hover:bg-surface-sunken'
-                    } ${FOCUS}`;
-                    return option.href === null ? (
-                      <div
-                        key={option.id}
-                        id={option.id}
-                        role="option"
-                        aria-selected={selected}
-                        data-hit={option.hit.id}
-                        data-hit-type={option.type}
-                        className={className}
-                      >
-                        <HitBody option={option} t={t} />
-                      </div>
-                    ) : (
-                      <Link
-                        key={option.id}
-                        id={option.id}
-                        role="option"
-                        aria-selected={selected}
-                        tabIndex={-1}
-                        href={option.href}
-                        prefetch={false}
-                        onClick={() => onNavigate?.()}
-                        data-hit={option.hit.id}
-                        data-hit-type={option.type}
-                        className={className}
-                      >
-                        <HitBody option={option} t={t} />
-                      </Link>
-                    );
-                  })}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {state.kind === 'results' && state.q !== null ? (
-        <div className="flex min-w-0 flex-wrap gap-x-2">
-          {SEE_ALL_TYPES.map((type) => {
-            const href = seeAllHref(type, state.q ?? '');
-            return href === null ? null : (
-              <Link
-                key={type}
-                href={href}
-                prefetch={false}
-                data-see-all={type}
-                onClick={() => onNavigate?.()}
-                className={`${QUIET_BUTTON} min-w-0`}
-              >
-                <span className="truncate">{t.t(seeAllLabel(type))}</span>
-                <Icon name="arrow_forward" size="sm" />
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {footer}
     </div>
   );
 }

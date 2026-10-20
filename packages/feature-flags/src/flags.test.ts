@@ -65,6 +65,11 @@ describe('feature flags', () => {
       'data_export',
       'dsr',
       'merge_three_way',
+      'admin_placeholders',
+      'recent_searches',
+      'programme_scope_search',
+      'ai_assistant',
+      'search_filters',
       'crm_home',
       'whatsapp_inbox',
       'quota',
@@ -72,6 +77,11 @@ describe('feature flags', () => {
       'home_kpis',
       'notification_types',
       'notification_preferences',
+      'crm_studio',
+      'ai_script_hints',
+      'script_programme_assignment',
+      'script_preview',
+      'script_version_changes',
     ]);
   });
 

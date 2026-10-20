@@ -168,7 +168,7 @@ export const FLAGS = {
     productionReady: false,
   },
   call_bar: {
-    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134).',
+    description: 'The Call action on records, disabled until the telephony integration places calls (T-0134); and the P10 run call bar, not connected, with the loan card and "Writes to record" in their empty states (T-0139, D-L88, D-P31).',
     defaultValue: false,
     owner: 'T-0134 (placeholder), the voice module (ADR-0003), D-L194',
     productionReady: false,
@@ -658,6 +658,65 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0140 (D-L194): the P02 console's designed controls whose backend is not
+   * built. The usage meters the API does not serve (WhatsApp conversations,
+   * storage, AI credits) draw in their empty state, and Alert settings, the
+   * programme cards' Edit links and the role panel's View people are drawn
+   * disabled. Presentation only; it grants nothing.
+   */
+  admin_placeholders: {
+    description: 'P02 usage meters without data in their empty state, and disabled P02 controls with no backend yet (T-0140, D-L194).',
+    defaultValue: false,
+    owner: 'T-0140 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194, D-L195, D-L133 R19): P27's RECENT SEARCHES and RECENTLY
+   * VIEWED panel, in the design's empty state. Nothing is stored, on the device
+   * or the server, so the panel only ever says that searches will show there.
+   */
+  recent_searches: {
+    description: 'The P27 recent searches and recently viewed panel, empty until a store exists (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder), D-L133',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194, D-L87): the P27 programme scope pill and menu (B, B1), the
+   * programme tags on search hits and the palette's Switch programme step
+   * (D2). Search already covers every programme the session is assigned to;
+   * narrowing it is not served, so the scope reads "All my programmes" and the
+   * single programmes are drawn disabled. Grants nothing.
+   */
+  programme_scope_search: {
+    description: 'The P27 programme scope pill, scope menu and Switch programme step, narrowing disabled until served (T-0138, D-L194, D-L87).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder), D-L87',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194): the command palette's Ask AI row and "? Ask AI" hint
+   * (P27 D, D3), drawn disabled. No assistant exists.
+   */
+  ai_assistant: {
+    description: 'The P27 palette Ask AI row, disabled until an assistant exists (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder)',
+    productionReady: false,
+  },
+  /**
+   * T-0138 (D-L194): P27's owner and date filters, and the owner and updated
+   * columns on the results page. Search serves neither an owner nor an update
+   * time, so only "Any owner" and "Any time" can be chosen and the columns
+   * show the design's empty dash.
+   */
+  search_filters: {
+    description: 'The P27 owner and date filters and the owner and updated columns, empty until search serves them (T-0138, D-L194).',
+    defaultValue: false,
+    owner: 'T-0138 (placeholder)',
+    productionReady: false,
+  },
+  /**
    * T-0132 (D-L196): the P03 Home route at `/home`, the rail and bottom-bar
    * Home entry, and Home as the signed-in landing. Off, `/home` is a real 404
    * and the browser lands on the first live CRM screen as before.
@@ -725,6 +784,42 @@ export const FLAGS = {
     description: 'P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194).',
     defaultValue: false,
     owner: 'T-0137 (placeholder), the notification-preferences API when it is built',
+    productionReady: false,
+  },
+  /**
+   * T-0139 (D-L194): the P10 elements with no backend yet. Each is drawn in
+   * the design's own empty or disabled state, never with invented data, and
+   * comes alive with the module that owns it. Presentation only: none of them
+   * reaches an endpoint, and each grants nothing.
+   */
+  crm_studio: {
+    description: 'The Studio entry in the CRM rail, a disabled placeholder (current on the script screens) until a capability read lets it link to the builder (T-0139, D-L194, R3).',
+    defaultValue: false,
+    owner: 'T-0139 (shell placeholder), T-0079',
+    productionReady: false,
+  },
+  ai_script_hints: {
+    description: 'The P10 run AI next-line suggestion strip, in its empty state with "Use line" disabled, until M17 serves suggestions (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder), M17',
+    productionReady: false,
+  },
+  script_programme_assignment: {
+    description: 'The P10 builder "Assigned to" programme chips, disabled: a script belongs to one programme (D-L91) until multi-programme assignment exists (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder), D-L91',
+    productionReady: false,
+  },
+  script_preview: {
+    description: 'The P10 builder Preview button, disabled until preview-as-agent with a sample record exists (T-0139, D-L88, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder)',
+    productionReady: false,
+  },
+  script_version_changes: {
+    description: 'The P10 run version banner\'s "What changed" button, disabled until agents can read a newer version\'s change list (T-0139, D-L194).',
+    defaultValue: false,
+    owner: 'T-0139 (placeholder)',
     productionReady: false,
   },
 } as const satisfies Record<string, FlagDefinition>;

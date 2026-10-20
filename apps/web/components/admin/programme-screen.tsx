@@ -26,14 +26,17 @@ import { PortalTab } from './portal-tab';
 import { ArchiveDialog } from './archive-dialog';
 import { SampleData } from './sample-data';
 import type { LanguageOption } from '../auth/language-menu';
-import { SECONDARY_BUTTON } from '../auth/button-classes';
+import { Pill } from '@kasuwa/ui/components';
+import { AdminButton, CARD, PageHeader, TEXT_ACTION } from './admin-ui';
+import { STATUS_TONE } from './programmes-screen';
+import { getProgramme, getProgrammeKpis, type ProgrammeDetail } from '../../lib/admin-api';
 import {
-  getProgramme,
-  getProgrammeKpis,
-  type ProgrammeDetail,
-  type ProgrammeStatus,
-} from '../../lib/admin-api';
-import { formatCount, formatDate, formatDuration, formatPercent } from '../../lib/admin-format';
+  formatCount,
+  formatCountry,
+  formatDate,
+  formatDuration,
+  formatPercent,
+} from '../../lib/admin-format';
 
 /**
  * `P02/B2`–`P02/B9` — one programme, seven tabs and one destructive dialog,
@@ -51,11 +54,12 @@ import { formatCount, formatDate, formatDuration, formatPercent } from '../../li
  * something real.
  */
 
-const STATUS_TONE: Readonly<Record<ProgrammeStatus, string>> = {
-  active: 'bg-success-soft text-success-text',
-  paused: 'bg-warning-soft text-warning-text',
-  draft: 'bg-surface-sunken text-text-2',
-  archived: 'bg-surface-sunken text-text-muted',
+/** The settings-menu entry each tab stands for, so the menu follows the tab (P02/B4, B5, B6, B7). */
+const TAB_SETTING: Readonly<Partial<Record<ProgrammeTab, string>>> = {
+  sla: 'b-sla',
+  dispositions: 'b-disp',
+  scripts: 'b-scripts',
+  retention: 'b-ret',
 };
 
 export function ProgrammeScreen({
@@ -67,6 +71,7 @@ export function ProgrammeScreen({
   programmeId,
   tab,
   live,
+  placeholders,
 }: {
   locale: string;
   messages: MessageBundle;
@@ -81,6 +86,8 @@ export function ProgrammeScreen({
    * endpoints the API has not built.
    */
   live: boolean;
+  /** `admin_placeholders` (D-L194): the cards' Edit links, drawn disabled. */
+  placeholders: boolean;
 }) {
   const t = createBundleTranslator(locale, messages);
   const router = useRouter();
@@ -103,97 +110,123 @@ export function ProgrammeScreen({
     `/admin/programmes/${encodeURIComponent(programmeId)}?tab=${next}`;
 
   return (
-    <AdminShell locale={locale} messages={messages} locales={locales} linkedSettings={linkedSettings} bell={bell} activeSettingId="programmes">
+    <AdminShell
+      locale={locale}
+      messages={messages}
+      locales={locales}
+      linkedSettings={linkedSettings}
+      bell={bell}
+      activeSettingId={TAB_SETTING[tab] ?? 'programmes'}
+    >
       <div data-screen="P02/B2" className="flex flex-col gap-6 pb-24">
-        <nav aria-label={t.t('admin.prog.breadcrumb')} className="flex items-center gap-1">
-          <span className="text-body-sm font-semibold text-text-muted">
-            {t.t('admin.prog.eyebrow')}
-          </span>
-          <Icon name="chevron_right" size="sm" className="text-text-muted" />
-          <Link
-            href="/admin/programmes"
-            className="text-body-sm font-semibold text-primary-text underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        <div className="flex flex-col gap-2.5">
+          <nav
+            aria-label={t.t('admin.prog.breadcrumb')}
+            className="flex min-w-0 items-center gap-1 text-meta font-semibold text-text-muted"
           >
-            {t.t('admin.prog.title')}
-          </Link>
-          <Icon name="chevron_right" size="sm" className="text-text-muted" />
-          <span aria-current="page" className="text-body-sm font-semibold text-text-muted">
-            {programme.data?.name ?? ''}
-          </span>
-        </nav>
+            <span>{t.t('admin.prog.eyebrow')}</span>
+            <Icon name="chevron_right" size={16} className="rtl:-scale-x-100" />
+            <Link
+              href="/admin/programmes"
+              className="rounded-sm text-primary-text underline underline-offset-2 outline-none is-focus-visible:ring-focus"
+            >
+              {t.t('admin.prog.title')}
+            </Link>
+            <Icon name="chevron_right" size={16} className="rtl:-scale-x-100" />
+            <span aria-current="page" className="min-w-0 truncate">
+              {programme.data?.name ?? ''}
+            </span>
+          </nav>
 
-        <Panel t={t} resource={programme} skeletonRows={3}>
-          {(data) => (
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-h2">{data.name}</h1>
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-caption font-bold ${STATUS_TONE[data.status]}`}
-                  >
-                    {t.t(`admin.prog.status.${data.status}` as MessageId)}
-                  </span>
-                </div>
-                <p className="text-body-md text-text-2">
-                  {[data.clientName, data.countryCode, data.reference]
-                    .filter((part): part is string => typeof part === 'string' && part !== '')
-                    .join(' · ')}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`}
-                  aria-disabled
-                >
-                  <Icon name="open_in_new" size="sm" />
-                  {t.t('admin.prog.portal')}
-                </span>
-                <span
-                  className={`${SECONDARY_BUTTON} pointer-events-none opacity-60`}
-                  aria-disabled
-                >
-                  <Icon name="pause" size="sm" />
-                  {t.t('admin.prog.pause')}
-                </span>
-                {/* `P02/B9`. The dialog is where the decision is made: it
-                    reads the impact when it opens, asks for the name, and on
-                    success the programme is re-read so the status chip says
-                    what happened. Any failure is shown, never swallowed. */}
-                <button
-                  type="button"
-                  data-testid="archive-programme"
-                  onClick={() => setArchiving(true)}
-                  className="flex min-h-touch items-center justify-center gap-2 rounded-md border border-danger px-4 text-body-md font-semibold text-danger-text hover:bg-danger-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                >
-                  <Icon name="archive" size="sm" />
-                  {t.t('admin.prog.archive')}
-                </button>
-              </div>
-            </div>
-          )}
-        </Panel>
+          <Panel t={t} resource={programme} skeletonRows={3}>
+            {(data) => {
+              const subline = [data.clientName ?? null, formatCountry(locale, data.countryCode)].filter(
+                (part): part is string => part !== null && part !== '',
+              );
+              return (
+                <PageHeader
+                  title={data.name}
+                  aside={
+                    <Pill tone={STATUS_TONE[data.status]}>
+                      {t.t(`admin.prog.status.${data.status}` as MessageId)}
+                    </Pill>
+                  }
+                  intro={
+                    subline.length === 0 && (data.reference ?? '') === '' ? undefined : (
+                      <p className="m-0">
+                        {subline.join(' · ')}
+                        {(data.reference ?? '') === '' ? null : (
+                          <>
+                            {subline.length === 0 ? null : <span aria-hidden="true">{' · '}</span>}
+                            <span className="font-mono text-meta">{data.reference}</span>
+                          </>
+                        )}
+                      </p>
+                    )
+                  }
+                  actions={
+                    <>
+                      <AdminButton icon="open_in_new" notReady>
+                        {t.t('admin.prog.portal')}
+                      </AdminButton>
+                      <AdminButton icon="pause" notReady>
+                        {t.t('admin.prog.pause')}
+                      </AdminButton>
+                      {/* `P02/B9`. The dialog is where the decision is made: it
+                          reads the impact when it opens, asks for the name, and
+                          on success the programme is re-read so the status pill
+                          says what happened. Any failure is shown, never
+                          swallowed. */}
+                      <AdminButton
+                        variant="danger-outline"
+                        icon="archive"
+                        data-testid="archive-programme"
+                        onClick={() => setArchiving(true)}
+                      >
+                        {t.t('admin.prog.archive')}
+                      </AdminButton>
+                    </>
+                  }
+                />
+              );
+            }}
+          </Panel>
+        </div>
 
         <div
           role="tablist"
           aria-label={t.t('admin.prog.tabs')}
-          className="flex gap-1 overflow-x-auto border-b border-border"
+          className="relative -mt-1 flex gap-0.5 overflow-x-auto border-b border-border"
         >
-          {PROGRAMME_TABS.map((value) => (
-            <Link
-              key={value}
-              role="tab"
-              href={href(value)}
-              aria-selected={value === tab}
-              data-testid={`tab-${value}`}
-              className={`flex min-h-touch shrink-0 items-center whitespace-nowrap border-b-2 px-4 text-body-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                value === tab
-                  ? 'border-primary font-bold text-primary-text'
-                  : 'border-transparent font-semibold text-text-2 hover:text-text'
-              }`}
-            >
-              {t.t(`admin.prog.tab.${value}` as MessageId)}
-            </Link>
-          ))}
+          {PROGRAMME_TABS.map((value) => {
+            // Counts only where the API serves them (T-0140): the programme
+            // read carries its agent count and nothing else, and a tab never
+            // shows a total it had to guess.
+            const count =
+              value === 'agents' ? (programme.data?.people?.agentCount ?? null) : null;
+            const selected = value === tab;
+            return (
+              <Link
+                key={value}
+                role="tab"
+                href={href(value)}
+                aria-selected={selected}
+                data-testid={`tab-${value}`}
+                className={`relative inline-flex h-control-base shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-body-sm outline-none is-focus-visible:ring-focus ${
+                  selected
+                    ? 'font-bold text-primary-text after:absolute after:inset-x-0 after:bottom-0 after:h-0.75 after:bg-primary'
+                    : 'font-semibold text-text-2 is-hover:text-text'
+                }`}
+              >
+                {t.t(`admin.prog.tab.${value}` as MessageId)}
+                {count === null ? null : (
+                  <span className="inline-flex h-5 min-w-5.5 items-center justify-center rounded-full bg-surface-sunken px-1.5 text-caption font-bold text-text-2">
+                    {formatCount(locale, count)}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
 
         {tab === 'overview' ? (
@@ -203,6 +236,7 @@ export function ProgrammeScreen({
             programmeId={programmeId}
             detail={programme.data}
             live={live}
+            placeholders={placeholders}
           />
         ) : null}
         {tab === 'agents' ? (
@@ -255,16 +289,11 @@ export function ProgrammeScreen({
           onClose={() => setPending(null)}
           footer={
             <>
-              <button
-                type="button"
-                data-testid="leave-cancel"
-                onClick={() => setPending(null)}
-                className={SECONDARY_BUTTON}
-              >
+              <AdminButton data-testid="leave-cancel" onClick={() => setPending(null)}>
                 {t.t('admin.leave.cancel')}
-              </button>
-              <button
-                type="button"
+              </AdminButton>
+              <AdminButton
+                variant="danger"
                 data-testid="leave-confirm"
                 onClick={() => {
                   const destination = pending;
@@ -273,14 +302,13 @@ export function ProgrammeScreen({
                   setDiscardSignal((value) => value + 1);
                   router.push(destination);
                 }}
-                className="flex min-h-touch items-center justify-center rounded-md bg-danger px-4 text-body-md font-bold text-on-primary hover:bg-danger-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {t.t('admin.leave.confirm')}
-              </button>
+              </AdminButton>
             </>
           }
         >
-          <p className="rounded-md bg-surface-sunken p-3 text-body-sm">
+          <p className="m-0 rounded-10 bg-surface-sunken px-3.5 py-3 text-meta">
             {t.t('admin.unsaved.count', { count: dirtyCount })}
           </p>
         </Dialog>
@@ -289,27 +317,20 @@ export function ProgrammeScreen({
   );
 }
 
-const CARD = 'flex flex-col gap-3 rounded-lg border border-border bg-surface p-5';
-
-const KPI_ICON: Readonly<Record<string, IconName>> = {
-  sla_met: 'timer',
-  contacts_handled: 'headset_mic',
-  average_handle_time: 'schedule',
-  qa_score: 'verified',
-};
-
 function OverviewTab({
   t,
   locale,
   programmeId,
   detail,
   live,
+  placeholders,
 }: {
   t: Translator;
   locale: string;
   programmeId: string;
   detail: ProgrammeDetail | null;
   live: boolean;
+  placeholders: boolean;
 }) {
   const kpis = useResource(
     useCallback(
@@ -339,6 +360,14 @@ function OverviewTab({
     candidate === null || candidate === undefined || candidate === '' ? notKnown : candidate;
   const number = (candidate: number | null | undefined) =>
     candidate === null || candidate === undefined ? notKnown : formatCount(locale, candidate);
+  const date = (candidate: string | null | undefined) =>
+    candidate === null || candidate === undefined ? notKnown : formatDate(locale, candidate);
+
+  const edit = placeholders ? (
+    <button type="button" disabled aria-disabled="true" className={TEXT_ACTION}>
+      {t.t('admin.prog.card.edit')}
+    </button>
+  ) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -350,20 +379,19 @@ function OverviewTab({
           {(data) => (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {data.kpis.map((kpi) => (
-                <div key={kpi.kpiId} className={CARD} data-kpi-id={kpi.kpiId}>
-                  <span className="flex items-center gap-2 text-body-sm font-semibold text-text-2">
-                    <Icon name={KPI_ICON[kpi.kpiId] ?? 'bar_chart'} size="sm" />
-                    {kpi.label}
-                  </span>
-                  <b className="text-h3">{value(kpi.format, kpi.value)}</b>
+                <div key={kpi.kpiId} className={`${CARD} flex flex-col gap-1 p-4.5`} data-kpi-id={kpi.kpiId}>
+                  <span className="text-meta font-semibold text-text-2">{kpi.label}</span>
+                  <b className="text-title-sm">{value(kpi.format, kpi.value)}</b>
                   {kpi.targetValue === null || kpi.targetValue === undefined ? null : (
                     <span
-                      className={`text-body-sm font-semibold ${
+                      className={`text-meta font-semibold ${
                         kpi.status === 'bad'
                           ? 'text-danger-text'
                           : kpi.status === 'warn'
                             ? 'text-warning-text'
-                            : 'text-success-text'
+                            : kpi.status === 'good'
+                              ? 'text-success-text'
+                              : 'text-text-2'
                       }`}
                     >
                       {t.t('admin.prog.kpi.target', {
@@ -379,96 +407,72 @@ function OverviewTab({
       </KpiFrame>
 
       {detail === null ? null : (
-        <div className="grid gap-4 xl:grid-cols-3">
-          <section className={CARD}>
-            <h2 className="flex items-center gap-2 text-h5">
-              <Icon name="description" size="sm" className="text-text-2" />
-              {t.t('admin.prog.card.contract')}
-            </h2>
-            <dl className="flex flex-col">
-              <Row term={t.t('admin.prog.field.reference')} detailValue={text(detail.reference)} />
-              <Row
-                term={t.t('admin.prog.field.started')}
-                detailValue={
-                  detail.contract?.startedOn === null || detail.contract?.startedOn === undefined
-                    ? notKnown
-                    : formatDate(locale, detail.contract.startedOn)
-                }
-              />
-              <Row
-                term={t.t('admin.prog.field.renews')}
-                detailValue={
-                  detail.contract?.renewsOn === null || detail.contract?.renewsOn === undefined
-                    ? notKnown
-                    : formatDate(locale, detail.contract.renewsOn)
-                }
-              />
-              <Row
-                term={t.t('admin.prog.field.billing')}
-                detailValue={text(detail.contract?.billingBasis)}
-              />
-            </dl>
-          </section>
+        <div className="grid items-start gap-4 xl:grid-cols-3">
+          <InfoCard icon="description" title={t.t('admin.prog.card.contract')} action={edit}>
+            <Row term={t.t('admin.prog.field.client')} detailValue={text(detail.clientName)} />
+            <Row
+              term={t.t('admin.prog.field.reference')}
+              detailValue={text(detail.contract?.reference ?? detail.reference)}
+            />
+            <Row term={t.t('admin.prog.field.started')} detailValue={date(detail.contract?.startedOn)} />
+            <Row term={t.t('admin.prog.field.renews')} detailValue={date(detail.contract?.renewsOn)} />
+            <Row term={t.t('admin.prog.field.billing')} detailValue={text(detail.contract?.billingBasis)} />
+          </InfoCard>
 
-          <section className={CARD}>
-            <h2 className="flex items-center gap-2 text-h5">
-              <Icon name="forum" size="sm" className="text-text-2" />
-              {t.t('admin.prog.card.channels')}
-            </h2>
-            <dl className="flex flex-col">
+          <InfoCard icon="forum" title={t.t('admin.prog.card.channels')} action={edit}>
+            {(detail.operating?.channels ?? []).map((channel) => (
               <Row
-                term={t.t('admin.prog.field.timezone')}
-                detailValue={text(detail.operating?.timeZone)}
+                key={channel.channel}
+                term={t.t(`admin.channel.${channel.channel}` as MessageId)}
+                detailValue={channel.label}
               />
-              <Row
-                term={t.t('admin.prog.field.hours')}
-                detailValue={text(detail.operating?.hoursSummary)}
-              />
-              <Row
-                term={t.t('admin.prog.field.holidays')}
-                detailValue={text(detail.operating?.holidayCalendar)}
-              />
-              {(detail.operating?.channels ?? []).map((channel) => (
-                <Row
-                  key={channel.channel}
-                  term={t.t(`admin.channel.${channel.channel}` as MessageId)}
-                  detailValue={channel.label}
-                />
-              ))}
-            </dl>
-          </section>
+            ))}
+            <Row term={t.t('admin.prog.field.hours')} detailValue={text(detail.operating?.hoursSummary)} />
+            <Row
+              term={t.t('admin.prog.field.holidays')}
+              detailValue={text(detail.operating?.holidayCalendar)}
+            />
+          </InfoCard>
 
-          <section className={CARD}>
-            <h2 className="flex items-center gap-2 text-h5">
-              <Icon name="group" size="sm" className="text-text-2" />
-              {t.t('admin.prog.card.people')}
-            </h2>
-            <dl className="flex flex-col">
-              <Row
-                term={t.t('admin.prog.field.manager')}
-                detailValue={text(detail.people?.programmeManagerName)}
-              />
-              <Row
-                term={t.t('admin.prog.field.teamLeads')}
-                detailValue={number(detail.people?.teamLeadCount)}
-              />
-              <Row
-                term={t.t('admin.prog.field.agents')}
-                detailValue={number(detail.people?.agentCount)}
-              />
-              <Row
-                term={t.t('admin.prog.field.qa')}
-                detailValue={number(detail.people?.qaAnalystCount)}
-              />
-              <Row
-                term={t.t('admin.prog.field.portalUsers')}
-                detailValue={number(detail.people?.portalUserCount)}
-              />
-            </dl>
-          </section>
+          <InfoCard icon="groups" title={t.t('admin.prog.card.people')} action={edit}>
+            <Row
+              term={t.t('admin.prog.field.manager')}
+              detailValue={text(detail.people?.programmeManagerName)}
+            />
+            <Row term={t.t('admin.prog.field.teamLeads')} detailValue={number(detail.people?.teamLeadCount)} />
+            <Row term={t.t('admin.prog.field.agents')} detailValue={number(detail.people?.agentCount)} />
+            <Row term={t.t('admin.prog.field.qa')} detailValue={number(detail.people?.qaAnalystCount)} />
+            <Row
+              term={t.t('admin.prog.field.portalUsers')}
+              detailValue={number(detail.people?.portalUserCount)}
+            />
+          </InfoCard>
         </div>
       )}
     </div>
+  );
+}
+
+function InfoCard({
+  icon,
+  title,
+  action,
+  children,
+}: {
+  icon: IconName;
+  title: string;
+  action: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${CARD} flex flex-col gap-2.5 px-5 py-4.5`}>
+      <div className="flex min-h-8 items-center gap-2">
+        <Icon name={icon} size={20} className="text-text-2" />
+        <h2 className="m-0 flex-1 text-label font-bold">{title}</h2>
+        {action}
+      </div>
+      <dl className="m-0 flex flex-col">{children}</dl>
+    </section>
   );
 }
 
@@ -489,8 +493,8 @@ function KpiFrame({ t, live, children }: { t: Translator; live: boolean; childre
 function Row({ term, detailValue }: { term: string; detailValue: string }) {
   return (
     <div className="flex gap-3 border-t border-border py-2 text-body-sm">
-      <dt className="w-36 shrink-0 text-text-muted">{term}</dt>
-      <dd className="flex-1 font-semibold">{detailValue}</dd>
+      <dt className="w-32 shrink-0 text-text-muted">{term}</dt>
+      <dd className="m-0 min-w-0 flex-1 font-semibold">{detailValue}</dd>
     </div>
   );
 }

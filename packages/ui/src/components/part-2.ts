@@ -10,10 +10,12 @@
 export { Banner, type BannerProps, type BannerTone } from './banner';
 export { Card, type CardPadding, type CardProps } from './card';
 export {
+  CommandDialog,
   ConfirmDialog,
   ConfirmPanel,
   Dialog,
   OverlayCloseButton,
+  type CommandDialogProps,
   type ConfirmDialogProps,
   type ConfirmTone,
   type DialogProps,
@@ -91,6 +93,7 @@ export {
   type ToastProviderProps,
   type ToastTone,
 } from './toast';
+export { Spinner } from './spinner';
 export {
   CriticalBanner,
   NotificationToast,
