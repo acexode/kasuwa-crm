@@ -67,6 +67,13 @@ export interface MockOptions {
   readonly selfServe?: boolean;
   /** Force the next one-time-code verify (P01/4) to this outcome. */
   readonly forceOtp?: 'expired' | 'locked';
+  /**
+   * The `sms` entry of the challenge's `methods` (T-0126). Omitted, the
+   * contract example's entry is used unchanged. The live API sends
+   * `{ available: false, deliveryHint: null }` until a channel provider
+   * exists, so that is what the demo users see.
+   */
+  readonly smsMethod?: { readonly available: boolean; readonly deliveryHint: string | null };
 }
 
 interface MockState {
@@ -100,10 +107,17 @@ function lockedBody(): Record<string, unknown> {
   };
 }
 
-function challengeBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function challengeBody(
+  overrides: Record<string, unknown> = {},
+  smsMethod?: MockOptions['smsMethod'],
+): Record<string, unknown> {
   const example = contractExample('signIn', 200) as Record<string, unknown>;
+  const methods = (example.methods as Record<string, unknown>[]).map((method) =>
+    method.type === 'sms' && smsMethod !== undefined ? { ...method, ...smsMethod } : method,
+  );
   return {
     ...example,
+    methods,
     expiresAt: new Date(Date.now() + 10 * 60 * 1_000).toISOString(),
     ...overrides,
   };
@@ -158,7 +172,7 @@ export async function installAuthMock(page: Page, options: MockOptions = {}): Pr
         await handleVerifyMfa(route, body, options);
         return;
       case 'reissueMfaChallenge':
-        await handleReissue(route, body);
+        await handleReissue(route, body, options);
         return;
       case 'lookupSso':
         // T-0001 implements the lookup and the not-found path only: no SSO
@@ -166,7 +180,12 @@ export async function installAuthMock(page: Page, options: MockOptions = {}): Pr
         await json(route, 404, contractExample('lookupSso', 404));
         return;
       default:
-        await json(route, 501, { statusCode: 501, error: 'Not Implemented', code: 'not_implemented', message: '' });
+        await json(route, 501, {
+          statusCode: 501,
+          error: 'Not Implemented',
+          code: 'not_implemented',
+          message: '',
+        });
     }
   });
 
@@ -199,7 +218,7 @@ async function handleSignIn(
 
   if (accepted) {
     state.failures.delete(key);
-    await json(route, 200, challengeBody());
+    await json(route, 200, challengeBody({}, options.smsMethod));
     return;
   }
 
@@ -235,7 +254,11 @@ async function handleVerifyMfa(
   await json(route, 401, contractExample('verifyMfa', 401, 'wrongCode'));
 }
 
-async function handleReissue(route: Route, body: Record<string, unknown>): Promise<void> {
+async function handleReissue(
+  route: Route,
+  body: Record<string, unknown>,
+  options: MockOptions,
+): Promise<void> {
   const method = String(body.method ?? 'totp');
 
   // `partial`: T-0001 implements `totp`; `sms` and `backup_code` need a channel
@@ -248,11 +271,14 @@ async function handleReissue(route: Route, body: Record<string, unknown>): Promi
   await json(
     route,
     200,
-    challengeBody({
-      method,
-      resendAvailableAt:
-        method === 'sms' ? new Date(Date.now() + 60 * 1_000).toISOString() : null,
-    }),
+    challengeBody(
+      {
+        method,
+        resendAvailableAt:
+          method === 'sms' ? new Date(Date.now() + 60 * 1_000).toISOString() : null,
+      },
+      options.smsMethod,
+    ),
   );
 }
 
@@ -287,7 +313,10 @@ async function handleVerifyOtp(
   }
   if (options.forceOtp === 'locked') {
     const example = contractExample('verifyOtp', 429) as Record<string, unknown>;
-    await json(route, 429, { ...example, retryAt: new Date(Date.now() + 10 * 60 * 1_000).toISOString() });
+    await json(route, 429, {
+      ...example,
+      retryAt: new Date(Date.now() + 10 * 60 * 1_000).toISOString(),
+    });
     return;
   }
   if (String(body.code ?? '') === VALID_MFA_CODE) {

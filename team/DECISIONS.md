@@ -4353,3 +4353,70 @@ P10's plain `.html`.
 
 **Notes from the hands-on test so far:** the TOTP step shows "Text a code to" with no phone number for the demo
 users. The option should be hidden when no number is on file.
+
+### D-L194 — Designed elements with no backend are built as flagged placeholders (user, 2026-10-20)
+
+**Context:** the D-L193 audit (`team/reports/ui-audit/README.md`) found many designed elements whose data comes
+from modules that do not exist yet (AI, quota, call bar, tickets, FX, calendar sync, booking pages, migration, DSR).
+
+**Ruling:**
+- Build every designed element so each screen matches its export exactly, at every designed width and in both themes.
+- An element without a backend shows the design's own empty or disabled state. It never shows a fake number, name
+  or total.
+- Each such element sits behind a per-module feature flag (`ai_summary`, `call_bar`, `tickets`, `quota`,
+  `fx_display`, `calendar_sync`, `booking_pages`, `field_checkin`, `data_migration`, `data_export`, `dsr`,
+  `map_view`, `programme_scope_search`, …). The flag is on in `pnpm demo` and off by default elsewhere, so the
+  element comes alive with its module and production can hide it.
+
+### D-L195 — Earlier cuts stand; the design's closest visual equivalent fills the gap (user, 2026-10-20)
+
+D-P13, D-L69, D-L105, T-0057/T-0058, D-L133, D-L128 Q6 and D-L87 stand. Where a cut changes what a screen looks
+like, the screen uses the design's closest visual equivalent: same position, same style. It never leaves a gap.
+Each spot is listed in `team/reports/ui-audit/README.md` ("Where an earlier cut changes the screen"). A new spot
+found during a build is added to that table in the same PR.
+
+**Lead additions:**
+- The Workspace field on sign-in and the Password field on sign-up stay, styled to the design.
+- The design's "You can't open this record" screen, which names the other programme and its owner, is not built:
+  CLAUDE.md §6.4 keeps out-of-scope records a plain 404, shown with the design's not-found styling.
+- P27's "n results hidden" strip is not drawn either, for the same reason.
+
+### D-L196 — P03 Home is built now, and sign-in lands on it (user, 2026-10-20)
+
+Build the Home shell, customise mode and the data-backed widgets (agenda, deals needing attention, recent records)
+for each P03 role layout, at 1440 and 360, light and dark. Widgets with no data source follow D-L194. After sign-in
+the browser lands on Home. This supersedes D-L172's "first live nav entry" rule.
+
+**Lead:** the customised layout is saved per user in a new tenant-scoped table, with RLS and in
+`TENANT_SCOPED_TABLES`, owned by T-0132.
+
+### D-L197 — Order of the fidelity work (user, 2026-10-20)
+
+- **Wave 0:** T-0126 (TOTP SMS option).
+- **Wave 1, in sequence:** T-0127 tokens and icons → T-0128 and T-0129 component library → T-0130 app shell.
+- **Wave 2, screens, in this order:** P01 (T-0131), P03 (T-0132), P04, P05, P06, P07, P26, P27, P10, P02, P28,
+  P18 (T-0133 to T-0142).
+
+Builders: agent-11-frontend on Opus 5.5 at high effort. Two may build at once. Verification stays one
+Docker-backed e2e run at a time on the Mac; a second run goes to the Windows runner. Every PR links
+before/after screenshot pairs made with `tools/design-parity`, at every designed width, light and dark.
+
+### D-L198 — Icon font split, and icons inherit their weight (lead, 2026-10-20, T-0127)
+
+**Context:** T-0127 grows the icon subset from 121 to 198 glyphs and adds the FILL axis. As a single variable font
+that adds 16,176 bytes to every page that draws an icon. On the current pins that would break the contact record
+(245,000) and account record (250,000, D-L190) ceilings. The builder also found that the exports' icons inherit
+the surrounding font-weight, so Chromium synthesises bold inside 600/700 text. 51 of 78 icon/weight pairs in P04
+render faux-bold in the design itself.
+
+**Ruling:**
+- **Two icon faces.**
+  - A static FILL 0 subset for every icon (about 21.8 KB, +7.6 KB on today).
+  - A filled-only subset (about 5 KB), loaded only where a filled icon is drawn.
+  - The filled glyphs live in their own list. The `filled` prop only accepts names from it, and
+    `tools/verify-icons.mjs` fails a filled icon outside it, so the second face cannot render a blank box.
+- **Weight is inherited.** `.k-icon` takes its weight from its parent, with synthesis allowed, exactly as the
+  export renders. The defect T-0127 fixed was the type-scale size classes imposing their own weight. The new
+  `text-icon-*` utilities set size only.
+- **Budgets.** Pages re-pin under D-L182 with the measured cause, which is this icon change. A ceiling that still
+  breaks after the split comes back to the lead with numbers before anyone raises it.

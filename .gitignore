@@ -41,3 +41,4 @@ apps/web/tsconfig.e2e-*.json
 # Demo pre-flight screenshots (tools/demo-smoke.mjs)
 /demo/screenshots/
 /demo/logs/
+.artifacts/
