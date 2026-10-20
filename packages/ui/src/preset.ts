@@ -9,6 +9,7 @@ import {
   FOCUS,
   ICON_SIZE,
   kebab,
+  LAYOUT,
   MOTION,
   RADIUS,
   SEMANTIC_TOKEN_NAMES,
@@ -98,6 +99,9 @@ export function buildTailwindPreset(): string {
     ),
     ...Object.keys(OVERLAY).map(
       (key) => `    'overlay-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-overlay-${cssKey(key)})',`,
+    ),
+    ...Object.keys(LAYOUT).map(
+      (key) => `    'layout-${kebab(key)}': 'var(${CSS_VAR_PREFIX}-layout-${cssKey(key)})',`,
     ),
   ].join('\n');
 

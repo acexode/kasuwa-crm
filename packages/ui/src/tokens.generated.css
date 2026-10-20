@@ -243,6 +243,13 @@
   --k-shell-mobile-header: 56px;
   --k-shell-search: 420px;
   --k-shell-fab: 56px;
+  --k-layout-auth-panel: 520px;
+  --k-layout-auth-header: 64px;
+  --k-layout-column: 400px;
+  --k-layout-column-verify: 440px;
+  --k-layout-column-wide: 520px;
+  --k-layout-wizard: 640px;
+  --k-layout-wizard-stepper: 880px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;

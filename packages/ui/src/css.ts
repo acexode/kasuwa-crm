@@ -14,6 +14,7 @@ import {
   RADIUS,
   SEMANTIC_DARK,
   SEMANTIC_LIGHT,
+  LAYOUT,
   OVERLAY,
   SHEET_RADIUS,
   SHELL,
@@ -105,6 +106,9 @@ export function buildTokensCss(): string {
     ),
     ...Object.entries(SHELL).map(
       ([name, value]) => `${CSS_VAR_PREFIX}-shell-${cssKey(name)}: ${value};`,
+    ),
+    ...Object.entries(LAYOUT).map(
+      ([name, value]) => `${CSS_VAR_PREFIX}-layout-${cssKey(name)}: ${value};`,
     ),
     '',
     '/* overlays and data display (T-0129) */',

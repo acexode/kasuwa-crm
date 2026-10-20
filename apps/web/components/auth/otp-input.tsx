@@ -137,8 +137,11 @@ export function OtpInput({
               focusAt(index + 1);
             }
           }}
-          className={`min-h-touch w-12 rounded-md border bg-surface text-center font-mono text-h4 text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-            invalid ? 'border-danger' : 'border-border-strong'
+          // 44x52, mono 22/600, an 8px gap: six cells are 304px, inside the
+          // 320px column a 360px phone leaves (T-0131). Focus is the field
+          // halo; an error is the 2px danger edge on every cell.
+          className={`h-control-xl w-11 min-w-0 rounded-md bg-surface text-center font-mono text-icon-22 font-semibold text-text outline-none focus:field-focus disabled:bg-disabled-bg disabled:text-disabled-text ${
+            invalid ? 'border-2 border-danger' : 'border border-border-strong'
           }`}
         />
       ))}

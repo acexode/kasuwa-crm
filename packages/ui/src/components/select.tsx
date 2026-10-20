@@ -1,7 +1,15 @@
 import { useId, type ComponentPropsWithRef, type ReactNode } from 'react';
 import { cx, type DataAttributes } from './class-names';
 import { Glyph } from './glyph';
-import { describedBy, FIELD_CONTROL, FIELD_EDGE, FIELD_EDGE_ERROR, FieldFrame } from './text-field';
+import {
+  describedBy,
+  FIELD_CONTROL,
+  FIELD_EDGE,
+  FIELD_EDGE_ERROR,
+  FIELD_SIZE,
+  FieldFrame,
+  type FieldSize,
+} from './text-field';
 
 export interface SelectProps extends Omit<ComponentPropsWithRef<'select'>, 'size' | 'multiple'> {
   readonly label: ReactNode;
@@ -11,6 +19,8 @@ export interface SelectProps extends Omit<ComponentPropsWithRef<'select'>, 'size
   readonly labelAttributes?: DataAttributes;
   /** Classes for the outer wrapper (layout only). */
   readonly className?: string;
+  /** `large` is the 48px P01 field (T-0131). */
+  readonly size?: FieldSize;
   /** `<option>` elements. */
   readonly children: ReactNode;
 }
@@ -32,6 +42,7 @@ export function Select({
   error,
   labelAttributes,
   className,
+  size = 'default',
   id,
   disabled,
   children,
@@ -60,6 +71,7 @@ export function Select({
           className={cx(
             'peer cursor-pointer appearance-none pe-10',
             FIELD_CONTROL,
+            FIELD_SIZE[size],
             invalid ? FIELD_EDGE_ERROR : FIELD_EDGE,
           )}
           {...rest}

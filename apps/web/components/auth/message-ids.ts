@@ -37,6 +37,9 @@ export const SHELL_MESSAGE_IDS: readonly MessageId[] = [
   'auth.panel.trust.encryption',
   'auth.panel.trust.compliance',
   'auth.panel.trust.residency',
+  'auth.footer.encryption',
+  'auth.footer.compliance',
+  'auth.footer.residency',
 ];
 
 /** `P01/1`, `1a`, `1b`, `1d` — all one route. */
@@ -69,6 +72,7 @@ export const SIGN_IN_MESSAGE_IDS: readonly MessageId[] = [
   'auth.locked.resetSms',
   'auth.locked.notYou',
   'auth.locked.tellAdmin',
+  'auth.locked.tellAdminSentence',
   'auth.slow.loading',
   'auth.slow.title',
   'auth.slow.body',

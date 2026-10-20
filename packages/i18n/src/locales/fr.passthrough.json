@@ -96,5 +96,6 @@
   "design.components.segmented.dense",
   "design.components.segmented.kanban",
   "design.components.tabs.tickets",
-  "design.components.kbd.search"
+  "design.components.kbd.search",
+  "auth.footer.compliance"
 ]

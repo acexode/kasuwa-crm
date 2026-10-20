@@ -20,5 +20,6 @@
   "design.components.tag.vip",
   "design.components.tag.p1",
   "design.components.kbd.search",
-  "design.components.kbd.escape"
+  "design.components.kbd.escape",
+  "auth.footer.compliance"
 ]

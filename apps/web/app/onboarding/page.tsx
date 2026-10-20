@@ -2,6 +2,7 @@ import { bundleMessages, localeLabel } from '@kasuwa/i18n';
 import { OnboardingWizard } from '../../components/onboarding/onboarding-wizard';
 import { CUSTOMER_LANGUAGE_CODES, ONBOARDING_MESSAGE_IDS } from '../../components/onboarding/message-ids';
 import { activeLocale, languageOptions } from '../../lib/locale';
+import { productTourShown, selfServeSignupEnabled } from '../../lib/feature-flags';
 
 /**
  * `P01/5.2`–`5.5` and `P01/6` — the first-admin-login flow.
@@ -25,6 +26,8 @@ export default async function OnboardingPage() {
       messages={bundleMessages(locale, ONBOARDING_MESSAGE_IDS)}
       locales={languageOptions(locale)}
       customerLanguages={CUSTOMER_LANGUAGE_CODES.map((code) => ({ code, label: localeLabel(code) }))}
+      regionReachable={await selfServeSignupEnabled()}
+      tourShown={await productTourShown()}
     />
   );
 }
