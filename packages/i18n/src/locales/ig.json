@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "E kenyere ya",
   "records.owner.unassigned": "Enyeghị onye ọ bụla",
   "records.owner.former": "Onye na-elekọta gara aga",
+  "records.owner.named": "Onye nwe: {name}",
   "records.name.withheld": "Egbochiri aha",
   "records.search.numberHint": "Anaghị achọ nọmba ma ọ bụ adreesị imeelu n’ndepụta a. Jiri Ọchụchọ chọta otu.",
   "records.search.useSearch": "Ọchụchọ",

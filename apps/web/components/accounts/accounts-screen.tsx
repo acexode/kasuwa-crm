@@ -18,7 +18,7 @@ import { filterableFields, NO_CUSTOM_FILTERS, listRefusalId, setCustomFilter } f
 import { LazyCustomFilterBar } from '../custom/lazy-filters';
 import { useCustomDefinitions } from '../custom/use-custom-fields';
 import { useKeysetList, type KeysetList } from '../records/use-keyset-list';
-import { listAccounts, type Account, type MyProgramme } from '../../lib/accounts-api';
+import { isAccountWithheld, listAccounts, type Account, type MyProgramme } from '../../lib/accounts-api';
 import { ListHeader, NewButton, PhoneBarActions, ViewSwitcher, heldCount, phoneSubtitle, type MenuItem } from '../records/list-chrome';
 import { ActiveFilterChips, ColumnsButton, FilterChip, FilterSheetButton, LockedChip, SearchField, UnavailableChip } from '../records/list-toolbar';
 import {
@@ -39,6 +39,10 @@ import {
   nameTh,
   selectTd,
   subLine,
+  LineParts,
+  copyPart,
+  recordPart,
+  type LinePart,
 } from '../records/list-table';
 import { PagingFooter, usePaging, type PageSize } from '../records/paging';
 import { useSelection } from '../records/bulk-bar';
@@ -900,10 +904,10 @@ function EditButton({
 }
 
 /** "Lagos · Ikeja": the name's second line, from what is readable. */
-function placeLine(row: Account): string | null {
+function placeLine(row: Account): LinePart[] | null {
   return subLine([
-    typeof row.state === 'string' && !cellWithheld(row, 'state') ? row.state : null,
-    typeof row.lga === 'string' && !cellWithheld(row, 'state') ? row.lga : null,
+    typeof row.state === 'string' && !cellWithheld(row, 'state') ? recordPart(row.state) : null,
+    typeof row.lga === 'string' && !isAccountWithheld(row, 'lga') ? recordPart(row.lga) : null,
   ]);
 }
 
@@ -943,11 +947,9 @@ function AccountCard({
   const owner = cellWithheld(row, 'owner')
     ? null
     : row.owner === null || row.owner === undefined
-      ? t.t('records.owner.unassigned')
-      : row.owner.displayName;
-  const meta = [cellWithheld(row, 'industry') ? null : (row.industry ?? null), owner].filter(
-    (part): part is string => part !== null && part !== '',
-  );
+      ? copyPart(t.t('records.owner.unassigned'))
+      : recordPart(row.owner.displayName);
+  const meta = subLine([cellWithheld(row, 'industry') ? null : recordPart(row.industry), owner]);
   return (
     <RecordCard t={t} rowId={row.id} name={row.name} actions={actions} avatar={<span data-field="name"><RecordAvatar name={row.name} square size={44} /></span>}>
       <CardName t={t} name={row.name} withheld={false} whatsapp={false} />
@@ -960,9 +962,9 @@ function AccountCard({
           <PhoneValue t={t} e164={phone.e164} network={null} dnd={false} more={0} compact />
         </span>
       )}
-      {meta.length === 0 ? null : (
-        <span data-record-text="" className="truncate text-caption text-text-2">
-          {meta.join(' · ')}
+      {meta === null ? null : (
+        <span className="truncate text-caption text-text-2">
+          <LineParts parts={meta} />
         </span>
       )}
       {row.tier === null || row.tier === undefined || cellWithheld(row, 'tier') ? null : (

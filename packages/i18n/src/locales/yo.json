@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "A ti yàn án",
   "records.owner.unassigned": "A kò tíì yàn án fún ẹnìkan",
   "records.owner.former": "Ẹni tó ń bójútó tẹ́lẹ̀",
+  "records.owner.named": "Olùní: {name}",
   "records.name.withheld": "Orúkọ ní ìhámọ́",
   "records.search.numberHint": "A kì í wá nọ́ńbà tàbí àdírẹ́sì ímeèlì nínú àtòjọ yìí. Lo Ìwádìí láti wá ọ̀kan.",
   "records.search.useSearch": "Ìwádìí",

@@ -2,7 +2,7 @@
 
 import type { Translator } from '@kasuwa/i18n/bundle';
 import { LockedValue, Muted } from '../records/list-parts';
-import { OwnerValue, PhoneValue, STATUS_TONE, StatusWord, TagList, WaDot, subLine } from '../records/list-table';
+import { OwnerValue, PhoneValue, STATUS_TONE, StatusWord, TagList, WaDot, copyPart, recordPart, subLine, type LinePart } from '../records/list-table';
 import { isWithheld } from '../../lib/records-api';
 import type { Lead } from '../../lib/leads-api';
 import { leadCellWithheld, sourceLabel, statusLabel, type LeadColumnKey } from './leads-model';
@@ -31,19 +31,19 @@ export function dndOf(row: Lead): boolean {
 }
 
 /** "via Missed call · Lagos · Ikeja": the name's second line, from what is readable. */
-export function leadSubLine(t: Translator, row: Lead): string | null {
+export function leadSubLine(t: Translator, row: Lead): LinePart[] | null {
   const source =
     typeof row.source === 'string' && !isWithheld(row, 'source') ? t.t('leads.via', { source: t.t(sourceLabel(row.source)) }) : null;
   const state = typeof row.state === 'string' && !isWithheld(row, 'state') ? row.state : null;
   const lga = typeof row.lga === 'string' && !isWithheld(row, 'lga') ? row.lga : null;
-  return subLine([source, state, lga]);
+  return subLine([copyPart(source), recordPart(state), recordPart(lga)]);
 }
 
-/** The owner's name for a meta line: the name, "Unassigned", or nothing when withheld or former. */
-export function ownerText(t: Translator, row: Lead): string | null {
+/** The owner for a meta line: the name (record), "Unassigned" (copy), or nothing when withheld or former. */
+export function ownerPart(t: Translator, row: Lead): LinePart | null {
   if (leadCellWithheld(row, 'owner')) return null;
-  if (row.owner === null || row.owner === undefined) return t.t('records.owner.unassigned');
-  return row.owner.displayName;
+  if (row.owner === null || row.owner === undefined) return copyPart(t.t('records.owner.unassigned'));
+  return recordPart(row.owner.displayName);
 }
 
 /** One field of a lead: a lock when the row withholds it, the value or "Not set" otherwise. */

@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "Person dey handle am",
   "records.owner.unassigned": "Nobody dey handle am",
   "records.owner.former": "Person wey dey handle am before",
+  "records.owner.named": "Owner: {name}",
   "records.name.withheld": "Dem hide the name",
   "records.search.numberHint": "Dem no dey search number or email for this list. Use Find to look one.",
   "records.search.useSearch": "Find",

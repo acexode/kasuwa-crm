@@ -94,8 +94,14 @@ const NotificationBell = lazy(() => import('../notifications/bell'));
  */
 
 export interface CrmAppBar {
-  /** The screen's title, already translated. */
+  /** The screen's title, already translated, or a served name (see `titleText`). */
   readonly title: string;
+  /**
+   * When the title is not copy but a served value (a record's or a script's
+   * own name), which: it is then marked `data-record-text` or `data-script-text`
+   * like the same name anywhere else on the screen (T-0150).
+   */
+  readonly titleText?: 'record' | 'script';
   readonly subtitle?: string;
   /** A back link in place of the menu button (a record's list). */
   readonly back?: string;
@@ -332,7 +338,13 @@ export function CrmShell({
           </Link>
         )}
         <div className="flex min-w-0 flex-1 flex-col md:hidden">
-          <b className={appBar?.brand === true ? 'sr-only' : 'truncate text-h5 font-bold'}>{barTitle}</b>
+          <b
+            data-record-text={appBar?.titleText === 'record' ? '' : undefined}
+            data-script-text={appBar?.titleText === 'script' ? '' : undefined}
+            className={appBar?.brand === true ? 'sr-only' : 'truncate text-h5 font-bold'}
+          >
+            {barTitle}
+          </b>
           {appBar?.subtitle === undefined ? null : (
             <span className="truncate text-caption font-normal text-text-muted">{appBar.subtitle}</span>
           )}

@@ -539,7 +539,19 @@ function Subtitle({ t, record, parent }: { t: Translator; record: Account; paren
   const place = [record.lga, record.state].filter(
     (value, index): value is string => !isLocked(record, index === 0 ? 'lga' : 'state') && typeof value === 'string' && value !== '',
   );
-  if (place.length > 0) parts.push(<span data-record-text="">{place.join(', ')}</span>);
+  // Each served value is its own record text; the comma between them is not (T-0150).
+  if (place.length > 0) {
+    parts.push(
+      <>
+        {place.map((value, index) => (
+          <span key={index}>
+            {index === 0 ? null : ', '}
+            <span data-record-text="">{value}</span>
+          </span>
+        ))}
+      </>,
+    );
+  }
   if (parent !== null) {
     const href = recordHref('/accounts', parent.id);
     parts.push(

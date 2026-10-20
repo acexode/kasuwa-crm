@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "An sanya",
   "records.owner.unassigned": "Ba a sanya wa kowa ba",
   "records.owner.former": "Tsohon mai kula",
+  "records.owner.named": "Mai shi: {name}",
   "records.name.withheld": "An taƙaita suna",
   "records.search.numberHint": "Ba a neman lamba ko adireshin imel a wannan jerin. Yi amfani da Nema don nemo ɗaya.",
   "records.search.useSearch": "Nema",

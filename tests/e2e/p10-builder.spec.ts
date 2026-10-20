@@ -686,7 +686,12 @@ test('the builder sits in the CRM shell; no link on it is a 404, and the shell l
   // Ruling (acceptance header, R3): no read tells the shell who holds
   // script.write until T-0079, so the shell's navigation carries no entry to
   // the builder for anyone — an agent must never be offered it.
-  const nav = await page.locator('[data-shell="crm"] nav a[href^="/scripts"]').count();
+  // T-0150 (T-0139): the editor's own "Studio / Scripts" breadcrumb is a <nav>
+  // inside the screen, and its "Scripts" crumb links back to the list it was
+  // opened from; only the shell's navigation outside the screen is held to this.
+  const nav = await page
+    .locator('[data-shell="crm"] nav a[href^="/scripts"]')
+    .evaluateAll((links, screen) => links.filter((link) => link.closest(screen) === null).length, SCREEN);
   expect(nav, 'the CRM navigation links to the builder, which only the admin set may use').toBe(0);
 });
 

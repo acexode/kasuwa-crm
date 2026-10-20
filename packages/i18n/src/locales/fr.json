@@ -1059,6 +1059,7 @@
   "records.owner.assigned": "Attribué",
   "records.owner.unassigned": "Non attribué",
   "records.owner.former": "Ancien responsable",
+  "records.owner.named": "Responsable : {name}",
   "records.name.withheld": "Nom restreint",
   "records.search.numberHint": "Les numéros et les adresses e-mail ne sont pas recherchés dans cette liste. Utilisez Recherche pour en retrouver un.",
   "records.search.useSearch": "Recherche",

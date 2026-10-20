@@ -39,6 +39,10 @@ import {
   nameTh,
   selectTd,
   subLine,
+  LineParts,
+  copyPart,
+  recordPart,
+  type LinePart,
 } from '../records/list-table';
 import { PagingFooter, usePaging, type PageSize } from '../records/paging';
 import { BULK_ASSIGN, BULK_CAMPAIGN, BULK_MERGE, BULK_UPDATE, BULK_WHATSAPP, BulkBar, useSelection } from '../records/bulk-bar';
@@ -676,10 +680,10 @@ function Body({
 }
 
 /** "Lagos · Ikeja": the name's second line, from what is readable. */
-function placeLine(row: Contact): string | null {
+function placeLine(row: Contact): LinePart[] | null {
   return subLine([
-    typeof row.state === 'string' && !isWithheld(row, 'state') ? row.state : null,
-    typeof row.lga === 'string' && !isWithheld(row, 'lga') ? row.lga : null,
+    typeof row.state === 'string' && !isWithheld(row, 'state') ? recordPart(row.state) : null,
+    typeof row.lga === 'string' && !isWithheld(row, 'lga') ? recordPart(row.lga) : null,
   ]);
 }
 
@@ -687,10 +691,10 @@ function networkOf(row: Contact): string | null {
   return typeof row.phoneNetwork === 'string' && row.phoneNetwork !== '' && !isWithheld(row, 'phoneNetwork') ? row.phoneNetwork : null;
 }
 
-function ownerName(t: Translator, row: Contact): string | null {
+function ownerPart(t: Translator, row: Contact): LinePart | null {
   if (isWithheld(row, 'ownerUserId') || isWithheld(row, 'owner')) return null;
-  if (row.ownerUserId === null || row.ownerUserId === undefined) return t.t('records.owner.unassigned');
-  return row.owner?.displayName ?? null;
+  if (row.ownerUserId === null || row.ownerUserId === undefined) return copyPart(t.t('records.owner.unassigned'));
+  return recordPart(row.owner?.displayName);
 }
 
 /** The 360 px card: name and WA, phone and network, the owner, the status pill. */
@@ -704,11 +708,10 @@ function ContactCard({ t, row, columns, quickActions }: { t: Translator; row: Co
         { key: 'sms', icon: 'sms', label: 'records.card.sms', onClick: null, tone: 'info' },
       ]
     : [];
-  const owner = ownerName(t, row);
-  const meta = [
-    row.account !== null && row.account !== undefined && !isWithheld(row, 'accountId') ? row.account.name : null,
-    owner,
-  ].filter((part): part is string => part !== null && part !== '');
+  const meta = subLine([
+    row.account !== null && row.account !== undefined && !isWithheld(row, 'accountId') ? recordPart(row.account.name) : null,
+    ownerPart(t, row),
+  ]);
   return (
     <RecordCard t={t} rowId={row.id} name={name} actions={actions} avatar={<RecordAvatar name={row.displayName} size={44} />}>
       <CardName t={t} name={name} withheld={row.displayName === undefined} whatsapp={row.whatsappOptIn === true && !isWithheld(row, 'whatsappOptIn')} />
@@ -721,9 +724,9 @@ function ContactCard({ t, row, columns, quickActions }: { t: Translator; row: Co
           <PhoneValue t={t} e164={phone.e164} network={networkOf(row)} dnd={row.dnd === true && !isWithheld(row, 'dnd')} more={0} compact />
         </span>
       )}
-      {meta.length === 0 ? null : (
-        <span data-record-text="" className="truncate text-caption text-text-2">
-          {meta.join(' · ')}
+      {meta === null ? null : (
+        <span className="truncate text-caption text-text-2">
+          <LineParts parts={meta} />
         </span>
       )}
       <span className="mt-0.75 flex flex-wrap items-center gap-1.5">

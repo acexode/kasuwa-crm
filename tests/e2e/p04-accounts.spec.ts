@@ -1333,12 +1333,17 @@ test.describe('i18n on /accounts', () => {
     page,
   }) => {
     await openAccounts(page, { state: 'ready' });
-    await shown(page.locator('[data-shell="crm"]').getByTestId('language-button')).first().click();
-    await expect(page.getByRole('listbox')).toBeVisible();
+    const shell = page.locator('[data-shell="crm"]');
+    // T-0150 (T-0130/T-0133): the shell's language list moved into the avatar
+    // menu (`user-menu`), one `language-option` per language; Beta is unchanged.
+    await shown(shell.getByTestId('user-menu')).first().click();
+    const menu = shown(shell.getByRole('menu')).first();
+    await expect(menu).toBeVisible();
     const expected = BETA_LOCALES.filter((locale) => !SUPPORTED_LOCALES.includes(locale)).length;
     // Zero would be legitimate only once every language is signed off; the
     // acceptance suite separately checks no design-menu language was dropped.
-    await expect(page.getByTestId('language-beta')).toHaveCount(expected);
+    await expect(menu.getByTestId('language-beta')).toHaveCount(expected);
+    await expect(menu.getByTestId('language-option').filter({ has: page.getByTestId('language-beta') })).toHaveCount(expected);
   });
 });
 
