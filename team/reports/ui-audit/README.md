@@ -108,6 +108,7 @@ The fix: pass the SMS hint through, and render the option only when the challeng
 | P27 palette | Call last contact, Create ticket, Go to wallboard; Switch programme's current programme and waiting counts | D-L194; no telephony, tickets or wallboard; no current-programme concept | Rows drawn disabled behind their module's placeholder flag; Switch programme lists the session's programmes disabled, with no "Current" pill or counts (T-0138). |
 | P27 palette | Ask AI and the D3 answer | D-L194 | Ask AI row disabled behind `ai_assistant`; D3 is not built (T-0138). |
 | P28 import | Review step stats and error table | D-L128 Q6 | Same step and layout, with the counts the API returns; no invented totals. |
+| P01/3 sign-up | Footer "Already have an account? **Sign in**" | D-P3 (the P01 acceptance suite's enumeration-wording rule) | Same line, same link: "Have an account? **Sign in**" (T-0151). |
 | P03 home | Landing on Home | D-L172 | Superseded by ruling 3. |
 | P06 board | "Any amount" and "All territories" filters | R14 (no amount-band or territory filter in the contract) | Same dropdowns, same place: the currency and won-window filters the contract has (T-0135). |
 | P06 board | "Won this quarter" and "+7 won earlier this quarter" | D-L88 (won covers `closedSince`, default 90 days) | Same figure and box, labelled "Won since {date}" with the served window; won cards stay listed under the box (T-0135). |
