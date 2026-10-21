@@ -840,7 +840,7 @@
   "signup.submit": "Create account",
   "signup.submitting": "Creating your workspace…",
   "signup.terms": "By creating an account you agree to the Terms and the Privacy notice.",
-  "signup.signIn.prompt": "Already have an account?",
+  "signup.signIn.prompt": "Have an account?",
   "signup.signIn.link": "Sign in",
   "signup.invalid.fullName": "Type your full name.",
   "signup.invalid.email": "Type a work email, like you@company.com.",

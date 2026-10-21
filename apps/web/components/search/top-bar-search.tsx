@@ -24,7 +24,7 @@ import { clearSearchText, setSearchOrigin, setSearchText, useSearchField } from 
 /**
  * The top-bar search field (T-0138, P27 A and C), the Commands button and
  * the shell's keyboard shortcuts. Drawn by the CRM shell from `md` up where
- * `crm_search` is live.
+ * search is in the server's live list (the flag is never named on the client).
  *
  *   - Idle it is a 42px sunken field, radius 10, with a `/` key; focused it is
  *     surface with a focus edge and a 3px primary-soft halo, a clear button

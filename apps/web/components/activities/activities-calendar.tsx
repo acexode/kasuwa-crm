@@ -579,7 +579,7 @@ function EventDetail({
         </span>
       ) : null}
       {sync ? (
-        <div data-placeholder="attendees" className="flex flex-col gap-1.5">
+        <div data-stub="attendees" className="flex flex-col gap-1.5">
           <span className="text-overline text-text-muted">{t.t('activities.calendar.attendees')}</span>
           <span className="text-meta text-text-2">{t.t('activities.calendar.attendees.none')}</span>
         </div>
@@ -632,7 +632,7 @@ function NotConnected({ t }: { t: Translator }) {
     </Button>
   );
   return (
-    <div data-placeholder="calendar-sync" className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-primary bg-primary-soft px-4 py-3.5">
+    <div data-stub="calendar-sync" className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-primary bg-primary-soft px-4 py-3.5">
       <Icon name="event_available" size={28} className="text-primary-text" />
       <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
         <b className="text-label font-bold">{t.t('activities.sync.title')}</b>
@@ -777,7 +777,7 @@ export function ActivitiesCalendar({
         ))}
         <span className="flex-1" />
         {sync ? (
-          <span data-placeholder="calendar-source" className="inline-flex h-[26px] items-center gap-[5px] rounded-full bg-surface-sunken px-2.25">
+          <span data-stub="calendar-source" className="inline-flex h-[26px] items-center gap-[5px] rounded-full bg-surface-sunken px-2.25">
             <span aria-hidden="true" className="flex size-4 items-center justify-center rounded-sm border-[1.5px] border-current text-[9px] font-extrabold">
               {'K'}
             </span>

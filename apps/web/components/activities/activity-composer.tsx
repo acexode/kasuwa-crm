@@ -508,7 +508,7 @@ export function ActivityComposer({
         ) : null}
 
         {reminders && kind === 'meeting' ? (
-          <div role="group" aria-labelledby={`${ids.form}-remind`} data-placeholder="reminders" className="flex flex-col gap-1.5">
+          <div role="group" aria-labelledby={`${ids.form}-remind`} data-stub="reminders" className="flex flex-col gap-1.5">
             <span id={`${ids.form}-remind`} className="text-body-sm font-semibold">
               {t.t('activities.compose.remind')}
             </span>

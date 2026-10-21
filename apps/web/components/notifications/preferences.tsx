@@ -102,12 +102,12 @@ function CardTitle({ icon, title, sub, trailing }: { icon: IconName; title: stri
   );
 }
 
-function ToggleRow({ t, title, body, label }: { t: Translator; title: MessageId; body: MessageId; label: string }) {
+function ToggleRow({ t, titleId, bodyId, label }: { t: Translator; titleId: MessageId; bodyId: MessageId; label: string }) {
   return (
     <div className="flex min-h-control-lg items-center gap-3">
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-body-sm font-semibold">{t.t(title)}</span>
-        <span className="text-caption font-normal text-text-2">{t.t(body)}</span>
+        <span className="text-body-sm font-semibold">{t.t(titleId)}</span>
+        <span className="text-caption font-normal text-text-2">{t.t(bodyId)}</span>
       </span>
       <Switch aria-label={label} checked={false} disabled />
     </div>
@@ -228,9 +228,9 @@ export function NotificationPreferences({
               <p className="text-meta text-text-2">{t.t('notifications.prefs.quietBody')}</p>
               <div className="flex flex-col border-t border-border pt-1.5">
                 <span className="py-1.5 text-caption font-bold uppercase tracking-wide text-text-2">{t.t('notifications.prefs.letThrough')}</span>
-                <ToggleRow t={t} title="notifications.prefs.event.security" body="notifications.prefs.securityAlways" label={t.t('notifications.prefs.event.security')} />
-                <ToggleRow t={t} title="notifications.prefs.slaBreaches" body="notifications.prefs.slaBreachesBody" label={t.t('notifications.prefs.slaBreaches')} />
-                <ToggleRow t={t} title="notifications.prefs.largeApprovals" body="notifications.prefs.largeApprovalsBody" label={t.t('notifications.prefs.largeApprovals')} />
+                <ToggleRow t={t} titleId="notifications.prefs.event.security" bodyId="notifications.prefs.securityAlways" label={t.t('notifications.prefs.event.security')} />
+                <ToggleRow t={t} titleId="notifications.prefs.slaBreaches" bodyId="notifications.prefs.slaBreachesBody" label={t.t('notifications.prefs.slaBreaches')} />
+                <ToggleRow t={t} titleId="notifications.prefs.largeApprovals" bodyId="notifications.prefs.largeApprovalsBody" label={t.t('notifications.prefs.largeApprovals')} />
               </div>
             </section>
 

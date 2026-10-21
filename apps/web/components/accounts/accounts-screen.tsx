@@ -304,7 +304,7 @@ export function AccountsScreen({
 
         <ListHeader
           t={t}
-          title="accounts.title"
+          titleId="accounts.title"
           count={count}
           programmes={programmes.list}
           savedViews={flags.savedViews ? { allLabel: 'accounts.views.all', unsaved } : null}
@@ -319,8 +319,8 @@ export function AccountsScreen({
             t={t}
             value={q}
             label="accounts.search.label"
-            placeholder="accounts.search.placeholderWide"
-            phonePlaceholder="accounts.search.placeholder"
+            placeholderId="accounts.search.placeholderWide"
+            phonePlaceholderId="accounts.search.placeholder"
             onChange={setQ}
           />
           <FilterSheetButton t={t} active={activeCount} open={popover === 'sheet'} onOpen={(trigger) => open('sheet', trigger)} />
@@ -808,7 +808,7 @@ function Body({
                   return flags.lastActivity && index === ownerAt
                     ? [
                         header,
-                        <th key="lastActivity" scope="col" data-column-placeholder="lastActivity" className={TH}>
+                        <th key="lastActivity" scope="col" data-column-stub="lastActivity" className={TH}>
                           {t.t('records.col.lastActivity')}
                         </th>,
                       ]

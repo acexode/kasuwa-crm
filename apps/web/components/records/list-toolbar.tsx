@@ -38,15 +38,15 @@ export function SearchField({
   t,
   value,
   label,
-  placeholder,
-  phonePlaceholder,
+  placeholderId,
+  phonePlaceholderId,
   onChange,
 }: {
   t: Translator;
   value: string;
   label: MessageId;
-  placeholder: MessageId;
-  phonePlaceholder: MessageId;
+  placeholderId: MessageId;
+  phonePlaceholderId: MessageId;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -64,7 +64,7 @@ export function SearchField({
         maxLength={100}
         autoComplete="off"
         aria-label={t.t(label)}
-        placeholder={t.t(wide ? placeholder : phonePlaceholder)}
+        placeholder={t.t(wide ? placeholderId : phonePlaceholderId)}
         onChange={(event) => onChange(event.target.value)}
         className="h-full min-w-0 flex-1 bg-transparent text-label font-normal text-text placeholder:text-text-muted focus:outline-none md:text-body-sm"
       />

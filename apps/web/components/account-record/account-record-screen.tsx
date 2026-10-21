@@ -375,7 +375,7 @@ function Ready({
       {flags.addresses ? (
         <AddressesCard
           t={t}
-          title="account.group.location"
+          titleId="account.group.location"
           state={!isLocked(record, 'state') && typeof record.state === 'string' && record.state !== '' ? record.state : null}
           lga={!isLocked(record, 'lga') && typeof record.lga === 'string' && record.lga !== '' ? record.lga : null}
           locked={false}

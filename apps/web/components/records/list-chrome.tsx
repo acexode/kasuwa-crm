@@ -446,7 +446,7 @@ export function NewButton({
 
 export interface HeaderProps {
   readonly t: Translator;
-  readonly title: MessageId;
+  readonly titleId: MessageId;
   readonly count: string | null;
   readonly programmes: readonly MyProgramme[] | null;
   /** The saved-views menu, where `saved_views` is on; `null` hides it. */
@@ -519,12 +519,12 @@ export function phoneSubtitle(t: Translator, view: MessageId, unsaved: boolean, 
  * P04's page header at `md` and up; below `md` the shell's app bar carries
  * the title (`appBar`), and this draws only the programme pill and its line.
  */
-export function ListHeader({ t, title, count, programmes, savedViews, switcher, menuItems, primary, offline }: HeaderProps) {
+export function ListHeader({ t, titleId, count, programmes, savedViews, switcher, menuItems, primary, offline }: HeaderProps) {
   return (
     <>
       <div className="hidden flex-col gap-2 md:flex">
         <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-title">{t.t(title)}</h1>
+          <h1 className="text-title">{t.t(titleId)}</h1>
           <CountChip t={t} count={count} />
           <ProgrammePill t={t} programmes={programmes} />
           {savedViews === null ? null : <SavedViews t={t} allLabel={savedViews.allLabel} unsaved={savedViews.unsaved} />}
