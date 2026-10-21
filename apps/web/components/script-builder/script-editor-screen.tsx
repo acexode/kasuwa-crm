@@ -121,7 +121,7 @@ export function ScriptEditorScreen({
           state.served === null ? undefined : String(state.served.hasUnpublishedChanges)
         }
         data-read-only={viewing === null ? undefined : 'true'}
-        className="-m-4 flex min-w-0 flex-col md:-m-6 md:h-[calc(100dvh-var(--k-shell-header))]"
+        className="-m-4 flex min-w-0 flex-col md:-m-6 md:h-shell-below-header"
       >
         {offline ? (
           <div className="shrink-0 px-4 pt-3 md:px-5">

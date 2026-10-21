@@ -370,7 +370,7 @@ export function AdminShell({
               drawerOpen ? 'flex' : 'hidden'
             } fixed bottom-0 start-0 top-shell-header z-30 w-shell-admin-nav shrink-0 flex-col border-e border-border bg-surface shadow-3 xl:static xl:z-0 xl:flex xl:shadow-none`}
           >
-            <div className="flex max-h-full flex-col gap-0.5 overflow-y-auto px-2.5 pb-8 pt-3 xl:sticky xl:top-shell-header xl:max-h-[calc(100dvh-var(--k-shell-header))]">
+            <div className="flex max-h-full flex-col gap-0.5 overflow-y-auto px-2.5 pb-8 pt-3 xl:sticky xl:top-shell-header xl:max-h-shell-below-header">
               <div className="relative mb-2">
                 <label className="sr-only" htmlFor={searchId}>
                   {t.t('admin.shell.menu.find')}

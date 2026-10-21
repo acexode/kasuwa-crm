@@ -314,6 +314,12 @@ export function resolveIconSize(size: IconSize | IconSizeAlias): IconSize {
  *   fab           56  the phone's extended "+ New" button (T-0130)
  *   dataNav      232  P28's Data management sub-nav (T-0141), 196 at 1024
  *   dataContent 1240  P28's content column, at most (T-0141)
+ *   dataActionBar 69  P28's sticky action bar, at least: a 44px control, 12px
+ *                     padding above and below, and its 1px top border (T-0141)
+ *   belowHeader       the viewport less the desktop top bar: a full-height
+ *                     column under the sticky header (the admin nav, P28's
+ *                     shell and sub-nav, the script editor). A calc() over
+ *                     `header`, so it follows that token (T-0151).
  */
 export const SHELL = {
   header: '60px',
@@ -328,6 +334,8 @@ export const SHELL = {
   dataNav: '232px',
   dataNavCompact: '196px',
   dataContent: '1240px',
+  dataActionBar: '69px',
+  belowHeader: 'calc(100dvh - var(--k-shell-header))',
 } as const;
 
 /**
@@ -384,6 +392,8 @@ export const LAYOUT = {
   studioAside: '340px',
   studioPalette: '272px',
   studioInspector: '320px',
+  /** P28's page lede, at most 760 wide (`DataHeader`, T-0141). */
+  dataLede: '760px',
 } as const;
 
 /**
@@ -457,6 +467,10 @@ export const CONTROL_SHADOW = {
  *                       and 560 for its phone specimens (/design/components-2)
  *   notificationPanel  440  the bell's popover under the top bar (P26 A, T-0137)
  *   notificationToast  380  a notification toast at the bottom-right (P26 C, T-0137)
+ *   notificationPanelMaxHeight  the bell's popover at most: the viewport less
+ *                       the 64px it sits below and an 8px margin (T-0137)
+ *   commandPalette     660  P27's command palette (T-0138); at most the
+ *                       viewport less 110px, and less 150px from 1280 up
  *
  * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
  * `h-overlay-table-footer`.
@@ -477,6 +491,10 @@ export const OVERLAY = {
   previewFrameCompact: '560px',
   notificationPanel: '440px',
   notificationToast: '380px',
+  notificationPanelMaxHeight: 'calc(100dvh - var(--k-space-16) - var(--k-space-2))',
+  commandPalette: '660px',
+  commandPaletteMaxHeight: 'calc(100vh - 110px)',
+  commandPaletteMaxHeightWide: 'calc(100vh - 150px)',
   /**
    * P18's field editor (T-0142): docked beside the field table at 480 from
    * 1280 up, and an overlay drawer at 460 below it (the export's `panelW`).
