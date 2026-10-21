@@ -1609,19 +1609,23 @@ test.describe('the notification screens on the wire', () => {
 
   test('the bell adds at most 8,000 bytes to a CRM screen’s first load @p26-notifications @p26-notifications-budget', async ({ browser }) => {
     const { webRecordsUrl } = stack();
-    const measure = async (url: string): Promise<{ bytes: number; bells: number }> => {
+    const measure = async (url: string, expectBell: boolean): Promise<{ bytes: number; bells: number }> => {
       const context = await browser.newContext();
       const page = await context.newPage();
       const mock = await installNotificationsMock(page, { otherScreens: true });
       const metrics = await measurePageLoad(page, `${url}/search`, 'default');
+      // The bell is a lazy chunk (D-L182) that mounts just after load, so a bare count raced it and flaked
+      // (lead, D-L202). Wait for the shell first, then for the bell where one is expected; both counts stay exact.
+      await page.getByTestId('shell-search').first().waitFor({ state: 'visible' });
+      if (expectBell) await shown(page.getByTestId('notifications-bell')).first().waitFor({ state: 'visible', timeout: 10_000 });
       const bells = await shown(page.getByTestId('notifications-bell')).count();
       expect(mock.violations).toEqual([]);
       expect(mock.mockFaults).toEqual([]);
       await context.close();
       return { bytes: metrics.transferredBytes, bells };
     };
-    const without = await measure(webRecordsUrl);
-    const withBell = await measure(notificationsUrl());
+    const without = await measure(webRecordsUrl, false);
+    const withBell = await measure(notificationsUrl(), true);
     expect(without.bells, 'the records process draws a bell').toBe(0);
     expect(withBell.bells, 'the measured page has no bell: the delta measures nothing').toBeGreaterThan(0);
     const record = resolve(__dirname, '.artifacts', 'p26-notifications-bell-delta.json');

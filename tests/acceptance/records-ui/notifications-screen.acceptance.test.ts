@@ -250,7 +250,7 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '0d85bf31ae52340afcd50b55632ee079598abe7788e1a1d05f0cceae3805825a',
+  [SPEC]: 'ecf6df9b922155febca05c6af168511df989666dce220fcf16ab38633eca68cc',
   [MOCK]: '0ad1899ae4c702ba4d53d0728052adcabffef3c5a056653109866e7ca2bf9e9d',
 };
 
