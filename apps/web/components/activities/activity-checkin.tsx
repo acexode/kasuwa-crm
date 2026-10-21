@@ -23,7 +23,7 @@ const OUTCOMES = [
 
 export function FieldCheckin({ t }: { t: Translator }) {
   return (
-    <div data-placeholder="field-checkin" className="mx-auto flex w-full max-w-[440px] flex-col gap-3.5">
+    <div data-stub="field-checkin" className="mx-auto flex w-full max-w-[440px] flex-col gap-3.5">
       <div className="flex flex-col gap-0.5">
         <span className="text-overline text-text-muted">{t.t('activities.checkin.eyebrow')}</span>
         <b className="text-[19px] font-bold leading-[26px]">{t.t('activities.checkin.none')}</b>

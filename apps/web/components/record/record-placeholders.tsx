@@ -296,13 +296,13 @@ export function AddressesCard({
   state,
   lga,
   locked,
-  title = 'record.addresses.location',
+  titleId = 'record.addresses.location',
 }: {
   t: Translator;
   state: string | null;
   lga: string | null;
   locked: boolean;
-  title?: MessageId;
+  titleId?: MessageId;
 }) {
   const known = !locked && (state !== null || lga !== null);
   return (
@@ -323,7 +323,7 @@ export function AddressesCard({
         <div className="flex flex-col gap-1.5 rounded-10 border border-border px-3 py-2.5">
           <span className="flex items-center gap-1.5">
             <Icon name="location_on" size={18} className="text-text-2" />
-            <b className="flex-1 text-meta font-bold">{t.t(title)}</b>
+            <b className="flex-1 text-meta font-bold">{t.t(titleId)}</b>
           </span>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 text-caption font-normal">
             {state === null ? null : (

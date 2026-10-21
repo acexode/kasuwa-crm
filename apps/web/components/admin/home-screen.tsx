@@ -642,7 +642,7 @@ function UsageCard({
  */
 function EmptyUsageCard({ meterId, t }: { meterId: string; t: Translator }) {
   return (
-    <div data-meter-id={meterId} data-placeholder="true" className={METER_CARD}>
+    <div data-meter-id={meterId} data-stub="true" className={METER_CARD}>
       <div className="flex items-center gap-2 text-text-2">
         <Icon name={METER_ICON[meterId] ?? 'bar_chart'} size={20} />
         <span className="text-body-sm font-semibold">

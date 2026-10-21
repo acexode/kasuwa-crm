@@ -444,7 +444,7 @@ function HeaderCells({
         )}
       </th>
       {lastActivity ? (
-        <th scope="col" data-column-placeholder="lastActivity" className={`${TH} ${WIDTH.lastActivity}`}>
+        <th scope="col" data-column-stub="lastActivity" className={`${TH} ${WIDTH.lastActivity}`}>
           {t.t('records.col.lastActivity')}
         </th>
       ) : null}
