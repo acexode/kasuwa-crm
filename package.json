@@ -23,6 +23,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:isolation": "vitest run --project isolation",
+    "test:ui-acceptance": "vitest run --project ui-acceptance",
     "db:migrate": "pnpm --filter @kasuwa/db migrate",
     "db:seed": "pnpm --filter @kasuwa/db seed",
     "db:reset": "node tools/db-reset.mjs",
