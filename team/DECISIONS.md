@@ -4552,3 +4552,30 @@ journeys pass under the e2e lock (lead run, 2026-10-21).
 - **Declined for now:** splitting Noto Sans Latin, which would lose kerning at accented letters, and per-area icon
   faces, which would change D-L198. Revisit only if a later page can't fit.
 - Acceptance SHA-256 pins for the e2e specs amended in T-0146 to T-0150 are re-pinned in this same lead commit.
+
+### D-L204 — The D-L193 UI fidelity programme is complete; Phase 3 is unblocked (lead, 2026-10-26)
+
+**The work:**
+- Every built screen was rebuilt to its Claude Design export: P01, P02, P03, P04, P05, P06, P07, P10, P18, P26,
+  P27 and P28 (PRs #180–#200).
+- The end-of-programme gate (D-L201, D-L202) was then cleared: #201–#212.
+
+**The gate, final results:**
+- On the Windows runner, main 7f139dc: lint and typecheck clean; unit 3,313 passed; integration 305 passed; e2e
+  740 passed, 0 failed.
+- Isolation: 4,774 of 4,777. One real failure was fixed in #211/#212 (a naira sign in doc comments), and the P01
+  suite then passed 24/24 on 2569c84.
+- The two remaining failures are the known auth-availability timing bounds, which the runner reports as noise.
+
+**Page weight (D-L203):** every page is under PRD 2.13's 300,000; the heaviest is the pipeline board at 295,844.
+
+**Phase 3 may start.** Follow-ups logged during the programme (none blocks Phase 3):
+- Home's per-user layout is in localStorage; it needs a server table (D-L196).
+- Role-based Home layouts need a role or capability on the session.
+- The fr and pcm drafts need a human reviewer.
+- The Studio settings menu squeezes the table when the editor is docked.
+- The deal breadcrumb can't tell same-named pipelines apart by programme.
+- Two acceptance regexes are too broad: the command-palette scope pattern and the data-* attribute match.
+- The search dropdown still has three size literals.
+- Worktree cleanup.
+- P08 Inbox and P09 Voice are not built; they arrive with their own tasks.
