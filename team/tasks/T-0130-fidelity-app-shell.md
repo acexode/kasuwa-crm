@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0130 |
-| **status** | `assigned` |
+| **status** | `done` |
 | **module** | Web app (`apps/web/components/crm`, `apps/web/components/admin`) |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0: every screen sits inside it |
