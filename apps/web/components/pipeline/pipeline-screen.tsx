@@ -72,7 +72,7 @@ import { usePipelineBoard } from './use-pipeline-board';
  * ---------------------------------------------------------------------------
  * THE CONTRACT STILL DECIDES THE FIGURES (R4–R18). Column counts and totals
  * are the server's, per currency, never converted. The design's short forms
- * ("₦40M") label a column; the exact figure is on every card. The summary line
+ * ("<naira>40M") label a column; the exact figure is on every card. The summary line
  * (`pipeline_summary`) adds the served figures per currency and nothing else.
  * Elements with no backend are drawn in the design's empty or disabled state
  * behind their own flags (D-L194): the US$ switch (`fx_display`) and the last
