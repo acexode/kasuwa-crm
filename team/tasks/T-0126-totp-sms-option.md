@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0126 |
-| **status** | `assigned` |
+| **status** | `done` |
 | **module** | M01 — Platform & Security (P01 screens) |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P1 |
