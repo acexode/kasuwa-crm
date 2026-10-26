@@ -4612,3 +4612,30 @@ Cursor's `docs/phase3/PLAN.md` (PR #215) is approved, subject to these amendment
   disk is free.
 - `core.longpaths` is on.
 - A migration or env-schema PR gets a full acceptance run on its head **before** merge.
+
+### D-L206 — Runtime advisories fixed only by a major upgrade: accept briefly, then upgrade (lead, 2026-10-26)
+
+T-0153 (#218) found 56 advisories, not 33. Two are in runtime code and need a major upgrade to fix.
+
+**zod 3 → 4 (GHSA-mrhx-c7xc-m3w5, CVSS 8.2): memory exhaustion validating oversized collections.**
+- It is reachable, but the trigger is capped. Every API body is limited to 512 KiB by `json-body-limit.ts` (T-0113,
+  D-L96) before zod runs.
+- **Ruling:** accepted until 2026-12-31 as `runtime-bounded`.
+- **Fix:** T-0198, the zod 4 migration. It goes in S0 ahead of S1, so the new commerce, portal and inbox schemas are
+  written for zod 4 rather than migrated later.
+
+**csv-parse 5 → 7 (GHSA-8cw4-87c7-c6xx, CVSS 6.9): prototype replacement via the `columns` option.**
+- `apps/worker/src/csv-stream.ts` never sets `columns`, and records are capped at 64 KiB.
+- **Ruling:** accepted until 2026-12-31 as `runtime-bounded`.
+- **Fix:** T-0197, the csv-parse 7 upgrade. It is small, has worker unit tests, and is done in S0.
+
+**The T-0153 suite now allows this.** The lead amended it with rule 4a:
+- an entry scoped `runtime-bounded` gives a `bounded:` argument instead of `not reachable:`;
+- its way out names the upgrade task (`fix: T-nnnn`);
+- its `ignoreUntil` is no later than 2026-12-31.
+
+**Also from T-0153:**
+- The eight same-major `pnpm.overrides` are accepted; each is removed when its parent moves.
+- Next 15.5.28 is the fix for a critical remote-code-execution flaw. #218 merges only after the Windows runner's
+  isolation run and the e2e byte-budget tags pass, because the bump can shift chunk sizes.
+- A weekly scheduled Dependency scan is a good idea, but it is deferred until GitHub Actions billing is restored.

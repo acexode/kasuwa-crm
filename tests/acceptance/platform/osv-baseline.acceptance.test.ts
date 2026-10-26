@@ -41,6 +41,13 @@ import { describe, expect, it } from 'vitest';
  *        - the reachability argument, as "not reachable: <why>";
  *        - the way out: "fix: <what and when>", or "no fixed version".
  *
+ *   4a. Runtime findings (lead amendment, D-L206). A finding in a runtime
+ *      path whose only fix is a major upgrade may be accepted for a shorter
+ *      window, scoped "runtime-bounded". Instead of "not reachable:" it says
+ *      "bounded: <why the input that triggers it is capped>", its way out is
+ *      "fix: T-nnnn ..." naming the task that removes it, and its
+ *      `ignoreUntil` is no later than 2026-12-31.
+ *
  *   5. No duplicate ids, and no id without an `ignoreUntil`: a second entry for
  *      the same advisory would let the later date hide the earlier one.
  *
@@ -56,6 +63,10 @@ const HORIZON = Date.parse('2027-01-31T23:59:59Z');
 
 const BOILERPLATE = /baseline,\s*pre-existing/i;
 const SCOPE = /\b(?:dev|test|build)-only\b/i;
+const RUNTIME_BOUNDED = /\bruntime-bounded\b/i;
+const BOUNDED = /bounded:\s*\S.{19,}/i;
+const FIX_TASK = /\bfix:\s*T-\d{4}\b/i;
+const RUNTIME_HORIZON = Date.parse('2026-12-31T23:59:59Z');
 const NOT_REACHABLE = /not reachable:\s*\S.{19,}/i;
 const WAY_OUT = /\bfix:\s*\S.{9,}|\bno fixed version\b/i;
 
@@ -138,6 +149,12 @@ describe('T-0153: the osv-scanner baseline does not simply lapse', () => {
   it('gives every remaining entry a scope, a "not reachable:" analysis and a way out', () => {
     const incomplete = baseline.flatMap((e) => {
       const missing: string[] = [];
+      if (RUNTIME_BOUNDED.test(e.reason)) {
+        if (!BOUNDED.test(e.reason)) missing.push('"bounded: <why the trigger is capped>"');
+        if (!FIX_TASK.test(e.reason)) missing.push('"fix: T-nnnn" naming the upgrade task');
+        if (!(e.ignoreUntil <= RUNTIME_HORIZON)) missing.push('an ignoreUntil no later than 2026-12-31');
+        return missing.length === 0 ? [] : [`${e.id}: missing ${missing.join(', ')}`];
+      }
       if (!SCOPE.test(e.reason)) missing.push('scope (dev-only, test-only or build-only)');
       if (!NOT_REACHABLE.test(e.reason)) missing.push('"not reachable: <why>"');
       if (!WAY_OUT.test(e.reason)) missing.push('"fix: <what and when>" or "no fixed version"');
