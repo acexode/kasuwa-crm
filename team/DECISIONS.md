@@ -4579,3 +4579,63 @@ journeys pass under the e2e lock (lead run, 2026-10-21).
 - The search dropdown still has three size literals.
 - Worktree cleanup.
 - P08 Inbox and P09 Voice are not built; they arrive with their own tasks.
+
+### D-L205 — Phase 3 plan approved, with amendments (lead, 2026-10-26)
+
+Cursor's `docs/phase3/PLAN.md` (PR #215) is approved, subject to these amendments:
+
+1. **The real channel provider is T-0017.** That task file already exists; no new id is created for it. T-0186 (the
+   `ChannelProvider` contract extension) references it.
+2. **Webhooks find their tenant through the URL slug.** Payment and channel webhooks carry the tenant slug in their
+   path (`/webhooks/<provider>/<tenantSlug>`).
+   - The slug is resolved by the existing `app.resolve_tenant_by_slug`.
+   - The signature is then verified with that tenant's secret, inside `withTenantTransaction`.
+   - An unknown slug and a bad signature get the same response.
+   - No third `SECURITY DEFINER` function is written for webhook lookup.
+3. **T-0018 goes behind a new flag, `onboarding_persistence`** (CLAUDE.md §4).
+4. **Only screen tasks wait for designs:** T-0171, T-0184 and T-0192. API, domain, adapter and migration work does not.
+5. **The critical path starts with T-0153,** because the osv baseline expires 2026-10-31.
+
+**Also approved:**
+- the specs `commerce.openapi.yaml`, `portal.openapi.yaml` and `inbox.openapi.yaml`;
+- `packages/payments-adapter` (CLAUDE.md §2.8);
+- `ChannelProvider.send` requires `idempotencyKey`, and `capabilities()` is added (D-L37);
+- existing commit scopes plus the task id; `payments` is added when the package lands.
+
+**Still open:**
+- B2, the portal identity model, stays with @acexode via the T-0178 ADR.
+- WS5 being out of Phase 3 is being confirmed with @acexode; work proceeds as if it is out.
+
+**Windows machine:**
+- Cursor builds in the main checkout, `C:\dev\Outsource\kasuwa`.
+- The verification runner uses one detached short-path worktree, `C:\kw\verify`. No other worktrees: about 10 GB of
+  disk is free.
+- `core.longpaths` is on.
+- A migration or env-schema PR gets a full acceptance run on its head **before** merge.
+
+### D-L206 — Runtime advisories fixed only by a major upgrade: accept briefly, then upgrade (lead, 2026-10-26)
+
+T-0153 (#218) found 56 advisories, not 33. Two are in runtime code and need a major upgrade to fix.
+
+**zod 3 → 4 (GHSA-mrhx-c7xc-m3w5, CVSS 8.2): memory exhaustion validating oversized collections.**
+- It is reachable, but the trigger is capped. Every API body is limited to 512 KiB by `json-body-limit.ts` (T-0113,
+  D-L96) before zod runs.
+- **Ruling:** accepted until 2026-12-31 as `runtime-bounded`.
+- **Fix:** T-0198, the zod 4 migration. It goes in S0 ahead of S1, so the new commerce, portal and inbox schemas are
+  written for zod 4 rather than migrated later.
+
+**csv-parse 5 → 7 (GHSA-8cw4-87c7-c6xx, CVSS 6.9): prototype replacement via the `columns` option.**
+- `apps/worker/src/csv-stream.ts` never sets `columns`, and records are capped at 64 KiB.
+- **Ruling:** accepted until 2026-12-31 as `runtime-bounded`.
+- **Fix:** T-0197, the csv-parse 7 upgrade. It is small, has worker unit tests, and is done in S0.
+
+**The T-0153 suite now allows this.** The lead amended it with rule 4a:
+- an entry scoped `runtime-bounded` gives a `bounded:` argument instead of `not reachable:`;
+- its way out names the upgrade task (`fix: T-nnnn`);
+- its `ignoreUntil` is no later than 2026-12-31.
+
+**Also from T-0153:**
+- The eight same-major `pnpm.overrides` are accepted; each is removed when its parent moves.
+- Next 15.5.28 is the fix for a critical remote-code-execution flaw. #218 merges only after the Windows runner's
+  isolation run and the e2e byte-budget tags pass, because the bump can shift chunk sizes.
+- A weekly scheduled Dependency scan is a good idea, but it is deferred until GitHub Actions billing is restored.
