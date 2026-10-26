@@ -4,6 +4,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # D-L207: the full gate (UI acceptance and e2e) runs nightly on main and on
+  # demand: `gh workflow run CI --ref <branch>`. It does not run on every PR.
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
 # Least privilege, stated rather than inherited. `actions: read` is what
 # nrwl/nx-set-shas needs to find the last green run on main; without it every
@@ -224,12 +229,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22.16.0', cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # The isolation suite now contains the e2e harness's own acceptance
-      # tests, and those RUN the harness rather than reading it — which is the
-      # only way a throttle or a byte budget can be proven rather than
-      # asserted. So this job needs everything the e2e job needs. Without the
-      # browser it fails here and nowhere else, which is the worst place for a
-      # dependency to be discovered.
+      # The harness-driven suites moved to `ui-acceptance` (D-L207), but a few
+      # suites left here still render pages or read built output, so the
+      # tokens, the pseudo-locale and the browser stay.
       - run: pnpm ui:tokens
       - run: pnpm i18n:pseudo
       - run: pnpm --filter @kasuwa/e2e exec playwright install --with-deps chromium
@@ -244,6 +246,38 @@ jobs:
           name: isolation-test-report
           path: |
             reports/isolation
+            tests/e2e/.artifacts
+          retention-days: 7
+          if-no-files-found: warn
+
+  # --------------------------------------------------------------------------
+  # UI acceptance (D-L207): the acceptance suites that drive the browser
+  # harness. They are UI acceptance, not tenancy, and they were ~95% of the
+  # isolation job's time, so they run in the full gate only: nightly on main,
+  # on demand, and before a slice or the phase is closed.
+  # --------------------------------------------------------------------------
+  ui-acceptance:
+    name: UI acceptance (full gate)
+    runs-on: ubuntu-latest
+    needs: [unit]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.7.0' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.16.0', cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ui:tokens
+      - run: pnpm i18n:pseudo
+      - run: pnpm --filter @kasuwa/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:ui-acceptance --reporter=default --reporter=junit --outputFile.junit=reports/ui-acceptance/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-acceptance-test-report
+          path: |
+            reports/ui-acceptance
             tests/e2e/.artifacts
           retention-days: 7
           if-no-files-found: warn
@@ -325,6 +359,8 @@ jobs:
     name: End-to-end
     runs-on: ubuntu-latest
     needs: [build]
+    # D-L207: full gate only (nightly, on demand, end of slice and phase).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

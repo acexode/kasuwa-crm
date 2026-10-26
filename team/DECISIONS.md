@@ -4639,3 +4639,30 @@ T-0153 (#218) found 56 advisories, not 33. Two are in runtime code and need a ma
 - Next 15.5.28 is the fix for a critical remote-code-execution flaw. #218 merges only after the Windows runner's
   isolation run and the e2e byte-budget tags pass, because the bump can shift chunk sizes.
 - A weekly scheduled Dependency scan is a good idea, but it is deferred until GitHub Actions billing is restored.
+
+### D-L207 — The PR gate is the fast gate; UI acceptance and e2e move to the full gate (lead, 2026-10-26)
+
+@acexode asked for 50–70% faster development, with the heavy suites run at the end of the phase rather than on every
+change.
+
+**What was measured:** the `Tenant isolation suite` job averaged **6,334 s (about 1 h 45 m) per PR**. Every other job
+finished in about 2 minutes. Almost all of that time is the 20 acceptance suites that start the e2e harness (a
+browser, the API and the web app): `records-ui`, `admin-ui`, `auth-ui`, `scripting-ui`, `session`, and
+`platform/e2e-harness`. Those suites are UI acceptance, not tenancy.
+
+**Decision:**
+- **Every PR (unchanged and blocking):**
+  - lint, typecheck, unit, integration, commit messages, the feature register, the secret and dependency scans, the
+    protected-path guard and build;
+  - **the whole `isolation` project**, now 96 files: every suite that reads a table, a policy or a guard.
+  - The tenancy gate stays whole and unconditional (the T-0005 `ci-hardening` suite still passes, unedited).
+- **The full gate:** the new `ui-acceptance` project (`pnpm test:ui-acceptance`) and the full `pnpm test:e2e`. It
+  runs:
+  - nightly on main (01:00 UTC);
+  - on demand (`gh workflow run CI --ref <branch>`);
+  - on the Windows runner before a slice or the phase closes.
+  - It is not run on PRs. The job names are unchanged, so a skipped job does not block a required check.
+- **Locally, per task:** run only the UI acceptance file and the e2e tags the task names. Run the byte-budget tags
+  before merging any PR that changes `apps/web` dependencies or a shared chunk.
+- **Accepted risk:** a UI regression can sit on main for up to a day before the nightly run finds it. A red
+  nightly run is fixed before the next slice starts.
