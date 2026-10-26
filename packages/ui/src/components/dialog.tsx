@@ -248,7 +248,7 @@ export function CommandDialog({ open, onClose, label, children, initialFocus, ..
   if (!open) return null;
   return (
     <Portal>
-      <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-16 max-sm:p-0 min-[1280px]:pt-24">
+      <div className="fixed inset-0 z-50 flex items-start justify-center px-6 pt-16 max-sm:p-0 xl:pt-24">
         <div aria-hidden="true" onClick={onClose} className="absolute inset-0 animate-fade-in bg-scrim" />
         <div
           ref={setPanel}
@@ -257,7 +257,7 @@ export function CommandDialog({ open, onClose, label, children, initialFocus, ..
           aria-label={label}
           tabIndex={-1}
           data-testid={rest['data-testid']}
-          className="relative flex max-h-[calc(100vh-110px)] w-full min-h-0 max-w-[660px] animate-pop-in flex-col overflow-hidden rounded-14 border border-border bg-surface text-text shadow-3 outline-none max-sm:h-full max-sm:max-h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 min-[1280px]:max-h-[calc(100vh-150px)]"
+          className="relative flex max-h-overlay-command-palette-max-height w-full min-h-0 max-w-overlay-command-palette animate-pop-in flex-col overflow-hidden rounded-14 border border-border bg-surface text-text shadow-3 outline-none max-sm:h-full max-sm:max-h-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 xl:max-h-overlay-command-palette-max-height-wide"
         >
           {children}
         </div>

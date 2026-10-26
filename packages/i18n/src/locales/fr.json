@@ -840,7 +840,7 @@
   "signup.submit": "Créer le compte",
   "signup.submitting": "Création de votre espace…",
   "signup.terms": "En créant un compte, vous acceptez les Conditions et l'Avis de confidentialité.",
-  "signup.signIn.prompt": "Vous êtes déjà inscrit ?",
+  "signup.signIn.prompt": "Vous avez un compte ?",
   "signup.signIn.link": "Se connecter",
   "signup.invalid.fullName": "Saisissez votre nom complet.",
   "signup.invalid.email": "Saisissez un e-mail professionnel, comme vous@entreprise.com.",

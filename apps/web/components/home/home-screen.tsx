@@ -59,7 +59,7 @@ import { WidgetCard, WidgetEmpty, WidgetError, WidgetSkeleton, type WidgetEditPr
  * ---------------------------------------------------------------------------
  * THE HEADER. "Good morning, {first name}" at 28/800 (22 on a phone), the day
  * and the time in the browser's zone with its name ("10:12 WAT"), then the
- * period control, the currency control (`fx_display`: ₦ selected, US$ drawn
+ * period control, the currency control (`fx_display`: <naira> selected, US$ drawn
  * disabled until FX exists, D-L69) and Customise.
  *
  * THE GRID. Twelve columns from `md` up, widgets at S, M, L or XL (4, 6, 8, 12

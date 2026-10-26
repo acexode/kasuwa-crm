@@ -173,7 +173,7 @@ function TaskRow({
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-caption text-text-2">
           {priority ? (
             <span
-              data-placeholder="priority"
+              data-stub="priority"
               className="inline-flex h-[22px] items-center gap-0.75 rounded-full bg-surface-sunken px-[7px] font-bold text-text-muted"
             >
               {t.t('activities.priority.none')}

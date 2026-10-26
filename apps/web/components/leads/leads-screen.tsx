@@ -263,7 +263,7 @@ export function LeadsScreen({
 
         <ListHeader
           t={t}
-          title="leads.title"
+          titleId="leads.title"
           count={count}
           programmes={programmes.list}
           savedViews={flags.savedViews ? { allLabel: 'leads.views.all', unsaved } : null}
@@ -278,8 +278,8 @@ export function LeadsScreen({
             t={t}
             value={q}
             label="leads.search.label"
-            placeholder="leads.search.placeholderWide"
-            phonePlaceholder="leads.search.placeholder"
+            placeholderId="leads.search.placeholderWide"
+            phonePlaceholderId="leads.search.placeholder"
             onChange={setQ}
           />
           <FilterSheetButton t={t} active={activeCount} open={popover === 'sheet'} onOpen={(trigger) => open('sheet', trigger)} />

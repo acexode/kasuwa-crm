@@ -251,6 +251,8 @@
   --k-shell-data-nav: 232px;
   --k-shell-data-nav-compact: 196px;
   --k-shell-data-content: 1240px;
+  --k-shell-data-action-bar: 69px;
+  --k-shell-below-header: calc(100dvh - var(--k-shell-header));
   --k-layout-auth-panel: 520px;
   --k-layout-auth-header: 64px;
   --k-layout-column: 400px;
@@ -271,6 +273,7 @@
   --k-layout-studio-aside: 340px;
   --k-layout-studio-palette: 272px;
   --k-layout-studio-inspector: 320px;
+  --k-layout-data-lede: 760px;
   
   /* overlays and data display (T-0129) */
   --k-overlay-drawer: 400px;
@@ -287,6 +290,10 @@
   --k-overlay-preview-frame-compact: 560px;
   --k-overlay-notification-panel: 440px;
   --k-overlay-notification-toast: 380px;
+  --k-overlay-notification-panel-max-height: calc(100dvh - var(--k-space-16) - var(--k-space-2));
+  --k-overlay-command-palette: 660px;
+  --k-overlay-command-palette-max-height: calc(100vh - 110px);
+  --k-overlay-command-palette-max-height-wide: calc(100vh - 150px);
   --k-overlay-studio-panel: 480px;
   --k-overlay-studio-panel-tablet: 460px;
   --k-radius-sheet: 20px;

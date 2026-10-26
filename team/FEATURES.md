@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 207 rows; built 123, partial 11, mock-only 27, flagged-off 17, deferred 10, not-started 19.
+Totals: 269 rows; built 123, partial 11, mock-only 26, flagged-off 80, deferred 10, not-started 19.
 
 ## Modules
 
@@ -65,7 +65,7 @@ Every screen in the P01 and P02 e2e manifests. A screen never claims more than i
 | screen | `P01/5.3` | Onboarding: connect WhatsApp — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/5.4` | Onboarding: import contacts — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/5.5` | Onboarding: invite the team — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/6` | Onboarding: done, setup checklist — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/6` | Onboarding: done, setup checklist — no operation in docs/api; client-side only, no endpoint yet (T-0018) | flagged-off | `product_tour` | D-L194 | tests/e2e/p01-auth.spec.ts |
 | screen | `P02/A` | Admin home — 6 of 6 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/A1` | Settings menu — 1 of 1 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B` | Programmes list — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
@@ -232,6 +232,14 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_records` | The CRM shell and the P04 Contacts list at /contacts (T-0042). | flagged-off | `crm_records` | D-L64 | packages/feature-flags/src/index.ts |
 | flag | `crm_accounts` | The P04 Accounts list, create and edit at /accounts (T-0057). | flagged-off | `crm_accounts` | D-L64, D-L84 | packages/feature-flags/src/index.ts |
 | flag | `crm_record_view` | The P05 records: the contact (the 360° view) at /contacts/[id] (T-0062) and the account at /accounts/[id] (T-0063). | flagged-off | `crm_record_view` | D-L85, D-L98 | packages/feature-flags/src/index.ts |
+| flag | `whatsapp_composer` | The P05 record composer (WhatsApp, SMS, Email, Note tabs) with the 24-hour window, and the WhatsApp/SMS/Email actions (T-0134). | flagged-off | `whatsapp_composer` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `ai_summary` | The P05 record AI summary card, in its empty state until the AI module serves summaries (T-0134). | flagged-off | `ai_summary` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `ai_nba` | The P05 record next-best-action card, and the P03 Home "Next best actions" and "AI usage" widgets, in their empty states until the AI module serves suggestions (T-0134, T-0132). | flagged-off | `ai_nba` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `call_bar` | The Call action on records, disabled until the telephony integration places calls (T-0134); and the P10 run call bar, not connected, with the loan card and "Writes to record" in their empty states (T-0139, D-L88, D-P31). | flagged-off | `call_bar` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `record_related` | The P05 record Related lists (deals, tickets, quotes, invoices, campaigns) and their New deal, New ticket and payment-link actions, empty until their modules serve them (T-0134). | flagged-off | `record_related` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `identity_check` | The P05 contact Identity card (NIN and BVN checks), not checked until the identity integration exists (T-0134). | flagged-off | `identity_check` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `record_addresses` | The P05 record Addresses card, showing the State and LGA the record holds until addresses are served (T-0134). | flagged-off | `record_addresses` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `record_follow` | The Follow button on P05 records, disabled until following is served (T-0134). | flagged-off | `record_follow` | D-L194 | packages/feature-flags/src/index.ts |
 | flag | `crm_leads` | The P04 Leads list, Kanban by status and convert at /leads (T-0058). | flagged-off | `crm_leads` | D-L64, D-L86 | packages/feature-flags/src/index.ts |
 | flag | `crm_activities` | The P07 activities screen at /activities: my tasks by bucket, the calendar, compose, snooze and reschedule (T-0083). | flagged-off | `crm_activities` | D-L105, D-L107 | packages/feature-flags/src/index.ts |
 | flag | `crm_scripts` | The P10 in-call scripts in manual mode: the builder at /scripts (T-0115) and the agent run at /script-runs/[runId], started from the contact record (T-0116). | flagged-off | `crm_scripts` | D-L88, D-L114 | packages/feature-flags/src/index.ts |
@@ -241,6 +249,60 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |
 | flag | `crm_notifications` | The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100). | flagged-off | `crm_notifications` | D-L87, D-L146, D-L164 | packages/feature-flags/src/index.ts |
 | flag | `crm_duplicates` | The P28 duplicates and merge screen at /contacts/duplicates and its link on the Contacts list (T-0097). | flagged-off | `crm_duplicates` | D-L146, D-L175 | packages/feature-flags/src/index.ts |
+| flag | `crm_inbox` | The Inbox entry in the CRM rail and bottom bar, a disabled placeholder until the P08 inbox is built (T-0130, D-L194). | flagged-off | `crm_inbox` | — | packages/feature-flags/src/index.ts |
+| flag | `crm_tickets` | The Tickets entry in the CRM rail, a disabled placeholder until tickets are built (T-0130, D-L194). | flagged-off | `crm_tickets` | — | packages/feature-flags/src/index.ts |
+| flag | `crm_calls` | The Calls entry in the CRM rail, a disabled placeholder until the P09 voice screens are built (T-0130, D-L194). | flagged-off | `crm_calls` | — | packages/feature-flags/src/index.ts |
+| flag | `crm_reports` | The Reports entry in the CRM rail, a disabled placeholder until reports are built (T-0130, D-L194). | flagged-off | `crm_reports` | — | packages/feature-flags/src/index.ts |
+| flag | `calendar_sync` | P07 calendar: the not-connected Google/Microsoft banner, source chip and empty attendee panel (T-0136, D-L194, D-P22). | flagged-off | `calendar_sync` | D-P22 | packages/feature-flags/src/index.ts |
+| flag | `booking_pages` | P07 Booking pages view, the design editor in its empty, disabled state (T-0136, D-L194, D-P22). | flagged-off | `booking_pages` | D-P22 | packages/feature-flags/src/index.ts |
+| flag | `field_checkin` | P07 phone Check-in view and the composer Visit type, disabled (T-0136, D-L194). | flagged-off | `field_checkin` | — | packages/feature-flags/src/index.ts |
+| flag | `activity_priority` | P07 task rows: the priority pill placeholder and the High priority and Deals filter chips, disabled (T-0136, D-L194). | flagged-off | `activity_priority` | D-L105 | packages/feature-flags/src/index.ts |
+| flag | `activity_reminders` | P07 composer: the customer-reminder channels, disabled (T-0136, D-L194, D-P29). | flagged-off | `activity_reminders` | D-P29 | packages/feature-flags/src/index.ts |
+| flag | `fx_display` | The disabled Show US$ switch on the P06 board header until an FX rate is served (T-0135, D-L194). | flagged-off | `fx_display` | — | packages/feature-flags/src/index.ts |
+| flag | `pipeline_summary` | The P06 board summary line built from the served column totals and counts (T-0135). | flagged-off | `pipeline_summary` | — | packages/feature-flags/src/index.ts |
+| flag | `pipeline_templates` | The P06 first-pipeline template picker, with Create disabled until a pipeline can be created (T-0135, D-L194). | flagged-off | `pipeline_templates` | — | packages/feature-flags/src/index.ts |
+| flag | `whatsapp_recency` | The last WhatsApp contact on P06 cards and list rows, an empty dash until the inbox serves it (T-0135, D-L194). | flagged-off | `whatsapp_recency` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_products` | The P06 deal detail Products and VAT card, empty until products exist (T-0135, D-L194). | flagged-off | `deal_products` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_risk` | The P06 deal detail Deal risk card, empty until scoring exists (T-0135, D-L194). | flagged-off | `deal_risk` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_relationships` | The P06 deal detail Contact roles and Competitors cards (T-0135, D-L194). | flagged-off | `deal_relationships` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_quotes` | The P06 deal detail Quotes and Approval history cards, empty until those modules exist (T-0135, D-L194). | flagged-off | `deal_quotes` | — | packages/feature-flags/src/index.ts |
+| flag | `product_tour` | The P01/6 product-tour button, drawn disabled until a tour exists (D-L194). | flagged-off | `product_tour` | D-L194 | packages/feature-flags/src/index.ts |
+| flag | `map_view` | The disabled Map segment in the P04 list view switchers (T-0133, D-L194). | flagged-off | `map_view` | D-L69 | packages/feature-flags/src/index.ts |
+| flag | `bulk_actions` | Row selection and the bulk action bar on the P04 lists, actions disabled until built (T-0133, D-L194). | flagged-off | `bulk_actions` | — | packages/feature-flags/src/index.ts |
+| flag | `saved_views` | The saved-views menu on the P04 lists, with only the built-in view (T-0133, D-L194). | flagged-off | `saved_views` | — | packages/feature-flags/src/index.ts |
+| flag | `last_activity` | The Last activity column on the P04 lists, empty until a list read serves it (T-0133, D-L194). | flagged-off | `last_activity` | — | packages/feature-flags/src/index.ts |
+| flag | `quick_actions` | Call, WhatsApp and SMS swipe actions on the P04 phone cards, disabled until wired (T-0133, D-L194). | flagged-off | `quick_actions` | — | packages/feature-flags/src/index.ts |
+| flag | `more_filters` | Disabled P04 filter chips for filters the list reads do not declare yet (T-0133, D-L194). | flagged-off | `more_filters` | — | packages/feature-flags/src/index.ts |
+| flag | `data_management` | The P28 admin Data management area at /admin/data, with the five-step import wizard and duplicates (T-0141, D-L194). | flagged-off | `data_management` | — | packages/feature-flags/src/index.ts |
+| flag | `data_migration` | The P28 Migration placeholder in Data management, not connected (T-0141, D-L194). | flagged-off | `data_migration` | — | packages/feature-flags/src/index.ts |
+| flag | `data_export` | The P28 Export centre placeholder in Data management, empty (T-0141, D-L194). | flagged-off | `data_export` | — | packages/feature-flags/src/index.ts |
+| flag | `dsr` | The P28 Data-subject requests placeholder in Data management, empty (T-0141, D-L194). | flagged-off | `dsr` | — | packages/feature-flags/src/index.ts |
+| flag | `merge_three_way` | The disabled third record slot in the P28 merge compare; merges stay pairwise (T-0141, D-L146, D-L194). | flagged-off | `merge_three_way` | D-L146 | packages/feature-flags/src/index.ts |
+| flag | `admin_placeholders` | P02 usage meters without data in their empty state, and disabled P02 controls with no backend yet (T-0140, D-L194). | flagged-off | `admin_placeholders` | — | packages/feature-flags/src/index.ts |
+| flag | `recent_searches` | The P27 recent searches and recently viewed panel, empty until a store exists (T-0138, D-L194). | flagged-off | `recent_searches` | D-L133 | packages/feature-flags/src/index.ts |
+| flag | `programme_scope_search` | The P27 programme scope pill, scope menu and Switch programme step, narrowing disabled until served (T-0138, D-L194, D-L87). | flagged-off | `programme_scope_search` | D-L87 | packages/feature-flags/src/index.ts |
+| flag | `ai_assistant` | The P27 palette Ask AI row, disabled until an assistant exists (T-0138, D-L194). | flagged-off | `ai_assistant` | — | packages/feature-flags/src/index.ts |
+| flag | `search_filters` | The P27 owner and date filters and the owner and updated columns, empty until search serves them (T-0138, D-L194). | flagged-off | `search_filters` | — | packages/feature-flags/src/index.ts |
+| flag | `crm_home` | The P03 Home screen at /home, its nav entry, and Home as the signed-in landing (T-0132, D-L196). | flagged-off | `crm_home` | D-L196 | packages/feature-flags/src/index.ts |
+| flag | `whatsapp_inbox` | The Home "WhatsApp awaiting reply" widget, in its not-connected state until channels exist (T-0132, D-L194). | flagged-off | `whatsapp_inbox` | — | packages/feature-flags/src/index.ts |
+| flag | `quota` | The Home quota, forecast and leaderboard widgets, in their empty state until quotas exist (T-0132, D-L194). | flagged-off | `quota` | — | packages/feature-flags/src/index.ts |
+| flag | `approvals` | The Home "Approvals" widget, in its caught-up state until approvals exist (T-0132, D-L194). | flagged-off | `approvals` | — | packages/feature-flags/src/index.ts |
+| flag | `home_kpis` | The Home KPI widgets with no data source yet (tickets, queues, CSAT, programme stats, schedule, announcements, revenue, cost, profitability, SLA, pipeline by stage), in their empty state (T-0132, D-L194). | flagged-off | `home_kpis` | — | packages/feature-flags/src/index.ts |
+| flag | `notification_types` | The P26 filter entries for notification types no module produces yet, drawn disabled (T-0137, D-L194). | flagged-off | `notification_types` | — | packages/feature-flags/src/index.ts |
+| flag | `notification_preferences` | P26 notification preferences at /settings/notifications and the links to it, drawn disabled until a preferences API exists (T-0137, D-L194). | flagged-off | `notification_preferences` | — | packages/feature-flags/src/index.ts |
+| flag | `crm_studio` | The Studio entry in the CRM rail, a disabled placeholder (current on the script screens) until a capability read lets it link to the builder (T-0139, D-L194, R3). | flagged-off | `crm_studio` | — | packages/feature-flags/src/index.ts |
+| flag | `ai_script_hints` | The P10 run AI next-line suggestion strip, in its empty state with "Use line" disabled, until M17 serves suggestions (T-0139, D-L194). | flagged-off | `ai_script_hints` | — | packages/feature-flags/src/index.ts |
+| flag | `script_programme_assignment` | The P10 builder "Assigned to" programme chips, disabled: a script belongs to one programme (D-L91) until multi-programme assignment exists (T-0139, D-L194). | flagged-off | `script_programme_assignment` | D-L91 | packages/feature-flags/src/index.ts |
+| flag | `script_preview` | The P10 builder Preview button, disabled until preview-as-agent with a sample record exists (T-0139, D-L88, D-L194). | flagged-off | `script_preview` | — | packages/feature-flags/src/index.ts |
+| flag | `script_version_changes` | The P10 run version banner's "What changed" button, disabled until agents can read a newer version's change list (T-0139, D-L194). | flagged-off | `script_version_changes` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_objects` | P18 Object manager at /admin/studio and the object header chips, in their empty state until custom objects exist (T-0142, D-L194). | flagged-off | `studio_objects` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_layouts` | P18 page layouts and the layout builder at /admin/studio/layouts, in their empty state until layouts exist (T-0142, D-L194). | flagged-off | `studio_layouts` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_validation` | P18 validation rules at /admin/studio/validation-rules, in their empty state until rules exist (T-0142, D-L194). | flagged-off | `studio_validation` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_relationships` | P18 relationships view at /admin/studio/relationships and its buttons, in their empty state until lookups exist (T-0142, D-L194). | flagged-off | `studio_relationships` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_record_types` | P18 record types at /admin/studio/record-types, in their empty state until record types exist (T-0142, D-L194). | flagged-off | `studio_record_types` | — | packages/feature-flags/src/index.ts |
+| flag | `custom_field_types_extended` | P18 field types the contract does not accept yet, drawn disabled in the type picker (T-0142, D-L194). | flagged-off | `custom_field_types_extended` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_field_usage` | P18 field usage, the Filterable meter and the field property switches, in their empty or disabled state (T-0142, D-L194). | flagged-off | `studio_field_usage` | — | packages/feature-flags/src/index.ts |
+| flag | `studio_field_translations` | P18 field editor Translations tab, drawn disabled until field-label translations exist (T-0142, D-L194). | flagged-off | `studio_field_translations` | — | packages/feature-flags/src/index.ts |
 
 ## Deferred decisions
 

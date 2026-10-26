@@ -75,12 +75,12 @@ export function DataShell({
     >
       <div
         data-frame="data-management"
-        className="-m-4 flex min-h-[calc(100dvh-var(--k-shell-header))] flex-col md:-m-6 md:flex-row xl:-mx-8 xl:-mb-10 xl:-mt-7"
+        className="-m-4 flex min-h-shell-below-header flex-col md:-m-6 md:flex-row xl:-mx-8 xl:-mb-10 xl:-mt-7"
       >
         <nav
           aria-label={t.t('data.shell.title')}
           data-testid="data-nav"
-          className="sticky top-shell-header z-10 flex shrink-0 gap-0.5 overflow-x-auto border-b border-border bg-surface px-2.5 py-2 md:h-[calc(100dvh-var(--k-shell-header))] md:w-shell-data-nav-compact md:flex-col md:overflow-visible md:border-b-0 md:border-e md:py-4 xl:w-shell-data-nav"
+          className="sticky top-shell-header z-10 flex shrink-0 gap-0.5 overflow-x-auto border-b border-border bg-surface px-2.5 py-2 md:h-shell-below-header md:w-shell-data-nav-compact md:flex-col md:overflow-visible md:border-b-0 md:border-e md:py-4 xl:w-shell-data-nav"
         >
           {SECTIONS.map((section) => {
             const here = section.id === current;
@@ -125,7 +125,7 @@ export function DataShell({
           {footer === undefined ? null : (
             <footer
               data-testid="data-action-bar"
-              className="sticky bottom-0 z-10 flex min-h-[69px] flex-wrap items-center gap-3 border-t border-border bg-surface px-4 py-3 md:px-5 xl:px-8"
+              className="sticky bottom-0 z-10 flex min-h-shell-data-action-bar flex-wrap items-center gap-3 border-t border-border bg-surface px-4 py-3 md:px-5 xl:px-8"
             >
               {footer}
             </footer>
@@ -162,7 +162,7 @@ export function DataHeader({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="m-0 text-title-sm">{title}</h1>
           {lede === undefined ? null : (
-            <p className="m-0 max-w-[760px] text-pretty text-body-relaxed text-text-2">{lede}</p>
+            <p className="m-0 max-w-layout-data-lede text-pretty text-body-relaxed text-text-2">{lede}</p>
           )}
         </div>
         {action === undefined ? null : <div className="flex shrink-0 items-center gap-2">{action}</div>}

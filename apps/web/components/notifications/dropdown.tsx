@@ -136,7 +136,7 @@ export function NotificationDropdown({
       aria-labelledby={titleId}
       data-testid="notifications-dropdown"
       onKeyDown={onKeyDown}
-      className="fixed inset-x-2 top-14 z-40 flex max-h-[calc(100dvh-theme(spacing.16)-theme(spacing.2))] flex-col rounded-14 border border-border bg-surface text-text shadow-3 animate-fade-in md:inset-x-auto md:end-3 md:w-overlay-notification-panel"
+      className="fixed inset-x-2 top-14 z-40 flex max-h-overlay-notification-panel-max-height flex-col rounded-14 border border-border bg-surface text-text shadow-3 animate-fade-in md:inset-x-auto md:end-3 md:w-overlay-notification-panel"
     >
       {/* Header (A): the title and count, Mark all read, the preferences gear. */}
       <div className="flex items-center gap-2 pb-2 pe-2 ps-4 pt-3">

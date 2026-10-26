@@ -30,7 +30,7 @@ const QUESTIONS = ['name', 'phone'] as const;
 
 export function BookingPages({ t, owner }: { t: Translator; owner: string | null }) {
   return (
-    <div data-placeholder="booking-pages" className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+    <div data-stub="booking-pages" className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <section
         aria-label={t.t('activities.booking.settings')}
         className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-[18px]"
