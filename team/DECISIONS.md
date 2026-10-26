@@ -4579,3 +4579,36 @@ journeys pass under the e2e lock (lead run, 2026-10-21).
 - The search dropdown still has three size literals.
 - Worktree cleanup.
 - P08 Inbox and P09 Voice are not built; they arrive with their own tasks.
+
+### D-L205 — Phase 3 plan approved, with amendments (lead, 2026-10-26)
+
+Cursor's `docs/phase3/PLAN.md` (PR #215) is approved, subject to these amendments:
+
+1. **The real channel provider is T-0017.** That task file already exists; no new id is created for it. T-0186 (the
+   `ChannelProvider` contract extension) references it.
+2. **Webhooks find their tenant through the URL slug.** Payment and channel webhooks carry the tenant slug in their
+   path (`/webhooks/<provider>/<tenantSlug>`).
+   - The slug is resolved by the existing `app.resolve_tenant_by_slug`.
+   - The signature is then verified with that tenant's secret, inside `withTenantTransaction`.
+   - An unknown slug and a bad signature get the same response.
+   - No third `SECURITY DEFINER` function is written for webhook lookup.
+3. **T-0018 goes behind a new flag, `onboarding_persistence`** (CLAUDE.md §4).
+4. **Only screen tasks wait for designs:** T-0171, T-0184 and T-0192. API, domain, adapter and migration work does not.
+5. **The critical path starts with T-0153,** because the osv baseline expires 2026-10-31.
+
+**Also approved:**
+- the specs `commerce.openapi.yaml`, `portal.openapi.yaml` and `inbox.openapi.yaml`;
+- `packages/payments-adapter` (CLAUDE.md §2.8);
+- `ChannelProvider.send` requires `idempotencyKey`, and `capabilities()` is added (D-L37);
+- existing commit scopes plus the task id; `payments` is added when the package lands.
+
+**Still open:**
+- B2, the portal identity model, stays with @acexode via the T-0178 ADR.
+- WS5 being out of Phase 3 is being confirmed with @acexode; work proceeds as if it is out.
+
+**Windows machine:**
+- Cursor builds in the main checkout, `C:\dev\Outsource\kasuwa`.
+- The verification runner uses one detached short-path worktree, `C:\kw\verify`. No other worktrees: about 10 GB of
+  disk is free.
+- `core.longpaths` is on.
+- A migration or env-schema PR gets a full acceptance run on its head **before** merge.
