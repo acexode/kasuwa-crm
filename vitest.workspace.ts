@@ -15,6 +15,20 @@ import { defineWorkspace } from 'vitest/config';
 
 const root = __dirname;
 
+/**
+ * Acceptance suites that start the e2e harness (a browser, the API and the web
+ * app) and so take most of an isolation run. D-L207 moves them out of the
+ * per-PR `isolation` gate into `ui-acceptance`.
+ */
+const UI_ACCEPTANCE = [
+  'tests/acceptance/records-ui/**/*.acceptance.test.ts',
+  'tests/acceptance/admin-ui/**/*.acceptance.test.ts',
+  'tests/acceptance/auth-ui/**/*.acceptance.test.ts',
+  'tests/acceptance/scripting-ui/**/*.acceptance.test.ts',
+  'tests/acceptance/session/**/*.acceptance.test.ts',
+  'tests/acceptance/platform/e2e-harness.acceptance.test.ts',
+];
+
 const alias = {
   '@kasuwa/auth-crypto': resolve(root, 'packages/auth-crypto/src/index.ts'),
   // Longer key first, for the same prefix reason as @kasuwa/i18n/bundle below.
@@ -113,11 +127,37 @@ export default defineWorkspace([
       // because "CI red on main" is a stop-the-line condition — a backlog of
       // unstarted work must not look like a broken build. The lead renames the
       // file when assigning, and from that moment CI enforces it.
-      exclude: ['**/node_modules/**', '**/dist/**', '**/*.pending.acceptance.test.ts'],
+      // The suites that drive the browser harness are the `ui-acceptance`
+      // project instead (D-L207): they are UI acceptance, not tenancy, and they
+      // were ~95% of this gate's time. Everything that reads a table, a policy
+      // or a guard stays here and runs on every PR.
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/*.pending.acceptance.test.ts',
+        ...UI_ACCEPTANCE,
+      ],
       globalSetup,
       // See the note on the integration project: a project-level
       // `fileParallelism` is ignored, and this project has had several files
       // sharing one database all along.
+      fileParallelism: false,
+      poolOptions: { forks: { singleFork: true }, threads: { singleThread: true } },
+      testTimeout: 30_000,
+      hookTimeout: 180_000,
+    },
+  },
+  {
+    resolve: { alias },
+    test: {
+      // D-L207: the harness-driven UI acceptance suites. Not run on every PR;
+      // run nightly on main, on demand (`workflow_dispatch`), and in the
+      // end-of-slice and end-of-phase gates. `pnpm test:ui-acceptance`.
+      name: 'ui-acceptance',
+      environment: 'node',
+      include: UI_ACCEPTANCE,
+      exclude: ['**/node_modules/**', '**/dist/**', '**/*.pending.acceptance.test.ts'],
+      globalSetup,
       fileParallelism: false,
       poolOptions: { forks: { singleFork: true }, threads: { singleThread: true } },
       testTimeout: 30_000,
