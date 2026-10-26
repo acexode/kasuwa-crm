@@ -118,7 +118,7 @@ const CURRENCY_NAME: Readonly<Record<string, MessageId>> = {
 };
 
 /**
- * "₦ Nigerian naira (NGN)": the symbol from Intl (never hard-coded), the name
+ * "<symbol> Nigerian naira (NGN)": the symbol from Intl (never hard-coded), the name
  * from the catalogue. The name was Intl's until T-0149, which in a language
  * ICU knows no names for falls back to English, the one thing a translated
  * menu must never do; the catalogue carries CLDR's names instead.
