@@ -15,7 +15,7 @@ import { formatCalendarDate, formatShortDate } from './pipeline-model';
 /**
  * An amount in its currency's own format, with Intl's narrow symbol (R5,
  * T-0135). Always exact to the minor unit: the design's whole-unit and compact
- * ("₦40M") figures are overruled by D-P19 (D-L130 R5, T-0147). The digits come
+ * ("<naira>40M") figures are overruled by D-P19 (D-L130 R5, T-0147). The digits come
  * from the string, never a number; an amount that is not a digit run is said to
  * be unreadable, never drawn as a zero. JetBrains Mono, as P06 draws money.
  */

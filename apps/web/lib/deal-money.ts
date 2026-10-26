@@ -14,13 +14,13 @@ import { numberingLocale } from './numbering';
  * NO CURRENCY SYMBOL IS WRITTEN HERE (CLAUDE.md 4). The symbol, its position,
  * the grouping and the minor digits all come from Intl, for the active
  * language. The symbol is Intl's NARROW one (`currencyDisplay: 'narrowSymbol'`),
- * so naira reads "₦31,000,000" as P06 draws it, not "NGN 31,000,000.00".
+ * so naira reads "<naira>31,000,000" as P06 draws it, not "NGN 31,000,000.00".
  *
  * THREE SHAPES (T-0135, D-L193). `formatDealMoney` is exact to the last kobo
  * (the deal header and key fields). `formatDealMoneyWhole` rounds to the major
  * unit, half up, by string arithmetic (the board cards and the list, which the
  * design draws without minor units). `formatDealMoneyCompact` is the design's
- * column-header short form ("₦40M", "₦15.9M"): a label, not an amount, so it
+ * column-header short form ("<naira>40M", "<naira>15.9M"): a label, not an amount, so it
  * alone goes through a JS number, and an exact figure is always one step away.
  */
 
@@ -95,7 +95,7 @@ function wholeUnits(amountMinor: string, currency: string): bigint {
 
 /**
  * `amountMinor` rounded to the major unit (half up), with Intl's narrow
- * symbol: "₦31,000,000". The board's cards and the list's amounts (P06/01,
+ * symbol: "<naira>31,000,000". The board's cards and the list's amounts (P06/01,
  * P06/03). Never through a JS number.
  */
 export function formatDealMoneyWhole(locale: string, amountMinor: string, currency: string): string {
@@ -104,8 +104,8 @@ export function formatDealMoneyWhole(locale: string, amountMinor: string, curren
 }
 
 /**
- * The design's short form for a column header or a summary: "₦40M",
- * "₦15.9M", "₦340K" (P06/01). Intl's compact notation for the language, at
+ * The design's short form for a column header or a summary: "<naira>40M",
+ * "<naira>15.9M", "<naira>340K" (P06/01). Intl's compact notation for the language, at
  * most one decimal. A label, so a JS number is fine here: the exact figure is
  * on the cards and the list.
  */

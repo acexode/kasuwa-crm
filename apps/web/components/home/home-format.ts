@@ -91,7 +91,7 @@ export function quarterOf(now: Date): number {
   return Math.floor(now.getMonth() / 3) + 1;
 }
 
-/** The currency toggle's label: the locale's narrow sign, then the code ("₦ NGN", "$ USD"). */
+/** The currency toggle's label: the locale's narrow sign, then the code ("<naira> NGN", "$ USD"). */
 export function currencyLabel(locale: string, currency: string): string {
   try {
     const sign =
