@@ -2,9 +2,11 @@ import { databaseCredentialProblems } from './database-target';
 import { storageEncryptionProblems } from './storage-env';
 import {
   apiEnv as parseApiEnv,
+  realtimeEnv as parseRealtimeEnv,
   workerEnv as parseWorkerEnv,
   type ApiEnv,
   type EnvSource,
+  type RealtimeEnv,
   type WorkerEnv,
 } from './schemas.mjs';
 
@@ -110,4 +112,32 @@ export function workerEnv(source: EnvSource = process.env): WorkerEnv {
     refuse('worker', databaseCredentialProblems(source, ['DATABASE_URL', 'DATABASE_RELAY_URL']));
   }
   return parsed;
+}
+
+/**
+ * The WebSocket gateway PROCESS (T-0160). `realtimeEnv` leaves `DATABASE_URL`
+ * and `REDIS_URL` optional, because other processes' guards parse that schema
+ * without a database; this is the one the gateway calls, and it requires both
+ * (it can authenticate no socket and fan out no event without them), refuses
+ * an unset NODE_ENV (D-L95) and runs the credential guard on `DATABASE_URL`
+ * outside development and test. Names a variable, never echoes a value.
+ */
+export function realtimeServeEnv(
+  source: EnvSource = process.env,
+): RealtimeEnv & { DATABASE_URL: string; REDIS_URL: string } {
+  refuseUnsetNodeEnv('realtime', source, parseRealtimeEnv);
+  const parsed = parseRealtimeEnv(source);
+  const { DATABASE_URL, REDIS_URL } = parsed;
+  const missing = [
+    ...(DATABASE_URL === undefined ? ['  DATABASE_URL: required (the kasuwa_app role).'] : []),
+    ...(REDIS_URL === undefined ? ['  REDIS_URL: required (the event seam).'] : []),
+  ];
+  refuse('realtime', missing);
+  if (DATABASE_URL === undefined || REDIS_URL === undefined) {
+    throw new Error('unreachable: refused above');
+  }
+  if (enforced(parsed.NODE_ENV)) {
+    refuse('realtime', databaseCredentialProblems(source, ['DATABASE_URL']));
+  }
+  return { ...parsed, DATABASE_URL, REDIS_URL };
 }
