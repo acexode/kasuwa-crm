@@ -95,7 +95,17 @@ an account takeover.
    - Sign-out resolves the token with `app.resolve_session` on the app pool. That definer stays
      granted to `kasuwa_app` only.
 
-6. **ACCEPTED DEVIATION FROM D-P16: sign-in's read phase stays on the app pool.**
+6. **RESOLVED BY T-0157 (migration 0046). WAS: an accepted deviation from D-P16, sign-in's read phase on the app pool.**
+   Phase one now runs on the auth pool, and `kasuwa_app` has no SELECT on `user_credential` at all, nor on the secret
+   columns of `user_mfa_factor` (`secret`, `secret_ciphertext`, `secret_wrapped_key`, `secret_key_id`, `secret_algorithm`)
+   and `user_mfa_backup_code` (`code_hash`, `hash_key_wrapped`, `hash_key_id`, `hash_algorithm`). It keeps the non-secret
+   columns the MFA status read and the admin home count use. The legacy plaintext `secret` column is revoked, not dropped;
+   dropping it (follow-up 4 below) is still a contract migration of its own. The text below is the original decision, kept
+   for the reasoning. **One consequence to know:** with phase one on the auth pool, the lock-starvation argument below
+   applies to the auth pool, so T-0045 part 2 (auth-retention) must starve BOTH pools and expect one 503 (the lead restates
+   it; follow-up 1).
+
+   Original decision:
    - **What and why.** Phase one (the lock read and the account lookup) writes nothing, and it
      runs as `kasuwa_app`. So `kasuwa_app` keeps SELECT on `user_credential.password_hash`, on
      `user_mfa_factor`'s secret columns and on `auth_rate_limit`. D-P16 said `kasuwa_app` "keeps
@@ -141,8 +151,8 @@ what a bug there can do. Authentication still establishes WHO and never WHAT:
 - **Connections double.** Each API process opens up to `2 × DATABASE_POOL_MAX` connections, one
   pool per role, both sized by `poolMax`. Cell Postgres `max_connections` and any pooler must be
   sized for that.
-- Sign-in touches both pools, and `kasuwa_app` keeps SELECT on password hashes and factor secrets
-  until the Decision 6 follow-up lands.
+- Sign-in touches only the auth pool since T-0157; `kasuwa_app` no longer reads password hashes or
+  factor secrets (migration 0046).
 - A new auth table must repeat 0024's revoke and grant by hand. Bootstrap's default privileges still
   give every future table's DML to `kasuwa_app` (`packages/db/CLAUDE.md` invariant 9).
 - **The review's narrowing of `user_credential`.** The review asked for UPDATE on `updated_at`
@@ -184,7 +194,7 @@ callback inside `apps/api/src/auth/` is the ADR-0010 class of problem, one direc
 - **Leave `auth_rate_limit` writable by `kasuwa_app`** (the first draft). The presented-key policy
   confines a session to a key it can present, and a user's MFA key can be computed from ids an
   attacker inside a tenant already has.
-- **Move sign-in's read phase to the auth pool now.** It is cleaner, but it is blocked on the
-  T-0045 contract (Decision 6). It is the named follow-up, not a rejection.
+- **Move sign-in's read phase to the auth pool now.** Done in T-0157, once T-0045's contract was
+  restated. It was the named follow-up, not a rejection.
 - **A lint rule instead of `AuthModule`** to confine the interceptor. A rule catches an import
   path; a module boundary catches any use at boot, however it is reached.
