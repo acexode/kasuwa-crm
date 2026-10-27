@@ -1,6 +1,6 @@
 # T-0096 — Import wizard screen (P28)
 
-**status** `not-assigned` (suite to be written; can start on mocks after T-0093; the real-API run waits on T-0094) ·
+**status** `done` (suite to be written; can start on mocks after T-0093; the real-API run waits on T-0094) ·
 **owner** Agent 11 · **priority** P1 · **decisions** ADR-0017, D-L128 (ADR-0017 Q4, Q6), D-P28, D-P21, D-L84, D-L87
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0041 — Contacts write, search and filter API
 
-**status** `not-assigned` (builder running: Agent 3, `agent3/T-0041-contacts-api`; suite on `lead/T-0041-acceptance` b79934a) · **owner** Agent 3 · **deps** T-0039 (done), T-0040 · **decisions** D-L60
+**status** `done` (builder running: Agent 3, `agent3/T-0041-contacts-api`; suite on `lead/T-0041-acceptance` b79934a) · **owner** Agent 3 · **deps** T-0039 (done), T-0040 · **decisions** D-L60
 
 ## Goal
 Implement the T-0039 contact operations in `apps/api` and `packages/domain/core`:

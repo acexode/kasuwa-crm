@@ -96,3 +96,25 @@ The prompt is `~/.claude/scheduled-tasks/kasuwa-lead-cycle/SKILL.md`. It is
 reviewed — a real weakness. Keep it thin, and keep the actual instructions in
 `team/STANDING-ORDERS.md`, which the prompt tells the cycle to read. Change
 behaviour there, not in the prompt, so changes are reviewable.
+
+## Working on the Windows machine (Phase 3)
+
+What the plan and the lead's rulings say (`docs/phase3/PLAN.md` section 4, D-L205, D-L207). Nothing here is new policy.
+
+- **Build in the main checkout**, `C:\dev\Outsource\kasuwa`. Create no other worktrees: about 10 GB of disk is free.
+  Between tasks, switch branches in place; commit or stash first.
+- **One verification worktree**: the lead's detached, short-path `C:\kwerify`. Full runs, `next build` and e2e
+  verification happen there, not in the main checkout. Never run two `next build`s, or a `next dev` plus an e2e build, in
+  one checkout: they share `apps/web/.next`.
+- **`git config core.longpaths true`** is set and approved. The main checkout's path is long enough to need it.
+- **One Docker stack at a time.** Check `docker ps` first; the dialler stack counts. Every e2e run, and every acceptance
+  suite that starts the e2e harness, goes through `tools/e2e-locked.sh` (T-0152). Do not start or stop Docker for the
+  user.
+- **Bounded parallelism:** vitest `--maxWorkers=2`, nx `--parallel=2`. At most two heavy jobs at once, which in practice is
+  the main checkout plus `C:\kwerify`.
+- **The PR gate is the fast gate (D-L207).** Every PR runs lint, typecheck, unit, integration and the whole `isolation`
+  project, and these are blocking. UI acceptance (`pnpm test:ui-acceptance`) and the full `pnpm test:e2e` run in the
+  full gate: nightly on main (01:00 UTC), on demand (`gh workflow run CI --ref <branch>`), and on the Windows runner
+  before a slice or the phase closes. Locally, run only the suite or e2e tags a task names. A PR that changes `apps/web`
+  dependencies or a shared chunk also runs the byte-budget tags.
+- **A migration or env-schema PR** gets a full acceptance run on its head before merge (D-L205).

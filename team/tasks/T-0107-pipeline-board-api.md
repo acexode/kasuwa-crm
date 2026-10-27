@@ -1,6 +1,6 @@
 # T-0107 — Pipelines and the board API (P06)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113,
+**status** `done` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113,
 D-L115, D-L120, D-P19, D-P33, D-L97
 
 ## Goal

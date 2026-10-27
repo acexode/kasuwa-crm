@@ -1,6 +1,6 @@
 # T-0090 — Customisation studio: custom fields (P18)
 
-**status** `not-assigned` (waits on T-0089) · **owner** Agent 11 · **priority** P2 · **decisions** ADR-0016, D-L128,
+**status** `done` (waits on T-0089) · **owner** Agent 11 · **priority** P2 · **decisions** ADR-0016, D-L128,
 D-L45
 
 ## Goal

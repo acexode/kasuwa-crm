@@ -1,6 +1,6 @@
 # T-0101 — Bell and notification centre (P26)
 
-**status** `not-assigned` (suite to be written; can start on mocks after T-0099; the real-API run waits on T-0100) ·
+**status** `done` (suite to be written; can start on mocks after T-0099; the real-API run waits on T-0100) ·
 **owner** Agent 11 · **priority** P1 · **decisions** D-P29, D-P21, D-L87, D-L84, D-L134
 
 ## Goal

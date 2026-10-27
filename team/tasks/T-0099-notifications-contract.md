@@ -1,6 +1,6 @@
 # T-0099 — Notifications contract (P26)
 
-**status** `not-assigned` (suite to be written; after T-0093 merges, since both edit `records.openapi.yaml`) · **owner**
+**status** `done` (suite to be written; after T-0093 merges, since both edit `records.openapi.yaml`) · **owner**
 Agent 1 · **priority** P1 · **decisions** D-P29, ADR-0018, D-L87, D-L134, D-L97, D-L23
 
 ## Goal

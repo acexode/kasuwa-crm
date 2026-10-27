@@ -1,6 +1,6 @@
 # T-0024 — Admin API: programmes read and update
 
-**owner** Agent 3 · **status** `not-assigned` · **priority** P0 · **deps** none · **budget** 2 sessions
+**owner** Agent 3 · **status** `done` · **priority** P0 · **deps** none · **budget** 2 sessions
 
 ## Goal
 Implement `listProgrammes` and `getProgramme` in full (both `partial` today), `updateProgramme` and

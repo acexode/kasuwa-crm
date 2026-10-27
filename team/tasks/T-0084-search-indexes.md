@@ -1,6 +1,6 @@
 # T-0084 — List indexes and id-only cursors (D-L68, ADR-0014, D-P33)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** ADR-0014, D-L68, D-L78,
+**status** `done` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** ADR-0014, D-L68, D-L78,
 D-L80, D-L65, D-P30, D-P33 · **migration** 0035
 
 ## Goal

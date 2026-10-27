@@ -1,6 +1,6 @@
 # T-0115 — Script builder screen (P10, admin)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 11 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
+**status** `done` (suite to be written) · **owner** Agent 11 · **priority** P2 · **decisions** D-L88, D-L91, D-L93,
 D-L96, D-P32, D-L97, D-L102
 
 ## Goal

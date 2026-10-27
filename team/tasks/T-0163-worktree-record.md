@@ -1,6 +1,6 @@
 # T-0163 — Worktree cleanup record and an operations note
 
-**id** T-0163 · **status** `not-assigned` · **owner** Cursor · **priority** P3 · **module** Repo (docs) ·
+**id** T-0163 · **status** `done` · **owner** Cursor · **priority** P3 · **module** Repo (docs) ·
 **PRD** Phase 3 plan S0, section 7 · **deps** none · **tier** Docs · **budget** half a session
 
 ## Goal

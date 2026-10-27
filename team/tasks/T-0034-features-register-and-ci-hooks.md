@@ -1,6 +1,6 @@
 # T-0034 — Feature register (D-L36) and hooks mirrored in CI (D-L34)
 
-**owner** Agent 13 · **status** `not-assigned` · **priority** P1 · **deps** none · **budget** 2 sessions
+**owner** Agent 13 · **status** `done` · **priority** P1 · **deps** none · **budget** 2 sessions
 
 ## Goal
 1. Generate `team/FEATURES.md` from the PRD modules, task files, `x-kasuwa-implemented` flags and the feature-flag registry. Each feature gets a state (built, mock-only, flagged off, deferred or not started), its flag, and the decision behind it. A CI check fails when a flag, deferral or mock-only screen has no row (D-L36).

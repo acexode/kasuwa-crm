@@ -1,6 +1,6 @@
 # T-0097 — Duplicates and side-by-side merge screen (P28)
 
-**status** `not-assigned` (suite to be written; can start on mocks after T-0093; the real-API run waits on T-0095) ·
+**status** `done` (suite to be written; can start on mocks after T-0093; the real-API run waits on T-0095) ·
 **owner** Agent 11 · **priority** P1 · **decisions** D-P12, D-P27, D-P28, D-P14, D-L84, D-L87
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0042 — CRM app shell and the P04 Contacts list
 
-**status** `not-assigned` (builder running: Agent 11, `agent11/T-0042-contacts-list`; suite on `lead/T-0042-acceptance` 5f472f9) · **owner** Agent 11 · **deps** T-0039 (done, mock), T-0041 (live) · **decisions** D-L60, D-P1
+**status** `done` (builder running: Agent 11, `agent11/T-0042-contacts-list`; suite on `lead/T-0042-acceptance` 5f472f9) · **owner** Agent 11 · **deps** T-0039 (done, mock), T-0041 (live) · **decisions** D-L60, D-P1
 
 ## Goal
 Behind a new `crm_records` flag (default off):

@@ -2,49 +2,49 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-06, late.** `main` is verified at 7960649. Every merge is checked locally with Docker, because CI minutes are exhausted.
-**New lead session?** Read `team/HANDOFF.md` first. Phases and designs are in `team/ROADMAP.md`; open questions in `team/DECISIONS.md`.
+**2026-10-27.** Phase 2 is complete (D-L192). The UI fidelity programme is complete and Phase 3 is unblocked (D-L204).
+The Phase 3 plan is approved (D-L205, `docs/phase3/PLAN.md`). The work in flight is **S0, the housekeeping slice**.
+**New lead session?** Read `team/HANDOFF.md` first. Phases and designs are in `team/ROADMAP.md`; open questions in
+`team/DECISIONS.md`. The PR gate is the fast gate (D-L207): lint, typecheck, unit, integration and isolation on every PR; UI
+acceptance and e2e run in the full gate.
 
 ## Done
-- **Phase 0:** the foundation.
-- **Phase 1 is now complete,** with T-0049 (#93): a separate `kasuwa_auth` role is the only writer of the auth tables (ADR-0013).
-- **Phase 2 merged today:**
+- **Phase 0:** the foundation. **Phase 1:** hardening, 12 tasks, closing with T-0049 (`kasuwa_auth`, ADR-0013).
+- **Phase 2:** contacts, accounts, leads, the 360° record, activities, search and the command palette, custom fields and the
+  studio, CSV import, duplicates and merge, notifications, pipeline and deals, script builder and agent run, the outbox,
+  the browser session (BFF, ADR-0019). `pnpm demo` runs every screen through the real BFF.
+- **UI fidelity (D-L193 to D-L204):** every built screen was rebuilt to its Claude Design export (P01 to P07, P10, P18,
+  P26, P27, P28). Final gate on D-L204: e2e 740 passed, isolation 4,774 of 4,777 (the rest are the known timing bounds).
+  Every page is under PRD 2.13's 300,000-byte budget.
 
-| PR | Task | What |
+## In flight: Phase 3, S0 housekeeping
+| Task | PR | State |
 |---|---|---|
-| #83 | T-0041 | Contacts API: create, edit, search, filter |
-| #81 | T-0042 | CRM shell and the Contacts screen (behind `crm_records`) |
-| #88 | T-0052 | Accounts contract |
-| #89 | T-0051 | Agents may set a contact's status and own it (D-P14) |
-| #90 | T-0050 | The en-XA preview is development and test only |
-| #92 | T-0043 | Programme and owner names, never ids |
-| #91 | T-0053 | Standard objects as metadata; field security for any object |
-| #94 | T-0059 | Contract for the 360° record view (contact side) |
-
-## In flight
-| Task | State |
-|---|---|
-| T-0054 account fields (migration 0026) | Builder running |
-| T-0055 Accounts API | Task written; suite after T-0054 |
-| T-0060 activity table, T-0061 timeline API | Tasks written |
-| T-0075 sign-in reads on the auth pool | Task written (follow-up to D-L70) |
-| T-0035 wrapper fix (`lead/T-0035-wrapper-portable`) | Lead edit committed; PR pending. It ends the 6 known Windows failures |
+| T-0153 same-major fixes and the re-triaged OSV baseline | #218 | merged |
+| T-0152 `tools/e2e-locked.sh` and a truthful e2e README | #222 | merged |
+| S0 acceptance suites and task files | #228 | open, for the lead |
+| T-0158 `GET /me/capabilities`; the web hides write controls | #229 | open |
+| T-0160 authenticated, scoped realtime gateway (ADR-0020) | #230 | open |
+| T-0157 sign-in reads on the auth pool (D-A3) | #231 | open |
+| T-0159 Home layout on the server (migration 0045) | #232 | open |
+| T-0161 D-L204 polish items | #233 | open |
+| T-0162 D-L192 carry-overs ledger; TOTP claim race | #234 | open |
+| T-0197 csv-parse 5 to 7 | #235 | open |
+| T-0154, T-0155, T-0163 trackers, design intake, worktree record | this PR | open |
+| T-0198 zod 3 to 4 | not started | last in S0, because it touches almost every package |
 
 ## Waiting on you
 | | |
 |---|---|
-| **D-P17** | Is a lead its own object or a stage of a contact? This blocks the Leads API and screen |
-| **D-P18** | What agents may do on accounts, deals and activities, and team-lead rights on contacts |
-| **D-P19, D-P20** | Pipeline column totals; stage gating in the MVP |
-| **D-P21, D-P22** | Offline edits on the device (NDPA); calendar sync, booking pages and holidays |
-| **D-P23** | A contact's owner who has left its programme |
-| **D-P24, D-P25** | A namespace for custom fields on standard objects; may a tenant lower a standard field's classification |
-| **Designs** | P18, P28, P27, P26 (P05, P06 and P07 are committed) |
-| **Dotgo, cloud provider, CI minutes** | Phases 3 and 4 |
+| **Provider and BSP (B1)** | Dotgo's SMS fallback, rates, data location, DPA and sender IDs. Sender-ID and DND whitelisting takes 4 to 6 weeks, so ask now |
+| **B2 to B5** | Portal identity model; payment refunds and reconciliation; the NRS MBS route; the FX source |
+| **Designs** | P21 (quotes and invoicing), P23 (client portal), P02 Channels and Compliance, and a P08 re-export. Only the three screen tasks (T-0171, T-0184, T-0192) wait for them |
+| **Reviewers** | fr and pcm drafts need a human reviewer |
 
 ## Risks the lead is carrying
-- **`auth-availability` timing bounds** fail on this host under load, on main and on branches alike. This was confirmed by
-  instrumenting both pools during T-0049.
-- **D-L70:** `kasuwa_app` can still read password hashes until T-0075.
-- **D-L68:** search has no index yet.
+- **Runtime advisories (D-L206):** the zod finding is accepted only until **2026-12-31**; T-0198 removes it. The csv-parse
+  one is fixed by T-0197 once #235 merges.
+- **Secret reads (D-L70):** `kasuwa_app` can still read password hashes and MFA secrets until T-0157 (#231, migration 0046) lands.
+- **auth-availability timing bounds** fail on a loaded host, on main and on branches alike. Known noise.
 - **Production readiness:** no production cell exists (D-L65) and there is no branch protection (D-L34).
+- **Dev machine:** 16 GB shared with the dialler. One Docker stack at a time; see `team/OPERATIONS.md`.

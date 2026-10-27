@@ -1,6 +1,6 @@
 # T-0109 — Pipeline Kanban and list view (P06)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 11 · **priority** P1 · **decisions** D-L88, D-L113,
+**status** `done` (suite to be written) · **owner** Agent 11 · **priority** P1 · **decisions** D-L88, D-L113,
 D-L115, D-L123, D-L124, D-L127, D-P19, D-L97, D-L102
 
 ## Goal

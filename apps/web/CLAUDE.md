@@ -5,7 +5,8 @@
 
 ## What this package is
 
-Next.js App Router shell. Routes today:
+Next.js App Router shell. Routes today (every `page.tsx` under `app/`; `team/FEATURES.md` is the register for flags and
+operations):
 
 | Route | Screens | Notes |
 |---|---|---|
@@ -32,6 +33,19 @@ Next.js App Router shell. Routes today:
 | `/pipelines/[pipelineId]` | `P06/01`, `P06/01b` | The board and list view behind one switch (T-0109). A real 404 when the flag is off or the id is not a uuid. Reads and writes through `lib/pipelines-api.ts`; money only through `lib/deal-money.ts`, never a JS number. Cards link their deal |
 | `/deals/[dealId]` | `P06/05`, `P06/06` | The deal record (T-0110, D-L132), behind `crm_pipeline`: a real 404 when off or for a non-uuid id. Reads through `lib/deal-detail-api.ts`; reuses T-0109's move sheet and prompt; the timeline is re-read after every write |
 | `/search` | `P27` A1, A2, A4, A5 | The global search (T-0087), **behind `crm_search`**: a real 404 while it is off. The same flag draws the CRM shell's header entry and the Ctrl/Cmd+K palette (`components/search/command-palette.tsx`, D1's record rows), loaded by a dynamic `import()` on first open and never in a screen's first load (R29). Names go to searchRecords as `q`; a phone number or an email address only to lookupRecords in a POST body, never into any URL (D-L135, `lib/search-query.ts`). "See all" lands on `/contacts`, `/leads` or `/accounts` with `?q=`, which those lists read once as a name and then drop from the address bar |
+| `/home` | `P03` | **Behind `crm_home`** (D-L196): a real 404 while it is off; sign-in lands on it when it is on. The widgets read the real endpoints and show flagged placeholders where a module is not built (D-L194). The per-user layout is client-side today (D-L204); the server home for it is T-0159, `home_layout_server` |
+| `/activities` | `P07` | **Behind `crm_activities`**: a real 404 while it is off. Tasks, the calendar and meetings; placeholders for calendar sync and reminders sit behind their own flags (D-L194) |
+| `/notifications` | `P26` | **Behind `crm_notifications`**: a real 404 while it is off. The notification centre; the bell in the shell uses the same flag |
+| `/settings/notifications` | `P26` | **Behind `notification_preferences`**. There is no preferences API yet, so the screen is the design's disabled state |
+| `/contacts/import` | `P28` | **Behind `crm_import` and `crm_records`** (T-0096): a real 404 unless both are on. Browser-direct upload to storage, then mapping, phones and run. Also reachable under `/admin/data/import` |
+| `/contacts/duplicates` | `P28` | **Behind `crm_duplicates` and `crm_records`** (T-0097): a real 404 unless both are on. Duplicates, merge and undo; the three-way merge has its own flag, `merge_three_way`. Also reachable under `/admin/data/duplicates` |
+| `/scripts`, `/scripts/[scriptId]` | `P10/05` | **Behind `crm_scripts` and `crm_records`** (T-0115): the script list and the builder |
+| `/script-runs/[runId]` | `P10/01`, `P10/04` | **Behind `crm_scripts`, `crm_record_view` and `crm_records`** (T-0116): the agent's in-call script run, manual mode |
+| `/admin/custom-fields` | `P18` | **Behind `crm_custom_fields`** (T-0090): the custom-field studio |
+| `/admin/studio`, `/admin/studio/layouts`, `/admin/studio/layouts/builder`, `/admin/studio/record-types`, `/admin/studio/relationships`, `/admin/studio/validation-rules` | `P18` | The customisation studio. Each is a real 404 unless its own `studio_*` flag is on (`studioFlags()`); the layout builder also needs `crm_custom_fields` |
+| `/admin/data` | `P28` | **Behind `data_management`**: a real 404 while it is off. Redirects to the first section that is on |
+| `/admin/data/import`, `/admin/data/duplicates`, `/admin/data/exports`, `/admin/data/migration`, `/admin/data/requests` | `P28` | The data area's sections, each its own flag (`crm_import`, `crm_duplicates`, `data_export`, `data_migration`, `dsr`). Exports, migration and requests are the design's disabled states: no backend exists (D-L194) |
+| `/design/components`, `/design/components-2` | — | The `@kasuwa/ui/components` galleries (D-L200). Development reference, not product screens |
 | `/design/tokens` | — | The token gallery. It used to be at `/`. |
 
 All sixteen P01 screens are built (`team/reports/T-0007.md`, `T-0007b.md`), and

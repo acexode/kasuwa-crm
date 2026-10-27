@@ -1,6 +1,6 @@
 # T-0085 — Global search contract (P27)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** ADR-0014, ADR-0015,
+**status** `done` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** ADR-0014, ADR-0015,
 D-L128, D-P13, D-L87, D-L80, D-L68, D-L97
 
 ## Goal

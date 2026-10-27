@@ -1,6 +1,6 @@
 # T-0086 — Global search API and prefix indexes (P27)
 
-**status** `not-assigned` (suite to be written; after T-0085) · **owner** Agent 3 · **priority** P1 · **decisions**
+**status** `done` (suite to be written; after T-0085) · **owner** Agent 3 · **priority** P1 · **decisions**
 ADR-0014, ADR-0015, D-L128, D-P33, D-L65, D-L80, D-L68 · **migration** 0038
 
 ## Goal

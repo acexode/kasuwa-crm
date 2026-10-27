@@ -1,6 +1,6 @@
 # T-0032 — Permissions engine (closes D-L51, D-L40, and the missing admin 403s)
 
-**owner** Agent 1 · **status** `not-assigned` · **priority** P0 · **deps** none · **budget** 3 sessions
+**owner** Agent 1 · **status** `done` · **priority** P0 · **deps** none · **budget** 3 sessions
 
 ## Goal
 Decide, in one place, what a session may do, on top of what it may see (RLS already does that).
