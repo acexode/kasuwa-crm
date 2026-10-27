@@ -1,183 +1,243 @@
-# osv-scanner policy for the `Dependency scan` CI job (T-0005).
+# osv-scanner policy for the `Dependency scan` CI job (T-0005, re-triaged by T-0153).
 #
 # The job fails on ANY known vulnerability in pnpm-lock.yaml, whatever its
 # severity: OSV severities are frequently missing or late, and "unscored" must
 # not read as "fine". The only way past a finding is an entry below, which is a
 # reviewed diff with a reason and an expiry.
 #
-# BASELINE, NOT ACCEPTANCE. Every entry below was already in the lockfile when
-# the scan was introduced (2026-10-02): 36 findings in 14 packages, 1 critical
-# and 13 high. Most are in dev and test tooling (vitest, vite, nx, esbuild,
-# testcontainers' undici and uuid). One was in the API's runtime path —
-# drizzle-orm, via @kasuwa/db — and was upgraded to 0.45.3 by T-0037, so its
-# entry (GHSA-gpj5-g38j-94v9) is gone. Fixing the rest needs major upgrades
-# (vitest 3/4, nx 22, vite 6), which is its own task.
+# T-0153 (2026-10-26). The T-0005 baseline expired on 2026-10-31 and was
+# boilerplate ("pre-existing"). Each finding was read again against the lockfile
+# and this repo's use of the package:
 #
-# They expire together on 2026-10-31. After that date the scan goes red until
-# each is fixed or re-accepted with a real, per-finding reason. That is
-# deliberate: a baseline with no expiry is a permanent exemption.
-
-[[IgnoredVulns]]
-id = "GHSA-82fw-gwwq-j7x9"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: @vitest/mocker 2.1.9 (fixed in 4.1.11, CVSS 5.9); vitest 2.1.9 (fixed in 4.1.11, CVSS 5.9)"
-
-[[IgnoredVulns]]
-id = "GHSA-67mh-4wv8-2f99"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: esbuild 0.18.20 (fixed in 0.25.0, CVSS 5.3); esbuild 0.21.5 (fixed in 0.25.0, CVSS 5.3); esbuild 0.24.2 (fixed in 0.25.0, CVSS 5.3). The esbuild 0.19 line left the lockfile with the drizzle-kit 0.31 bump (T-0037)."
-
-[[IgnoredVulns]]
-id = "GHSA-23c5-xmqv-rm74"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: minimatch 9.0.3 (fixed in 9.0.7, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-3ppc-4f35-3m26"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: minimatch 9.0.3 (fixed in 9.0.6, CVSS 8.7)"
-
-[[IgnoredVulns]]
-id = "GHSA-7r86-cg39-jmmj"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: minimatch 9.0.3 (fixed in 9.0.7, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-g2r8-wvmj-jf5w"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: nx 21.6.11 (fixed in 22.7.2, CVSS 5.9)"
-
-[[IgnoredVulns]]
-id = "GHSA-vp3h-ghgh-jr7g"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: nx 21.6.11 (fixed in 22.7.7, CVSS 8.7)"
-
-[[IgnoredVulns]]
-id = "GHSA-3v7f-55p6-f55p"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: picomatch 4.0.2 (fixed in 4.0.4, CVSS 5.3)"
-
-[[IgnoredVulns]]
-id = "GHSA-c2c7-rcm5-vvqj"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: picomatch 4.0.2 (fixed in 4.0.4, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-6g55-p6wh-862q"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: postcss 8.4.31 (fixed in 8.5.12, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-fxqj-rqcc-2cmp"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: postcss 8.4.31 (fixed in 8.5.23, CVSS 6.3)"
-
-[[IgnoredVulns]]
-id = "GHSA-qx2v-qp2m-jg93"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: postcss 8.4.31 (fixed in 8.5.10, CVSS 6.1)"
-
-[[IgnoredVulns]]
-id = "GHSA-r28c-9q8g-f849"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: postcss 8.4.31 (fixed in 8.5.18, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-2mjp-6q6p-2qxm"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.24.0, CVSS 6.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-35p6-xmwp-9g52"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.27.0, CVSS 3.7)"
-
-[[IgnoredVulns]]
-id = "GHSA-4992-7rv2-5pvq"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.24.0, CVSS 4.6)"
-
-[[IgnoredVulns]]
-id = "GHSA-8xcm-r25x-g524"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.28.0, CVSS 4.8)"
-
-[[IgnoredVulns]]
-id = "GHSA-g8m3-5g58-fq7m"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.27.0, CVSS 3.7)"
-
-[[IgnoredVulns]]
-id = "GHSA-g9mf-h72j-4rw9"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.23.0, CVSS 5.9)"
-
-[[IgnoredVulns]]
-id = "GHSA-m8rv-5g2x-5cg5"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.28.0, CVSS 4.2)"
-
-[[IgnoredVulns]]
-id = "GHSA-p88m-4jfj-68fv"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.27.0, CVSS 5.9)"
-
-[[IgnoredVulns]]
-id = "GHSA-r53p-7pc4-xj5r"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.28.1, CVSS 3.7)"
-
-[[IgnoredVulns]]
-id = "GHSA-v3r7-h72x-cjcm"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.28.0, CVSS 4.8)"
-
-[[IgnoredVulns]]
-id = "GHSA-v9p9-hfj2-hcw8"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.24.0, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-vrm6-8vpv-qv8q"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.24.0, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-vxpw-j846-p89q"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: undici 5.29.0 (fixed in 6.27.0, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-w5hq-g745-h8pq"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: uuid 10.0.0 (fixed in 11.1.1, CVSS 7.5)"
-
-[[IgnoredVulns]]
-id = "GHSA-4w7w-66w2-5vf9"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: vite 5.4.21 (fixed in 6.4.2, CVSS 6.3)"
-
-[[IgnoredVulns]]
-id = "GHSA-fx2h-pf6j-xcff"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: vite 5.4.21 (fixed in 6.4.3, CVSS 8.2)"
-
-[[IgnoredVulns]]
-id = "GHSA-v6wh-96g9-6wx3"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: vite 5.4.21 (fixed in 6.4.3, CVSS 5.5)"
+#   FIXED by an upgrade (entry deleted). Same-major patch fixes, taken in
+#   package.json "pnpm.overrides" where a parent pins the old version exactly,
+#   and in the apps' own devDependencies:
+#     minimatch 9.0.3 -> 9.0.9, picomatch 4.0.2 -> 4.0.7  (nx's exact pins)
+#     esbuild 0.24.2 -> ^0.25.12                          (apps/api, realtime, worker)
+#     next 15.5.26 -> 15.5.28, sharp 0.35.4 -> 0.35.5     (apps/web; runtime)
+#     multer 2.4.0 -> 2.5.0, body-parser 2.3.0 -> 2.4.0   (apps/api; runtime)
+#     fast-uri 3.1.8 -> 3.1.9, follow-redirects 1.16.0 -> 1.16.1,
+#     postcss-selector-parser 6.1.4 -> 6.1.5, source-map-js 1.2.1 -> 1.2.2
+#   WITHDRAWN upstream (entry deleted): GHSA-vfj7-8cjw-p6xm (braces).
+#
+#   RE-ACCEPTED below, one entry per advisory, for one quarter. Every one is in
+#   dev, test or build tooling that never reaches a runtime closure, and each
+#   says why it is not reachable here and what ends it. The ones that need a
+#   major upgrade (vitest 3/4, vite 6, nx 22, testcontainers) are not this task.
+#
+#   ACCEPTED, RUNTIME-BOUNDED (D-L206), until 2026-12-31 only: two RUNTIME findings
+#   that only a major upgrade fixes, so they cannot be called dev/test/build-only.
+#   Each says what caps the input that triggers it, and names the task that
+#   removes it:
+#     GHSA-mrhx-c7xc-m3w5  zod 3.25.76 (fixed in 4.6.6)         fix: T-0198
+#     GHSA-8cw4-87c7-c6xx  csv-parse 5.6.0 (fixed in 7.0.2)     fix: T-0197
+#   See team/reports/T-0153.md for the analysis.
+#
+# The new expiry is 2027-01-31. After it the scan goes red until each entry is
+# fixed or re-accepted with a real, per-finding reason. That is deliberate: a
+# baseline with no expiry is a permanent exemption.
 
 [[IgnoredVulns]]
 id = "GHSA-5xrq-8626-4rwp"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "T-0005 baseline, pre-existing: vitest 2.1.9 (fixed in 3.2.6, CVSS 9.8)"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vitest 2.1.9 (CVSS 9.8, fixed in 3.2.6): arbitrary file read and execution while the Vitest UI server is listening. dev-only: a devDependency of the root and packages/testing. not reachable: no @vitest/ui or browser-mode package is installed, no vitest config sets api, ui or a port, and no script, hook or CI step passes --ui or --api; Vitest only calls server.listen() when api.port is set, so no server ever listens and tests run in a one-shot node process. fix: vitest 3.2.6 or later is a major upgrade (its own task); re-triage by the expiry."
 
 [[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "Published after the T-0005 baseline; caught on the scanner's first CI run. braces 3.0.3, dev-only via tailwindcss (chokidar, micromatch), no fixed version, not in any runtime path (CVSS 8.7). Re-check by the expiry."
+id = "GHSA-82fw-gwwq-j7x9"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "@vitest/mocker 2.1.9 (shipped with vitest 2.1.9): path traversal and arbitrary file read through a redirect mock (CVSS 5.9, fixed in 4.1.11). dev-only: a devDependency of the root and packages/testing. not reachable: the mocker is reached only through a Vitest/Vite server that someone connects to, and none listens (no api, ui or port is configured, no browser mode); mocks here are written by us in our own tests. fix: vitest 4.1.12 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-qxg6-89mg-rqv8"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "@vitest/mocker 2.1.9 (shipped with vitest 2.1.9): code injection through an unauthenticated manual mock registration (CVSS 4.7, fixed in 4.1.12). dev-only: a devDependency of the root and packages/testing. not reachable: the mocker is reached only through a Vitest/Vite server that someone connects to, and none listens (no api, ui or port is configured, no browser mode); mocks here are written by us in our own tests. fix: vitest 4.1.12 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-67mh-4wv8-2f99"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "esbuild 0.18.20 (drizzle-kit loader) and esbuild 0.21.5 (vite) (CVSS 5.3, fixed in 0.25.0): any website can send requests to esbuild's development server. dev-only: both are transitive devDependencies; the apps' own esbuild moved to ^0.25.12 in T-0153. not reachable: the finding needs esbuild's serve mode to be running; every build script here is a one-shot `esbuild --bundle`, nothing in the repo calls serve, and drizzle-kit's loader and vite use only transform and build. fix: drizzle-kit moving off @esbuild-kit, and vitest 3/4 (vite 6); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-g2r8-wvmj-jf5w"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "nx 21.6.11: `nx graph` dev server has a permissive CORS policy (CVSS 5.9, fixed in 22.7.2). dev-only: the build orchestrator, a root devDependency that runs on developer machines and CI runners and is in no runtime closure. not reachable: `nx graph` is not run by any script or CI step. fix: nx 22.7.10 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-vp3h-ghgh-jr7g"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "nx 21.6.11: zip-slip in the self-hosted remote cache (fixed in 22.7.7). dev-only: the build orchestrator, a root devDependency that runs on developer machines and CI runners and is in no runtime closure. not reachable: nx.json configures no remote cache and no NX_SELF_HOSTED_REMOTE_CACHE_SERVER is set. fix: nx 22.7.10 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-hrvq-x7jp-36xv"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "nx 21.6.11: path traversal in `nx migrate` package-migrations extraction (CVSS 5.8, fixed in 22.7.10). dev-only: the build orchestrator, a root devDependency that runs on developer machines and CI runners and is in no runtime closure. not reachable: `nx migrate` runs only when a maintainer upgrades nx, against packages they chose. fix: nx 22.7.10 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-w2vw-w76x-qr89"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "nx 21.6.11: OS command injection through git revisions and remote refs (CVSS 8.5, fixed in 22.7.8). dev-only: the build orchestrator, a root devDependency that runs on developer machines and CI runners and is in no runtime closure. not reachable: CI computes the base with nrwl/nx-set-shas (commit SHAs), and no workflow passes a branch name or ref from a pull request into an nx command. fix: nx 22.7.10 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-w3vv-58gj-gw77"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "nx 21.6.11: the nx daemon and plugin worker sockets are reachable by other local users (CVSS 8.5, fixed in 22.7.9). dev-only: the build orchestrator, a root devDependency that runs on developer machines and CI runners and is in no runtime closure. not reachable: it needs a second local user on the same machine, and nx runs on single-user developer machines and ephemeral CI runners. fix: nx 22.7.10 or later is a major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-6g55-p6wh-862q"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "postcss 8.4.31 (pinned exactly by next 15.5.28 in apps/web): arbitrary file read through an attacker-controlled sourceMappingURL in CSS comments (CVSS 7.5, fixed in 8.5.12). build-only: it runs while Next compiles this repo's own Tailwind CSS, and `next start` serves the compiled output. not reachable: it never processes CSS from a user or from outside this repo, and no sourceMappingURL or stringified CSS from a request reaches it. fix: it clears when Next moves its postcss pin. An override to 8.5.x was not taken: it would change the CSS pipeline that the PRD 2.13 page byte budgets (zero headroom on the pipeline board) are measured against, so it needs its own measured task."
+
+[[IgnoredVulns]]
+id = "GHSA-fxqj-rqcc-2cmp"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "postcss 8.4.31 (pinned exactly by next 15.5.28 in apps/web): incomplete fix of GHSA-6g55-p6wh-862q: sourceMappingURL reads .map files when `from` is unset (fixed in 8.5.23). build-only: it runs while Next compiles this repo's own Tailwind CSS, and `next start` serves the compiled output. not reachable: it never processes CSS from a user or from outside this repo, and no sourceMappingURL or stringified CSS from a request reaches it. fix: it clears when Next moves its postcss pin. An override to 8.5.x was not taken: it would change the CSS pipeline that the PRD 2.13 page byte budgets (zero headroom on the pipeline board) are measured against, so it needs its own measured task."
+
+[[IgnoredVulns]]
+id = "GHSA-qx2v-qp2m-jg93"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "postcss 8.4.31 (pinned exactly by next 15.5.28 in apps/web): XSS through an unescaped </style> in stringified CSS (CVSS 6.1, fixed in 8.5.10). build-only: it runs while Next compiles this repo's own Tailwind CSS, and `next start` serves the compiled output. not reachable: it never processes CSS from a user or from outside this repo, and no sourceMappingURL or stringified CSS from a request reaches it. fix: it clears when Next moves its postcss pin. An override to 8.5.x was not taken: it would change the CSS pipeline that the PRD 2.13 page byte budgets (zero headroom on the pipeline board) are measured against, so it needs its own measured task."
+
+[[IgnoredVulns]]
+id = "GHSA-r28c-9q8g-f849"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "postcss 8.4.31 (pinned exactly by next 15.5.28 in apps/web): path traversal in previous source map auto-loading (CVSS 7.5, fixed in 8.5.18). build-only: it runs while Next compiles this repo's own Tailwind CSS, and `next start` serves the compiled output. not reachable: it never processes CSS from a user or from outside this repo, and no sourceMappingURL or stringified CSS from a request reaches it. fix: it clears when Next moves its postcss pin. An override to 8.5.x was not taken: it would change the CSS pipeline that the PRD 2.13 page byte budgets (zero headroom on the pipeline board) are measured against, so it needs its own measured task."
+
+[[IgnoredVulns]]
+id = "GHSA-5gmw-xhrv-c9v3"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "tinypool 1.1.1 (vitest 2.1.9's worker pool): prototype pollution gadget in worker options leads to code execution (fixed in 2.1.1). dev-only: a devDependency of the root and packages/testing. not reachable: pool options come from this repo's vitest configs and the CLI, never from untrusted input, and the finding needs attacker-controlled objects to reach the pool. fix: tinypool 2.1.2 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-85c8-ppgw-ccpr"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "tinypool 1.1.1 (vitest 2.1.9's worker pool): prototype pollution gadget in run() options leads to code execution (fixed in 2.1.2). dev-only: a devDependency of the root and packages/testing. not reachable: pool options come from this repo's vitest configs and the CLI, never from untrusted input, and the finding needs attacker-controlled objects to reach the pool. fix: tinypool 2.1.2 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-2mjp-6q6p-2qxm"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): HTTP request and response smuggling (CVSS 6.5, fixed in 6.24.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-35p6-xmwp-9g52"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): response queue poisoning through keep-alive socket reuse (CVSS 3.7, fixed in 6.27.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-4992-7rv2-5pvq"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): CRLF injection through the `upgrade` option (CVSS 4.6, fixed in 6.24.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-8xcm-r25x-g524"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): downstream response desynchronisation through the retry interceptor (CVSS 4.8, fixed in 6.28.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-g8m3-5g58-fq7m"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): Set-Cookie SameSite downgrade through substring matching (CVSS 3.7, fixed in 6.27.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-g9mf-h72j-4rw9"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): unbounded decompression chain in fetch responses (CVSS 5.9, fixed in 6.23.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-m8rv-5g2x-5cg5"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): CRLF injection through a blob-like body `type` (CVSS 4.2, fixed in 6.28.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-p88m-4jfj-68fv"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): header injection through Set-Cookie percent-decoding (CVSS 5.9, fixed in 6.27.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-r53p-7pc4-xj5r"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): downstream response splitting through the retry interceptor (CVSS 3.7, fixed in 6.28.1). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-v3r7-h72x-cjcm"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): cookie attribute injection through unsanitised domain fields (CVSS 4.8, fixed in 6.28.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-v9p9-hfj2-hcw8"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): unhandled exception in the WebSocket client on invalid server_max_window_bits (CVSS 7.5, fixed in 6.24.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-vrm6-8vpv-qv8q"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): unbounded memory use in WebSocket permessage-deflate decompression (CVSS 7.5, fixed in 6.24.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-vxpw-j846-p89q"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): WebSocket client denial of service through a fragment count bypass (CVSS 7.5, fixed in 6.27.0). test-only: reached through @kasuwa/testing, packages/testing and tests/*; CLAUDE.md section 6.6 bars application code from importing @kasuwa/testing, so it is in no runtime closure. not reachable: it talks only to the local Docker daemon and to containers the test run starts, so no untrusted server, redirect, cookie or response body reaches it. fix: a testcontainers release on undici 6.28.1 or later (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-w5hq-g745-h8pq"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "uuid 10.0.0 (CVSS 7.5, fixed in 11.1.1): missing buffer bounds check in v3, v5 and v6 when `buf` is provided. test-only: reached through testcontainers 10.28.0 and dockerode 4.0.12 (packages/testing, tests/*). not reachable: dockerode calls only uuid v4, without a buffer (lib/session.js), and no Kasuwa code calls uuid. fix: a testcontainers release on dockerode with uuid 11 or later (its own task); re-triage by the expiry."
 
 [[IgnoredVulns]]
 id = "GHSA-x8mw-p69m-v3mx"
-ignoreUntil = 2026-10-31T00:00:00Z
-reason = "Published after the T-0005 baseline. @fastify/busboy 2.1.1, test-only via testcontainers -> undici 5 (packages/testing); never in a runtime path (CVSS 7.5). Fixed in 3.2.1: resolve by upgrading testcontainers before the expiry."
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "@fastify/busboy 2.1.1 (via undici 5.29.0 via testcontainers 10.28.0): denial of service through a prototype-named multipart part header (CVSS 7.5, fixed in 3.2.1). test-only: reached through @kasuwa/testing, packages/testing and tests/*, and in no runtime closure. not reachable: it parses multipart bodies, and testcontainers never receives or sends multipart to a party outside the test run. fix: it clears with the testcontainers upgrade that drops undici 5 (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-gxm5-99cw-xjw9"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "@fastify/busboy 2.1.1 (via undici 5.29.0 via testcontainers 10.28.0): CRLF injection through multipart Content-Disposition filename and name (CVSS 5.8, fixed in 3.2.2). test-only: reached through @kasuwa/testing, packages/testing and tests/*, and in no runtime closure. not reachable: it parses multipart bodies, and testcontainers never receives or sends multipart to a party outside the test run. fix: it clears with the testcontainers upgrade that drops undici 5 (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-4w7w-66w2-5vf9"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): path traversal in optimized-deps .map handling (fixed in 6.4.2). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-fx2h-pf6j-xcff"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): `server.fs.deny` bypass on Windows alternate paths (CVSS 7.5, fixed in 6.4.3). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-v6wh-96g9-6wx3"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): launch-editor NTLMv2 hash disclosure through UNC paths on Windows (fixed in 6.4.3). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-587h-7wmj-h5pm"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): launch-editor existence check bypass on Windows (CVSS 7.5, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-698v-4r3x-3vcv"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): launch-editor escapeCmdArgs omits % escaping on Windows (CVSS 6.3, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-r825-w8mm-5pxw"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): launch-editor editor CLI flag misinterpretation leads to command execution (CVSS 6.3, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-9jrq-w75r-8gcw"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): cross-origin script execution through Vite custom middleware (CVSS 2.1, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-rq7h-c2jc-7f22"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "vite 5.4.21 (vitest 2.1.9's transform engine): files outside server.fs.allow served when project paths match system paths (CVSS 6.3, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-mrhx-c7xc-m3w5"
+ignoreUntil = 2026-12-31T00:00:00Z
+reason = "zod 3.25.76 (CVSS 8.2, fixed in 4.6.6): memory exhaustion while validating an oversized constrained collection. runtime-bounded: zod validates request bodies in apps/api. bounded: every JSON body is capped at 512 KiB by apps/api/src/common/json-body-limit.ts before any route or zod schema runs, and a larger body is body-parser's 413, so the collection size that triggers this is capped. This is a time-boxed acceptance, not a not-reachable claim. fix: T-0198 (zod 3 to 4, S0, before S1) removes it; re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-8cw4-87c7-c6xx"
+ignoreUntil = 2026-12-31T00:00:00Z
+reason = "csv-parse 5.6.0 (CVSS 6.9, fixed in 7.0.2): prototype replacement through the columns option. runtime-bounded: csv-parse is used by apps/worker csv-stream.ts. bounded: csv-stream.ts never sets columns (its options are bom, relax_column_count, skip_empty_lines and max_record_size), so the vulnerable path is not taken, and every record is capped at 64 KiB before it reaches the parser. This is a time-boxed acceptance, not a not-reachable claim. fix: T-0197 (csv-parse 5 to 7, S0) removes it; re-triage by the expiry."
