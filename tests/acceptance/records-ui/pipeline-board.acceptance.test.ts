@@ -251,9 +251,9 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // Re-pinned by the lead in T-0110's suite branch (R15): the hostile card's link check judges its summaries only.
-  [SPEC]: 'df4b7da5931b431e12514d8390d4ec322eca8c9e1d41a38dbf347b4c41e06d91',
+  [SPEC]: '47d1820a52213a3ab0b9a824b3219a5d013e7ab415c85c62a8aedaf0caf64efa',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and listDeals' custom filters.
-  [MOCK]: 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
+  [MOCK]: '20923d649ca30d0c10914ead6aacba16a2267620efd4c253dbc10e18de9308dc',
 };
 
 /**

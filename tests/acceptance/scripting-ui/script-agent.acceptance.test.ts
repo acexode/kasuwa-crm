@@ -138,7 +138,7 @@ const CONTRACT = 'docs/api/scripting.openapi.yaml';
 
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '1a0bdbcd7b46b3207b121dccccfd535592119f6b3fdc9a00c90d8b7c16088731',
-  [MOCK]: 'e4339089f35fab5bc47aad42ddaedc2663e36ba991fdbf56b18fb7132fc93574',
+  [MOCK]: '66f8d540ecfd755363f4bfa764e69dc52112000f50af88ce8c2f06e61470b6dc',
 };
 
 const SCRIPT_RUN_BUDGET_CEILING = 275_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)

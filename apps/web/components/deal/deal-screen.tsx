@@ -110,6 +110,10 @@ const ActivityForm = clientLazy(() => import('../record/activity-form').then((mo
 
 const PANEL = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4';
 
+/** Placeholders the breadcrumb's qualified label is rendered with, then split on: no catalogue text holds a private-use character. */
+const NAME_SLOT = '\uE000N';
+const PROGRAMME_SLOT = '\uE000P';
+
 const LOG_TYPES = ['note', 'task', 'call'] as const;
 type LogType = (typeof LOG_TYPES)[number];
 
@@ -399,7 +403,30 @@ function Ready({
   // The breadcrumb names the pipeline getPipeline served, and its programme once listMyProgrammes has said which one (T-0161,
   // D-L204): the detail never lists pipelines, so it cannot tell whether a namesake exists and always qualifies. Without the
   // programme's name (still loading, failed, or not one of the caller's own) it is the pipeline alone, never an id.
-  const pipelineLabel = programmeName === null ? pipeline.name : t.t('pipeline.select.qualified', { name: pipeline.name, programme: programmeName });
+  // Only the two names are record text; the joining copy around them is the catalogue's (D-L208: marking the whole
+  // qualified string forged record text under en-XA). The message is rendered with sentinels and split on them, so
+  // the order and separator stay the locale's.
+  const pipelineLabel =
+    programmeName === null ? (
+      <span data-record-text="">{pipeline.name}</span>
+    ) : (
+      t
+        .t('pipeline.select.qualified', { name: NAME_SLOT, programme: PROGRAMME_SLOT })
+        .split(/(\uE000[NP])/)
+        .map((piece, index) =>
+          piece === NAME_SLOT ? (
+            <span key={index} data-record-text="">
+              {pipeline.name}
+            </span>
+          ) : piece === PROGRAMME_SLOT ? (
+            <span key={index} data-record-text="">
+              {programmeName}
+            </span>
+          ) : (
+            piece
+          ),
+        )
+    );
   const nowMs = Date.now();
   const moves = stageMoves(pipeline, deal);
   const unmetFor = (target: PipelineStage) => requirementViews(target, deal, deal.withheldFields).filter((view) => !view.met).length;
@@ -422,12 +449,10 @@ function Ready({
             <li className="inline-flex min-w-0 items-center gap-1">
               <Icon name="chevron_right" size={16} className="text-text-muted rtl:-scale-x-100" />
               {pipelineHref === null ? (
-                <span data-record-text="" className="break-words">
-                  {pipelineLabel}
-                </span>
+                <span className="break-words">{pipelineLabel}</span>
               ) : (
                 <Link prefetch={false} href={pipelineHref} className={`inline-flex min-w-0 items-center break-words underline underline-offset-[3px] text-primary-text ${FOCUS}`}>
-                  <span data-record-text="">{pipelineLabel}</span>
+                  <span>{pipelineLabel}</span>
                 </Link>
               )}
             </li>

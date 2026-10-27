@@ -152,8 +152,8 @@ const CONTRACT = 'docs/api/scripting.openapi.yaml';
 
 /** The pinned browser half (CRLF folded to LF; the budget literal normalised). */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: 'be5769d3a98d2e9b8e3eb1de56abd3e714cce5f4d8fe13a16ed277a063e815d5',
-  [MOCK]: 'e4339089f35fab5bc47aad42ddaedc2663e36ba991fdbf56b18fb7132fc93574',
+  [SPEC]: '9dfd9d2d846d413211227b1ad0f9f11c476601060d078786c5270afbfd966353',
+  [MOCK]: '66f8d540ecfd755363f4bfa764e69dc52112000f50af88ce8c2f06e61470b6dc',
 };
 
 const SCRIPT_BUILDER_BUDGET_CEILING = 295_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)

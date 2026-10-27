@@ -356,7 +356,7 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   // D-L137 re-pin: deal links while crm_pipeline is live, the M1–M3 and M5 journeys, code-point lengths, budget 223,000.
   [SPEC]: '0ecdbd5404ad76e15420ada962e48f49a3783edbeb9e02d943cfd437a92675c4',
   // T-0091 (D-L159, lead re-pin): the mock answers listCustomFields with an empty list (the list screens read it with crm_custom_fields on).
-  [MOCK]: '69138384e94d463bd22218f3db2bd0a4d7a30d0f9a98fc49c49cd96d0ca178c9',
+  [MOCK]: '0d6895d45288b5fd350c659678275450afb4270c4cc2055cfd8b297403a68ed1',
 };
 
 /** Never above this (R26). */

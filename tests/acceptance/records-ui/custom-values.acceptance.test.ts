@@ -174,16 +174,16 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '45806252da28ad854273d00e14fbcfc94dc360db78aa3f9879a26b5217da4954',
   [CUSTOM_MOCK]: '66d7731bf4f6643e18da743efb2c8409f930cee7cd5eaa98f65bdbd622a11d5e',
   'tests/e2e/support/records-mock.ts': 'f2fc83b332de03710a704f983364ed3b36c20b3dd67b46b7499ee6fb94cc2dae',
-  'tests/e2e/support/leads-mock.ts': '65395185e35e6937debcac899777e742eba32dc0915ac17cf63a09eab32bb9df',
-  'tests/e2e/support/accounts-mock.ts': '6da2ee53f6620bfd025cae52037130eb6546b101d2b0b6bf6461c87c8826ca04',
+  'tests/e2e/support/leads-mock.ts': '238c9785fd86149726de602dedeebef601167aea8f052afab26be26bd0abb6c0',
+  'tests/e2e/support/accounts-mock.ts': 'a074672bbf6c680ecb602e3bdc7d2ceda2f3ba429fa0dc359d95ca34bdc1a9dd',
   'tests/e2e/support/contact-record-mock.ts': '894c18ec5d9337bca3d22aa2cb9119600243c21b7a984cfcbbb15b3ede712a12',
   // T-0124 (lead re-pin, D-L183): the account-record mock reads listAccountContacts' default sort from the contract.
   // T-0124 (lead re-pin): the account-record mock's contactsOf returns the served order.
-  'tests/e2e/support/account-record-mock.ts': '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
-  'tests/e2e/support/deal-mock.ts': 'aad20148fd6a36e54ef490522225622d58ff0b1aa86e9083cd4b0f3d8c2f20e8',
-  'tests/e2e/support/pipeline-mock.ts': 'cb5f6a8452b1c44c1828ceaea7fdfc3a154896e96365680e2d955d59667dc6cd',
-  'tests/e2e/support/activities-mock.ts': '1e3221cc41550ce894d56e7cab267ac1621ef253929c4bce5f54e75fd63270da',
-  'tests/e2e/support/search-mock.ts': '69138384e94d463bd22218f3db2bd0a4d7a30d0f9a98fc49c49cd96d0ca178c9',
+  'tests/e2e/support/account-record-mock.ts': '2217106f14389ec752cbbd5a36b055256591bb92efa0c1a669ad4c06e12b8b94',
+  'tests/e2e/support/deal-mock.ts': 'd769f726196d23913a0b844885a836499c780aa2f0df04fa8483f50c763b7a10',
+  'tests/e2e/support/pipeline-mock.ts': '20923d649ca30d0c10914ead6aacba16a2267620efd4c253dbc10e18de9308dc',
+  'tests/e2e/support/activities-mock.ts': 'a2fbc3e89c4f55c866a5fec135e1e26132d559e463c36a5c0c345f7ae29599f5',
+  'tests/e2e/support/search-mock.ts': '0d6895d45288b5fd350c659678275450afb4270c4cc2055cfd8b297403a68ed1',
 };
 
 /** The five custom-field refusals a screen draws, by code, and the id endings that may label each. */

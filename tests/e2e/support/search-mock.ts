@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
 import { CUSTOM_FIELDS_PATH, CustomFieldsServer } from './custom-values-mock';
+import { CAPABILITIES_PATH, answerCapabilities } from './capabilities-mock';
 
 /**
  * The P27 half of `docs/api/records.openapi.yaml` — `searchRecords` (GET,
@@ -1305,6 +1306,8 @@ export async function installSearchMock(page: Page, options: SearchMockOptions =
       const listing = LIST_OPERATION[url.pathname];
       if (listing !== undefined && method === 'GET') return list(route, url, listing);
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') return answer(route, 'listMyProgrammes', 200, clone(PROGRAMMES_ANSWER));
+      // T-0158 (D-L208): list screens behind the search read the caller's capabilities. Writer: every control drawn.
+      if (url.pathname === CAPABILITIES_PATH && method === 'GET') return answerCapabilities(route, 'writer', [PROGRAMME_ONE.id, PROGRAMME_TWO.id, PROGRAMME_THREE.id]);
       if (url.pathname === ME_PATH && method === 'GET') return answer(route, 'getCurrentUser', 200, clone(CURRENT_USER));
       if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       if (left && method === 'GET') {

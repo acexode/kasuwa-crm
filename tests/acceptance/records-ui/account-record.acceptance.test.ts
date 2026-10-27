@@ -133,12 +133,12 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // T-0124 (lead re-pin): @p05-account-mock replays a cursor under sort=createdAt, not the removed -displayName.
-  [SPEC]: 'f6c1618a6418acf81183c21fc7f14cdfdff90186251723b9c8f428e4d88ea0d7',
+  [SPEC]: '7a1879a9b6d82767625817ec1413f91fb97c28ce79e1146ab8f8a30c54526671',
   // T-0082 (D-L97): the mock's activity items and bodies carry `startsAt` and `endsAt`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and merges `custom`.
   // T-0124 (lead re-pin, D-L183): listAccountContacts' default sort is read from the contract (-createdAt), not invented as displayName.
   // T-0124 (lead re-pin): contactsOf returns the served order (-createdAt, ties on id), not the written name order.
-  [MOCK]: '5f65af2afb70c9e1e703e1cef1a979ff603c22c801bca40fd5d11eba0e916bf0',
+  [MOCK]: '2217106f14389ec752cbbd5a36b055256591bb92efa0c1a669ad4c06e12b8b94',
 };
 
 /**

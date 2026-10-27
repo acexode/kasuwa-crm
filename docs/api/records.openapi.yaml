@@ -1707,7 +1707,7 @@ paths:
       summary: The caller's saved Home layout
       operationId: getHomeLayout
       x-kasuwa-implemented: true
-      x-kasuwa-screens: ['P03']
+      x-kasuwa-screens: ['P03/01']
       description: |
         The Home layout the caller saved (T-0159, D-L196), or `404 not_found`
         when nothing is saved. An empty `items` is a saved, empty layout and is
@@ -1743,7 +1743,7 @@ paths:
       summary: Save the caller's Home layout, replacing any earlier one
       operationId: putHomeLayout
       x-kasuwa-implemented: true
-      x-kasuwa-screens: ['P03']
+      x-kasuwa-screens: ['P03/01']
       description: |
         Replaces the caller's layout (never appends) and answers with what is
         stored. The body is closed: a key the contract does not name, such as a
@@ -1773,7 +1773,7 @@ paths:
       summary: Delete the caller's saved Home layout (Reset)
       operationId: deleteHomeLayout
       x-kasuwa-implemented: true
-      x-kasuwa-screens: ['P03']
+      x-kasuwa-screens: ['P03/01']
       description: |
         Removes the caller's layout, so Home draws the role's default again.
         **Idempotent:** deleting when nothing is saved is `204`, never `404`.
