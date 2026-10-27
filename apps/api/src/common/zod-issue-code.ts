@@ -18,6 +18,11 @@ import type { z } from 'zod';
  */
 export function wireIssueCode(issue: z.core.$ZodIssue): string {
   switch (issue.code) {
+    case 'invalid_union':
+      // zod 3 named a discriminated union's unknown (or missing) tag on its own (D-L209).
+      return 'discriminator' in issue && issue.discriminator !== undefined
+        ? 'invalid_union_discriminator'
+        : issue.code;
     case 'invalid_format':
       return 'invalid_string';
     case 'invalid_value':
@@ -29,4 +34,31 @@ export function wireIssueCode(issue: z.core.$ZodIssue): string {
     default:
       return issue.code;
   }
+}
+
+/**
+ * The issues as zod 3 reported them (D-L209). When a plain union's value matched
+ * exactly one option's TYPE and failed that option's own check (an array over its
+ * `.max()`), zod 3 reported that option's issues, at their full paths; zod 4 can
+ * report the union instead. An option whose only issue is a root `invalid_type`
+ * did not match. Every other issue passes through unchanged.
+ */
+export function wireIssues(issues: readonly z.core.$ZodIssue[]): z.core.$ZodIssue[] {
+  return issues.flatMap((issue): z.core.$ZodIssue[] => {
+    if (
+      issue.code !== 'invalid_union' ||
+      ('discriminator' in issue && issue.discriminator !== undefined)
+    ) {
+      return [issue];
+    }
+    const matched = issue.errors.filter(
+      (branch) =>
+        !(branch.length === 1 && branch[0]?.code === 'invalid_type' && branch[0].path.length === 0),
+    );
+    const [only] = matched;
+    if (matched.length !== 1 || only === undefined || only.length === 0) return [issue];
+    return wireIssues(
+      only.map((inner) => ({ ...inner, path: [...issue.path, ...inner.path] }) as z.core.$ZodIssue),
+    );
+  });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { wireIssueCode } from './zod-issue-code';
+import { wireIssueCode, wireIssues } from './zod-issue-code';
 
 /** The codes the API contract was written against (zod 3), per failing input. */
 function codesOf(schema: z.ZodType, input: unknown): string[] {
@@ -47,5 +47,47 @@ describe('wireIssueCode: zod 4 issues keep the zod 3 codes on the wire', () => {
     const [code] = codesOf(schema, secret);
     expect(code).toBe('invalid_enum_value');
     expect(JSON.stringify(codesOf(z.uuid(), secret))).not.toContain(secret);
+  });
+});
+
+describe('wireIssues: unions report as zod 3 did (D-L209)', () => {
+  const wire = (schema: z.ZodType, input: unknown): Array<{ path: string; code: string }> => {
+    const result = schema.safeParse(input);
+    if (result.success) throw new Error('control: expected the input to be refused');
+    return wireIssues(result.error.issues).map((issue) => ({
+      path: issue.path.join('.'),
+      code: wireIssueCode(issue),
+    }));
+  };
+
+  const node = z.discriminatedUnion('type', [
+    z.object({ type: z.literal('say'), text: z.string() }),
+    z.object({ type: z.literal('ask'), question: z.string() }),
+  ]);
+
+  it('an unknown or missing discriminator is invalid_union_discriminator at the tag', () => {
+    expect(wire(z.object({ nodes: z.array(node) }), { nodes: [{ type: 'video' }] })).toEqual([
+      { path: 'nodes.0.type', code: 'invalid_union_discriminator' },
+    ]);
+    expect(wire(node, {})).toEqual([{ path: 'type', code: 'invalid_union_discriminator' }]);
+  });
+
+  it('a value that matched one option’s type reports that option’s own failure, at its full path', () => {
+    const value = z.object({ value: z.union([z.string().max(200), z.array(z.string()).max(20)]) });
+    expect(wire(value, { value: Array(21).fill('a') })).toEqual([
+      { path: 'value', code: 'too_big' },
+    ]);
+    expect(wire(value, { value: 'a'.repeat(201) })).toEqual([{ path: 'value', code: 'too_big' }]);
+    expect(
+      wire(z.object({ field: z.union([z.string().regex(/^[a-z]+$/), z.number()]) }), {
+        field: 'phone_x',
+      }),
+    ).toEqual([{ path: 'field', code: 'invalid_string' }]);
+  });
+
+  it('a value that matched no option is still invalid_union', () => {
+    expect(
+      wire(z.object({ value: z.union([z.string(), z.array(z.string())]) }), { value: 5 }),
+    ).toEqual([{ path: 'value', code: 'invalid_union' }]);
   });
 });
