@@ -1,6 +1,6 @@
 # T-0088 — Custom-field contract (P18)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 2 · **priority** P1 · **decisions** ADR-0016, D-L128,
+**status** `done` · **owner** Agent 2 · **priority** P1 · **decisions** ADR-0016, D-L128,
 D-P24, D-P25, D-L45, D-L64, D-L82, D-L84, D-L88, D-L80, D-L97
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0100 — Notifications: producers, consumer and API (migration)
 
-**status** `not-assigned` (waits on T-0098 and T-0099; suite to be written) · **owner** Agent 1 · **priority** P1 ·
+**status** `done` · **owner** Agent 1 · **priority** P1 ·
 **decisions** ADR-0018, D-P29, D-L128 (ADR-0018 Q2), D-L71, D-P23, D-L87, D-L134 · **migration** 0044 (projected)
 
 ## Goal

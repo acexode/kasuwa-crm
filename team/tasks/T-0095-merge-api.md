@@ -1,6 +1,6 @@
 # T-0095 — Duplicate sets, merge and undo; contact soft delete (migration)
 
-**status** `not-assigned` (waits on T-0093; suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions**
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions**
 D-P12, D-P27, D-P28, D-P14, D-P17, D-P23, D-P33, D-L67, D-L71, D-L83, D-L65 · **migration** 0042 (projected)
 
 ## Goal

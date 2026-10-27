@@ -1,6 +1,6 @@
 # T-0110 — Deal detail screen (P06)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 11 · **priority** P1 · **decisions** D-L88, D-L115,
+**status** `done` · **owner** Agent 11 · **priority** P1 · **decisions** D-L88, D-L115,
 D-L124, D-L127, D-P23, D-L102, D-L84
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0154 — Refresh the trackers
 
-**id** T-0154 · **status** `assigned` · **owner** Cursor · **priority** P2 · **module** Repo (docs) ·
+**id** T-0154 · **status** `done` · **owner** Cursor · **priority** P2 · **module** Repo (docs) ·
 **PRD** Phase 3 plan S0 · **deps** none · **tier** Docs · **budget** 1 session
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0155 — Fix `tools/design-intake.mjs` for bundled exports
 
-**id** T-0155 · **status** `not-assigned` · **owner** Cursor · **priority** P2 · **module** Repo (tools) ·
+**id** T-0155 · **status** `done` · **owner** Cursor · **priority** P2 · **module** Repo (tools) ·
 **PRD** Phase 3 plan S0; STANDING ORDERS item 2 · **deps** none · **tier** Docs · **budget** 1 session
 
 ## Goal
