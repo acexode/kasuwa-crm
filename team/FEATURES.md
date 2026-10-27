@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 282 rows; built 133, partial 11, mock-only 26, flagged-off 83, deferred 10, not-started 19.
+Totals: 287 rows; built 138, partial 11, mock-only 26, flagged-off 83, deferred 10, not-started 19.
 
 ## Modules
 
@@ -162,6 +162,11 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listPriceBooks` | GET /api/v1/programmes/{programmeId}/price-books — List price books with entries | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `upsertPriceBookEntry` | PUT /api/v1/price-books/{priceBookId}/entries — Upsert a price-book entry | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `listTaxProfiles` | GET /api/v1/programmes/{programmeId}/tax-profiles — List tax profiles | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `listQuotes` | GET /api/v1/programmes/{programmeId}/quotes — List quotes in a programme | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createQuote` | POST /api/v1/programmes/{programmeId}/quotes — Create a draft quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getQuote` | GET /api/v1/quotes/{quoteId} — Get a quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `updateQuote` | PATCH /api/v1/quotes/{quoteId} — Update a draft quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `setQuoteStatus` | POST /api/v1/quotes/{quoteId}/status — Change quote status through a gated transition | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
