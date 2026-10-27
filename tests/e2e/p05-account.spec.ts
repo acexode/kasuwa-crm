@@ -1374,10 +1374,14 @@ test.describe('P05/04 — the account edit', () => {
   });
 });
 
-test.fixme('non-writers see no write controls @p05-account-writers', async () => {
-  // BLOCKED ON T-0079 (D-L84). No read tells the screen whether the caller
-  // holds `account.write` or `activity.write`. When one does, this opens
-  // ACCOUNT_FULL as `reader` and expects no edit, log or complete control.
+test('non-writers see no write controls, and the record still reads @p05-account-writers', async ({ page }) => {
+  // T-0158: getMyCapabilities says the caller holds neither `account.write` nor
+  // `activity.write` in the account's programme.
+  const mock = await openRecord(page, ACCOUNT_FULL.id, { capabilities: 'reader' });
+  await expect(page.getByTestId('record-details')).toBeVisible();
+  await expect(page.locator('[data-action="edit-account"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="log-activity"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
 });
 
 // ===========================================================================

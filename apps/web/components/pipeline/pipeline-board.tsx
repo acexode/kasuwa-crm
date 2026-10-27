@@ -102,6 +102,7 @@ export function PipelineBoard({
   onDrop,
   onMoveSheet,
   onActiveColumn,
+  mayMove = true,
 }: {
   t: Translator;
   locale: string;
@@ -122,6 +123,8 @@ export function PipelineBoard({
   onMoveSheet: (deal: Deal) => void;
   /** At 360 px, the column the sideways scroller rests on, for the stage chips. */
   onActiveColumn?: (index: number) => void;
+  /** T-0158: false only when the API said the caller holds `deal.write` nowhere: no drag, no Move control. */
+  mayMove?: boolean;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   // "Now", read once a minute: days in stage and "overdue" are whole days.
@@ -240,6 +243,7 @@ export function PipelineBoard({
               onLoadMore={() => onLoadMore(column.stageId)}
               onDragStart={startDrag}
               onMoveSheet={onMoveSheet}
+              mayMove={mayMove}
             />
           );
         })}
@@ -279,6 +283,7 @@ function StageColumn({
   onLoadMore,
   onDragStart,
   onMoveSheet,
+  mayMove,
 }: {
   t: Translator;
   locale: string;
@@ -298,6 +303,7 @@ function StageColumn({
   onLoadMore: () => void;
   onDragStart: (event: ReactPointerEvent<HTMLElement>, deal: Deal) => void;
   onMoveSheet: (deal: Deal) => void;
+  mayMove: boolean;
 }) {
   const headingId = useId();
   const kind = stage?.kind ?? 'open';
@@ -403,6 +409,7 @@ function StageColumn({
               nowMs={nowMs}
               onPointerDown={(event) => onDragStart(event, deal)}
               onMoveSheet={() => onMoveSheet(deal)}
+              mayMove={mayMove}
             />
           ))}
         </ul>
@@ -442,6 +449,7 @@ function DealCard({
   nowMs,
   onPointerDown,
   onMoveSheet,
+  mayMove,
 }: {
   t: Translator;
   locale: string;
@@ -455,6 +463,7 @@ function DealCard({
   nowMs: number;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   onMoveSheet: () => void;
+  mayMove: boolean;
 }) {
   const nextWithheld = withheld(deal, 'nextStep');
   const next = deal.nextStep ?? null;
@@ -463,12 +472,12 @@ function DealCard({
       data-deal-card={deal.id}
       data-rotting={deal.rotting ?? undefined}
       aria-busy={pending ? 'true' : undefined}
-      onPointerDown={onPointerDown}
+      onPointerDown={mayMove ? onPointerDown : undefined}
       // The platform's own drag (of text or the element) would cancel the
       // pointer events this board moves cards with.
       onDragStart={(event) => event.preventDefault()}
       className={`flex min-w-0 select-none flex-col gap-2 rounded-10 border bg-surface p-3 text-body-sm ${blocked ? 'border-danger ring-1 ring-danger' : 'border-border'} ${
-        online && !pending ? 'md:cursor-grab' : ''
+        online && !pending && mayMove ? 'md:cursor-grab' : ''
       } ${lifted ? 'opacity-60' : 'shadow-1'} ${pending ? 'opacity-60' : ''}`}
     >
       <div className="flex min-w-0 items-start gap-1.5">
@@ -491,6 +500,8 @@ function DealCard({
             <span data-record-text="">{deal.name}</span>
           )}
         </p>
+        {mayMove ? (
+          <>
         {/* The drag handle is also the keyboard's and the screen reader's way to move (WCAG 2.2 SC 2.5.7). */}
         <button
           type="button"
@@ -507,6 +518,8 @@ function DealCard({
             {t.t('pipeline.card.move')} <span data-record-text="">{deal.name}</span>
           </span>
         </button>
+          </>
+        ) : null}
       </div>
       <Related t={t} deal={deal} links={links} />
       <p data-field="amount" {...lockedProps(deal, 'amount')} className="-mt-0.5 text-label font-semibold">
@@ -554,6 +567,8 @@ function DealCard({
           <OwnerAvatar t={t} deal={deal} locale={locale} />
         </span>
       </div>
+      {mayMove ? (
+        <>
       {/* P06/09: on a phone, a full-width Move stage under every card. */}
       <button
         type="button"
@@ -570,6 +585,8 @@ function DealCard({
           {deal.name}
         </span>
       </button>
+        </>
+      ) : null}
     </li>
   );
 }

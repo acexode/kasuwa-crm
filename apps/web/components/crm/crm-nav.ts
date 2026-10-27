@@ -43,8 +43,9 @@ export const CRM_NAV: readonly CrmNavItem[] = [
   { id: 'deals', label: 'records.nav.deals', icon: 'handshake', href: '/pipelines', placeholder: false },
   { id: 'tickets', label: 'records.nav.tickets', icon: 'confirmation_number', href: null, placeholder: true },
   { id: 'calls', label: 'records.nav.calls', icon: 'headset_mic', href: null, placeholder: true },
-  // P10 (T-0139): the design's "Studio", holding the script builder. No link until a
-  // capability read says who may author (R3, T-0079); current on the script screens.
+  // P10 (T-0139): the design's "Studio", holding the script builder. No link yet: the
+  // capability read exists (T-0158), and linking authors only is the lead's call (R3);
+  // current on the script screens.
   { id: 'studio', label: 'records.nav.studio', icon: 'account_tree', href: null, placeholder: true },
   { id: 'reports', label: 'records.nav.reports', icon: 'bar_chart', href: null, placeholder: true },
 ];

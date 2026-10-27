@@ -777,7 +777,9 @@ test('a new script is created in a programme chosen by name, and opens in the ed
 // ===========================================================================
 
 test('a caller without script.write sees no script, a generic not-found for every editor, and a translated refusal to create @p10-builder @p10-builder-access', async ({ page }) => {
-  const mock = await openList(page, { role: 'agent', query: '?locale=en-XA' });
+  // The capability read is unreadable here (T-0158): a screen that cannot read it
+  // draws its controls, so this journey still proves the API's 403 is the create gate.
+  const mock = await openList(page, { role: 'agent', capabilities: 'unreadable', query: '?locale=en-XA' });
   await expect(shown(screen(page).getByTestId('script-list-empty')).first()).toBeVisible();
   await expect(screen(page).locator('[data-script-row]')).toHaveCount(0);
   // D-L84: no read tells the screen who holds script.write, so the control is
@@ -826,12 +828,20 @@ test('a caller without script.write sees no script, a generic not-found for ever
   expect(mock.violations).toEqual([]);
 });
 
-test.fixme('a caller without script.write gets a real 404 for /scripts @p10-builder-access-404', async () => {
-  // BLOCKED ON T-0079 (D-L84). listScripts answers a non-writer with an empty
-  // page, exactly as it answers an admin who has no scripts yet, and nothing
-  // else tells the web process who holds script.write. When a capability read
-  // exists, this opens /scripts as `role: 'agent'` and expects HTTP 404 and
-  // no nav entry anywhere.
+test('a caller without script.write gets the not-found a missing script gets, and no list @p10-builder-access-404', async ({ page }) => {
+  // T-0158. Client-side: the read is made by the browser, and a mock only reaches
+  // the browser, so this asserts the not-found, not an HTTP status.
+  const mock = await install(page, {
+    role: 'agent',
+    capabilities: { tenant: { admin: false, can: [] }, programmes: [{ id: PROGRAMME_ONE.id, can: ['script.run'] }] },
+  });
+  const response = await page.goto(`${scriptsUrl()}/scripts`);
+  expect(response?.status(), '/scripts with crm_scripts on').toBe(200);
+  await expect(page.getByTestId('record-not-found')).toBeVisible();
+  await expect(page.locator('[data-action="new-script"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="builder-skeleton"]')).toHaveCount(0);
+  expect(mock.calledTimes('getMyCapabilities')).toBeGreaterThan(0);
+  expect(mock.violations).toEqual([]);
 });
 
 // ===========================================================================

@@ -39,6 +39,8 @@ export {
   activityBodyAssignsOther,
   canTenant,
   canUpdateContact,
+  listCapabilities,
+  type Capabilities,
   canWriteActivity,
   contactUpdateWithinClaim,
   permissionSetKeysGranting,

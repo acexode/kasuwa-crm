@@ -1101,18 +1101,21 @@ test.describe('P04/03 — a refused write is said plainly', () => {
   });
 });
 
-test.fixme(
-  'a caller without account.write sees no create or edit control @p04-accounts-writers',
-  async () => {
-    // BLOCKED ON THE CONTRACT. T-0057 says non-writers see no write controls,
-    // but nothing in docs/api tells the screen whether the caller holds
-    // account.write: getCurrentUser carries no permissions by design and
-    // listMyProgrammes is closed at { id, name }. When a capability read is
-    // added (a contract task, like T-0043 was for names), this journey serves
-    // a non-writer through it and asserts that no [data-action="create-account"]
-    // or [data-action="edit-account"] is drawn, while the list still renders.
-  },
-);
+test('a caller without account.write sees no create or edit control, and the list still renders @p04-accounts-writers', async ({
+  page,
+}) => {
+  // T-0158: getMyCapabilities says `account.write` is held nowhere the caller
+  // reaches. The mock answers it, as it answers listMyProgrammes.
+  const mock = await openAccounts(page, {
+    state: 'ready',
+    programmes: 'one',
+    capabilities: { tenant: { admin: false, can: [] }, programmes: [{ id: PROGRAMME_ONE.id, can: ['activity.write', 'script.run'] }] },
+  });
+  await expect(row(page, ACCOUNT_EXAMPLE.id)).toBeVisible();
+  await expect(page.locator('[data-action="create-account"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="edit-account"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
+});
 
 // ===========================================================================
 // P04/05 and P04/06 — the states

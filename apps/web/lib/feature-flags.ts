@@ -304,8 +304,10 @@ export async function crmPipelineEnabled(): Promise<boolean> {
  * Per process, like the others. It grants nothing: authoring needs
  * `script.write` and a run needs `script.run`, decided by the scripting API
  * from the session and `user_programme` whether this is on or off. It is
- * deliberately NOT in `crmLiveNav()`: the builder has no nav entry for anyone
- * until a capability read exists (R3, T-0079).
+ * deliberately NOT in `crmLiveNav()`: the builder has no nav entry for anyone.
+ * The capability read now exists (T-0158), so linking authors only is the
+ * lead's call (R3); until then a non-writer who types /scripts gets the
+ * not-found a missing script gets.
  */
 export async function crmScriptsEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();

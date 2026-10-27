@@ -379,7 +379,7 @@ function Filters({ t, priority, value, onChange }: { t: Translator; priority: bo
 }
 
 /** P07/05–06: every bucket read, and every one empty. */
-function CaughtUp({ t, offline, onCompose, onPlan }: { t: Translator; offline: boolean; onCompose: () => void; onPlan: () => void }) {
+function CaughtUp({ t, offline, onCompose, onPlan }: { t: Translator; offline: boolean; onCompose: (() => void) | null; onPlan: () => void }) {
   return (
     <section data-testid="tasks-empty" className="flex flex-1 items-center justify-center px-2 py-8">
       <div className="flex max-w-[440px] flex-col items-center gap-3 text-center">
@@ -396,9 +396,11 @@ function CaughtUp({ t, offline, onCompose, onPlan }: { t: Translator; offline: b
         <h2 className="text-h3 font-extrabold">{t.t('activities.caughtUp.title')}</h2>
         <p className="text-label font-normal leading-[23px] text-text-2">{t.t('activities.caughtUp.body')}</p>
         <div className="mt-1 flex flex-wrap justify-center gap-2">
-          <Button data-action="compose-task" data-requires-connection="" disabled={offline} onClick={onCompose} className="!px-4 !text-body-sm !font-semibold">
-            {t.t('activities.caughtUp.add')}
-          </Button>
+          {onCompose === null ? null : (
+            <Button data-action="compose-task" data-requires-connection="" disabled={offline} onClick={onCompose} className="!px-4 !text-body-sm !font-semibold">
+              {t.t('activities.caughtUp.add')}
+            </Button>
+          )}
           <Button variant="ghost" onClick={onPlan} className="!px-3.5 !text-body-sm !font-semibold">
             {t.t('activities.caughtUp.plan')}
           </Button>
@@ -430,7 +432,7 @@ export function MyTasks({
   priority: boolean;
   onRetry: (bucket: ActivityBucket) => void;
   onMore: (bucket: ActivityBucket) => void;
-  onCompose: () => void;
+  onCompose: (() => void) | null;
   onPlan: () => void;
 }) {
   const view = tasksView(buckets);

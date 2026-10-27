@@ -2,6 +2,7 @@
 
 import { clientLazy } from '../../lib/client-lazy';
 import { useReadOnlyKeys } from '../custom/use-custom-fields';
+import { useMayInAnyProgramme } from '../../lib/use-capabilities';
 import { useCallback, useState } from 'react';
 import { createBundleTranslator, type MessageBundle, type MessageId } from '@kasuwa/i18n/bundle';
 import { Banner, Button, IconButton, SegmentedControl, Tabs, type SegmentedOption, type TabItem } from '@kasuwa/ui/components';
@@ -109,6 +110,8 @@ export function ActivitiesScreen({
   const activityKeys = useReadOnlyKeys();
   const [view, setView] = useState<View>('tasks');
   const [composing, setComposing] = useState(false);
+  // T-0158: left out only when the API said `activity.write` is held nowhere the caller reaches.
+  const mayCompose = useMayInAnyProgramme('activity.write');
   const [rescheduling, setRescheduling] = useState<MyActivity | null>(null);
   const [notice, setNotice] = useState<MessageId | null>(null);
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
@@ -213,7 +216,7 @@ export function ActivitiesScreen({
       live={live}
       appBar={{
         title: barTitle,
-        actions: (
+        actions: mayCompose ? (
           <IconButton
             variant="ghost"
             icon="add_circle"
@@ -224,7 +227,7 @@ export function ActivitiesScreen({
             onClick={openComposer}
             className="!size-12 !text-primary-text [&>.k-icon]:!text-icon-28"
           />
-        ),
+        ) : undefined,
       }}
     >
       <div data-screen="P07" className="flex min-h-full flex-col gap-3 md:gap-4 md:px-1">
@@ -260,17 +263,19 @@ export function ActivitiesScreen({
               {zone}
             </span>
           )}
-          <Button
-            variant="primary"
-            icon="add"
-            data-action="compose"
-            data-requires-connection=""
-            disabled={offline}
-            onClick={openComposer}
-            className="!px-4"
-          >
-            {t.t('activities.compose')}
-          </Button>
+          {mayCompose ? (
+            <Button
+              variant="primary"
+              icon="add"
+              data-action="compose"
+              data-requires-connection=""
+              disabled={offline}
+              onClick={openComposer}
+              className="!px-4"
+            >
+              {t.t('activities.compose')}
+            </Button>
+          ) : null}
         </header>
 
         {offline ? (
@@ -300,7 +305,7 @@ export function ActivitiesScreen({
             priority={placeholders.priority}
             onRetry={data.retryBucket}
             onMore={(bucket) => void data.loadMore(bucket)}
-            onCompose={openComposer}
+            onCompose={mayCompose ? openComposer : null}
             onPlan={() => show('calendar')}
           />
         ) : null}

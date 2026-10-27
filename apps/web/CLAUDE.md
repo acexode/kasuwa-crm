@@ -88,10 +88,10 @@ on the `crm_records` e2e process (`webAccountsUrl` names the same URL as
 `webRecordsUrl`), where the `/accounts` budget is measured. The CRM shell's
 nav links a screen only where its flag is on (`crmLiveNav()`), so neither
 flag's process ever links the other's 404. On `/accounts`:
-- **Write controls show to every caller and the API's 403 is the gate**
-  (D-L84). No read tells the screen whether the caller holds `account.write`
-  until T-0079; a refusal is a translated `role=alert` in the sheet, which
-  keeps what was typed.
+- **The API's 403 is the gate** (D-L84). `getMyCapabilities` (T-0158) hides
+  the create and edit controls from a caller who holds `account.write` in no
+  programme they reach; an unread answer keeps them. A refusal is a translated
+  `role=alert` in the sheet, which keeps what was typed.
 - An edit sends the served `version` and only what changed, never a withheld
   field (drawn as a lock, not an input). Offline, Save is off (D-P21).
 - A filter whose field the caller has been shown withheld is a locked chip;

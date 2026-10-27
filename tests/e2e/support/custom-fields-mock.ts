@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { AUTH_CONTRACT_SOURCE, answerProblems as authAnswerProblems } from './pipeline-mock';
+import { CAPABILITIES_PATH, answerCapabilities, type CapabilitiesAnswer } from './capabilities-mock';
 
 /**
  * The custom-field half of `docs/api/admin.openapi.yaml` (T-0088 contract,
@@ -453,6 +454,8 @@ function byApiName(a: Definition, b: Definition): number {
 export type Forced = { readonly status: number; readonly example: string } | 'network';
 
 export interface CustomFieldsMockOptions {
+  /** What `getMyCapabilities` answers (T-0158). Default `writer`: every write control is drawn. See capabilities-mock.ts. */
+  readonly capabilities?: CapabilitiesAnswer;
   /** Default `admin` (holds `custom_field.write`). A `member` is refused every write with `403`. */
   readonly caller?: 'admin' | 'member';
   /** This object already holds `fieldsPerObject` active fields. */
@@ -827,6 +830,7 @@ export async function installCustomFieldsMock(page: Page, options: CustomFieldsM
       for (const header of Object.keys(request.headers())) {
         if (/programme|tenant|scope/i.test(header)) violations.push(`${method} ${url.pathname} was sent a "${header}" header: scope is never supplied`);
       }
+      if (url.pathname === CAPABILITIES_PATH && method === 'GET') return answerCapabilities(route, options.capabilities, []);
       const retiring = RETIRE_PATH.exec(url.pathname);
       const field = FIELD_PATH.exec(url.pathname);
       if (url.pathname === LIST_PATH && method === 'GET') return list(route, url);

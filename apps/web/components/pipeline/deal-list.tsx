@@ -57,6 +57,7 @@ export function DealList({
   blockedId = null,
   pending,
   onMove,
+  mayMove = true,
   onClearFilters,
 }: {
   t: Translator;
@@ -78,6 +79,8 @@ export function DealList({
   pending: ReadonlySet<string>;
   /** The stage pill: the board's move, through the same allow-list, prompt and moveDeal. */
   onMove: (deal: Deal, toStageId: string) => void;
+  /** T-0158: false only when the API said the caller holds `deal.write` nowhere: the stage is shown, not changeable. */
+  mayMove?: boolean;
   onClearFilters: () => void;
 }) {
   const nowMs = useMemo(() => Date.now(), [nonce]);
@@ -257,6 +260,7 @@ export function DealList({
                   whatsapp={whatsapp}
                   nowMs={nowMs}
                   onMove={onMove}
+                  mayMove={mayMove}
                 />
               ))}
             </TableBody>
@@ -320,6 +324,7 @@ function Row({
   whatsapp,
   nowMs,
   onMove,
+  mayMove,
 }: {
   t: Translator;
   locale: string;
@@ -331,6 +336,7 @@ function Row({
   whatsapp: boolean;
   nowMs: number;
   onMove: (deal: Deal, toStageId: string) => void;
+  mayMove: boolean;
 }) {
   const stage = stageById(pipeline, deal.stageId);
   const tone = stageTone(stage);
@@ -374,7 +380,7 @@ function Row({
             data-field="stage"
             data-requires-connection=""
             value={deal.stageId}
-            disabled={!online || pending}
+            disabled={!online || pending || !mayMove}
             onChange={(event) => onMove(deal, event.target.value)}
             className={`h-control-sm w-full cursor-pointer appearance-none truncate rounded-full border pe-7 text-meta font-bold disabled:cursor-not-allowed is-focus-visible:ring-focus ${gated ? 'ps-6.5' : 'ps-3'} ${tone.pill}`}
           >
