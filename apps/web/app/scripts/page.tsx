@@ -29,10 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * sits in the CRM shell, which needs `crm_records`. No header, cookie or query
  * string can switch either on.
  *
- * The admin set authors (`script.write`, D-P32). Until a capability read
- * exists (T-0079, R2) nothing tells this page who that is, so a non-writer is
- * served the page and listScripts answers them an empty list; the CRM nav
- * links nobody here (R3).
+ * The admin set authors (`script.write`, D-P32). The page cannot tell who that
+ * is on the server (no read is made here, and a mock only reaches the browser),
+ * so the list screen reads `getMyCapabilities` (T-0158) and draws the not-found
+ * a missing script gets for a caller who holds it nowhere; the CRM nav links
+ * nobody here (R3).
  */
 export default async function ScriptListPage() {
   if (!(await crmScriptsEnabled()) || !(await crmRecordsEnabled())) {

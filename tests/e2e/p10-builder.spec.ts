@@ -826,12 +826,26 @@ test('a caller without script.write sees no script, a generic not-found for ever
   expect(mock.violations).toEqual([]);
 });
 
-test.fixme('a caller without script.write gets a real 404 for /scripts @p10-builder-access-404', async () => {
-  // BLOCKED ON T-0079 (D-L84). listScripts answers a non-writer with an empty
-  // page, exactly as it answers an admin who has no scripts yet, and nothing
-  // else tells the web process who holds script.write. When a capability read
-  // exists, this opens /scripts as `role: 'agent'` and expects HTTP 404 and
-  // no nav entry anywhere.
+test('a caller without script.write gets the not-found a missing script gets, and no list @p10-builder-access-404', async ({ page }) => {
+  // T-0158. Client-side: the read is made by the browser, and a mock only reaches
+  // the browser, so this asserts the not-found, not an HTTP status.
+  await page.route('**/api/v1/me/capabilities', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'cache-control': 'no-store' },
+      body: JSON.stringify({
+        tenant: { admin: false, can: [] },
+        programmes: [{ id: PROGRAMME_ONE.id, can: ['script.run'] }],
+      }),
+    }),
+  );
+  await install(page, { role: 'agent' });
+  const response = await page.goto(`${scriptsUrl()}/scripts`);
+  expect(response?.status(), '/scripts with crm_scripts on').toBe(200);
+  await expect(page.getByTestId('record-not-found')).toBeVisible();
+  await expect(page.locator('[data-action="new-script"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="builder-skeleton"]')).toHaveCount(0);
 });
 
 // ===========================================================================

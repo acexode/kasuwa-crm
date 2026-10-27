@@ -154,6 +154,42 @@ export const AUTH_OPERATIONS = [
     }
   },
   {
+    "operationId": "getMyCapabilities",
+    "method": "GET",
+    "path": "/api/v1/me/capabilities",
+    "implemented": "true",
+    "screens": [],
+    "responses": {
+      "200": {
+        "default": {
+          "tenant": {
+            "admin": false,
+            "can": []
+          },
+          "programmes": [
+            {
+              "id": "3f1c2a3e-6a0b-4d6e-9d1f-5b7a1c9e2d10",
+              "can": [
+                "activity.write",
+                "contact.claim_and_set_status",
+                "deal.write",
+                "script.run"
+              ]
+            }
+          ]
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      }
+    }
+  },
+  {
     "operationId": "getMyMfa",
     "method": "GET",
     "path": "/api/v1/auth/me/mfa",
