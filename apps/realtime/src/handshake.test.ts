@@ -84,4 +84,27 @@ describe('decideHandshake (T-0160)', () => {
     expect([...bodies]).toEqual([NOT_AUTHENTICATED_BODY]);
     expect(NOT_AUTHENTICATED_BODY).not.toContain(TOKEN);
   });
+
+  it('refuses any query string, even beside a live Bearer, with the one 401 body', () => {
+    const headers = { authorization: `Bearer ${TOKEN}` };
+    for (const url of [`/?token=${TOKEN}`, '/?', '/?x=1', `/?access_token=${TOKEN}`]) {
+      expect(decideHandshake(headers, config, url)).toEqual({
+        kind: 'refuse',
+        status: 401,
+        body: NOT_AUTHENTICATED_BODY,
+      });
+    }
+    expect(decideHandshake(headers, config, '/')).toEqual({ kind: 'accept', token: TOKEN });
+  });
+
+  it('refuses any path but /, the same way', () => {
+    const headers = { authorization: `Bearer ${TOKEN}` };
+    for (const url of ['/ws', '//', '/socket', '', '*', '/%2f', 'http://x/']) {
+      expect(decideHandshake(headers, config, url)).toEqual({
+        kind: 'refuse',
+        status: 401,
+        body: NOT_AUTHENTICATED_BODY,
+      });
+    }
+  });
 });

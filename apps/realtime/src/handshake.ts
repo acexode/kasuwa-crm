@@ -21,7 +21,7 @@ import {
  *     same-origin policy, so the Origin check is what stops another site from
  *     riding the cookie (cross-site WebSocket hijacking).
  *
- * Never a query-string token (it ends up in logs), never the stub identity
+ * Never a query-string token (it ends up in logs; ANY query string refuses, as does any path but `/`), never the stub identity
  * headers, never a Bearer and a cookie together (one request, two identities,
  * and neither is answered), and never the relaxed cookie name unless the
  * process was started with the development flag.
@@ -77,9 +77,22 @@ function readCookie(header: string | undefined, name: string): string | null {
   return values.length === 1 && TOKEN_SHAPE.test(value) ? value : null;
 }
 
+/** The only path a socket upgrades at. Anything else is not a gateway endpoint. */
+export const UPGRADE_PATH = '/';
+
+/**
+ * Exactly `UPGRADE_PATH`, with no query string (not even an empty one): a
+ * token in a URL ends up in logs, and an unknown path is not an endpoint. Both
+ * answer as any other refusal. `requestUrl` is the raw request target.
+ */
+function isUpgradeTarget(requestUrl: string): boolean {
+  return requestUrl === UPGRADE_PATH;
+}
+
 export function decideHandshake(
   headers: IncomingHttpHeaders,
   config: HandshakeConfig,
+  requestUrl: string = UPGRADE_PATH,
 ): HandshakeDecision {
   for (const header of FORBIDDEN_SCOPE_HEADERS) {
     if (headers[header] !== undefined) {
@@ -90,6 +103,8 @@ export function decideHandshake(
       };
     }
   }
+
+  if (!isUpgradeTarget(requestUrl)) return UNAUTHENTICATED;
 
   // The stub identity is the API's development transport. Here it is no
   // credential, and a request carrying it with anything else is confused.
