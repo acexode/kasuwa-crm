@@ -23,7 +23,7 @@
   "devDependencies": {
     "@types/pg": "^8.11.10",
     "@types/ws": "^8.5.13",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.12",
     "tsx": "^4.19.2"
   },
   "nx": { "tags": ["scope:app", "type:app"] }
