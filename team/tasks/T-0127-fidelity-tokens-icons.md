@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0127 |
-| **status** | `assigned` |
+| **status** | `done` |
 | **module** | Design system (`packages/ui`) |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0: every later fidelity task depends on it |
