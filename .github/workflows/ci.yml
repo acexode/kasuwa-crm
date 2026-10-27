@@ -18,7 +18,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # The event is part of the group (D-L207), so a push to main never cancels a
+  # nightly or on-demand full-gate run that is still going.
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
