@@ -299,7 +299,11 @@ export function ObjectPanel({
     );
 
   return (
-    <div data-screen="P18/B" className={dockedOpen ? 'flex items-start xl:-mb-10 xl:-me-8 xl:-mt-7' : ''}>
+    <div
+      data-screen="P18/B"
+      {...(dockedOpen ? { 'data-editor-docked': '' } : {})}
+      className={dockedOpen ? 'flex items-start xl:-mb-10 xl:-me-8 xl:-mt-7' : ''}
+    >
       <div className={`flex min-w-0 flex-1 flex-col gap-5 ${dockedOpen ? 'xl:pb-10 xl:pe-8 xl:pt-7' : ''}`}>
         {header}
 
