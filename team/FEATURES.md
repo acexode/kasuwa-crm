@@ -166,7 +166,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listCalendar` | GET /api/v1/me/calendar — The caller's own Kasuwa events in a window of at most 42 days | built | — | — | docs/api/records.openapi.yaml · T-0082 · T-0083 |
 | operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage | built | — | — | docs/api/records.openapi.yaml |
-| operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml · T-0161 |
+| operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getHomeLayout` | GET /api/v1/me/home-layout — The caller's saved Home layout | built | — | — | docs/api/records.openapi.yaml |
 | operation | `putHomeLayout` | PUT /api/v1/me/home-layout — Save the caller's Home layout, replacing any earlier one | built | — | — | docs/api/records.openapi.yaml |
 | operation | `deleteHomeLayout` | DELETE /api/v1/me/home-layout — Delete the caller's saved Home layout (Reset) | built | — | — | docs/api/records.openapi.yaml |

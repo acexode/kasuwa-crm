@@ -10,6 +10,7 @@ import { ContactsController } from '../contacts/contacts.controller';
 import { DealsController, PipelineDealsController } from '../deals/deals.controller';
 import { ImportsController } from '../imports/imports.controller';
 import { LeadsController } from '../leads/leads.controller';
+import { HomeLayoutController } from '../me/home-layout.controller';
 import { MeController } from '../me/me.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
 import {
@@ -43,13 +44,14 @@ describe('NoStoreMiddleware', () => {
 });
 
 describe('AppModule applies it to every records controller (T-0080, D-L90)', () => {
-  it('names contacts, leads, accounts, activities, me, my activities (T-0082), pipelines (T-0107), deals (T-0108), search (T-0086), imports (T-0094), duplicates and merges (T-0095) and notifications (T-0100)', () => {
+  it('names contacts, leads, accounts, activities, me, the home layout (T-0159), my activities (T-0082), pipelines (T-0107), deals (T-0108), search (T-0086), imports (T-0094), duplicates and merges (T-0095) and notifications (T-0100)', () => {
     expect([...RECORDS_CONTROLLERS]).toEqual([
       ContactsController,
       LeadsController,
       AccountsController,
       ActivitiesController,
       MeController,
+      HomeLayoutController,
       MyActivitiesController,
       PipelinesController,
       PipelineDealsController,
