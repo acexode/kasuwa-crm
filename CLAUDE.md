@@ -104,7 +104,8 @@ pnpm build
 pnpm test                 # unit -> integration -> isolation
 pnpm test:unit            # fast, no I/O
 pnpm test:integration     # real Postgres via Testcontainers
-pnpm test:isolation       # the blocking tenancy suite
+pnpm test:isolation       # the blocking tenancy suite (every PR)
+pnpm test:ui-acceptance   # harness-driven UI acceptance suites (full gate only, D-L207)
 
 pnpm test:e2e             # Playwright against a real API, web app and database
                           # (deliberately NOT part of `pnpm test`; it starts a
@@ -181,6 +182,11 @@ A task is done when **all** of these hold:
 - [ ] Unit tests written for the logic you added; they fail without your change.
 - [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:integration`
       and `pnpm test:isolation` all pass locally.
+- [ ] **Full gate, not per task (D-L207):** `pnpm test:ui-acceptance` and the
+      full `pnpm test:e2e` run nightly on main, on demand, and before a slice or
+      the phase closes. A task runs only the UI acceptance file and e2e tags it
+      names (`-t`, `--grep`). Byte-budget tags are run before merging any PR
+      that changes `apps/web` dependencies or a shared chunk.
 - [ ] OpenAPI annotations updated on any new or changed controller.
 - [ ] i18n keys added for every new user-facing string.
 - [ ] Any migration reviewed by `migration-reviewer` and paired with an RLS

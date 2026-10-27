@@ -55,6 +55,23 @@ const D_L41_EXPIRY = Date.parse('2026-10-31T00:00:00Z');
 const NOT_REACHABLE = /not reachable:\s*\S.{19,}/i;
 const UPGRADED = /\bupgraded\b/i;
 
+/**
+ * D-L206 (lead amendment): a runtime finding whose only fix is a major upgrade
+ * may be accepted briefly as "runtime-bounded", with a "bounded:" argument that
+ * the triggering input is capped, a "fix: T-nnnn" naming the upgrade task, and
+ * an `ignoreUntil` no later than 2026-12-31. The T-0153 suite holds the same
+ * rule; this is the matching triage for the two checks below.
+ */
+const RUNTIME_BOUNDED_UNTIL = Date.parse('2026-12-31T23:59:59Z');
+function runtimeBounded(entry: { reason: string; ignoreUntil: number }): boolean {
+  return (
+    /\bruntime-bounded\b/i.test(entry.reason) &&
+    /bounded:\s*\S.{19,}/i.test(entry.reason) &&
+    /\bfix:\s*T-\d{4}\b/i.test(entry.reason) &&
+    entry.ignoreUntil <= RUNTIME_BOUNDED_UNTIL
+  );
+}
+
 type Mapping = Record<string, unknown>;
 
 function isMapping(value: unknown): value is Mapping {
@@ -309,7 +326,9 @@ describe('T-0037: the remaining osv-scanner baseline is triaged', () => {
 
   it('exempts nothing past 2026-10-31 without a written "not reachable:" analysis', () => {
     const late = baseline
-      .filter((e) => e.ignoreUntil > D_L41_EXPIRY && !NOT_REACHABLE.test(e.reason))
+      .filter(
+        (e) => e.ignoreUntil > D_L41_EXPIRY && !NOT_REACHABLE.test(e.reason) && !runtimeBounded(e),
+      )
       .map((e) => `${e.id} ignoreUntil=${e.ignoreUntilRaw}`);
     expect(late).toEqual([]);
   });
@@ -351,7 +370,12 @@ describe('T-0037: the remaining osv-scanner baseline is triaged', () => {
       .filter((entry) =>
         namedPackages(entry.reason).some((p) => runtime.has(`${p.name}@${p.version}`)),
       )
-      .filter((entry) => !UPGRADED.test(entry.reason) && !NOT_REACHABLE.test(entry.reason))
+      .filter(
+        (entry) =>
+          !UPGRADED.test(entry.reason) &&
+          !NOT_REACHABLE.test(entry.reason) &&
+          !runtimeBounded(entry),
+      )
       .map((entry) => {
         const hits = namedPackages(entry.reason)
           .filter((p) => runtime.has(`${p.name}@${p.version}`))

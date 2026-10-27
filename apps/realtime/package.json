@@ -15,6 +15,6 @@
     "@kasuwa/config": "workspace:*",
     "ws": "^8.18.0"
   },
-  "devDependencies": { "@types/ws": "^8.5.13", "esbuild": "^0.24.2", "tsx": "^4.19.2" },
+  "devDependencies": { "@types/ws": "^8.5.13", "esbuild": "^0.25.12", "tsx": "^4.19.2" },
   "nx": { "tags": ["scope:app", "type:app"] }
 }
