@@ -18,6 +18,13 @@ export class CatalogueProgrammeOutOfScopeError extends Error {
   }
 }
 
+export class CatalogueCurrencyMismatchError extends Error {
+  constructor() {
+    super('Price-book entry currency must match the price book');
+    this.name = 'CatalogueCurrencyMismatchError';
+  }
+}
+
 function assertInScope(tx: TenantTx, programmeId: string): void {
   if (!tx.session.programmeIds.includes(programmeId)) {
     throw new CatalogueProgrammeOutOfScopeError();
@@ -324,6 +331,9 @@ export async function upsertPriceBookEntry(
 ): Promise<PriceBookEntry | null> {
   const book = await findPriceBookById(tx, priceBookId);
   if (book === null) return null;
+  if (input.currency !== book.currency) {
+    throw new CatalogueCurrencyMismatchError();
+  }
 
   const product = await findProductById(tx, input.productId);
   if (product === null || product.programmeId !== book.programme_id) return null;

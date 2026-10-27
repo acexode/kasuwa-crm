@@ -1,5 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import {
+  CatalogueCurrencyMismatchError,
   CatalogueProgrammeOutOfScopeError,
   createProduct,
   listPriceBooks,
@@ -12,7 +13,7 @@ import {
   type Product,
   type TaxProfile,
 } from '@kasuwa/domain-core';
-import { notFound, validationFailedFrom } from '../admin/common/admin-errors';
+import { notFound, validationFailed, validationFailedFrom } from '../admin/common/admin-errors';
 import {
   CreateProductBody,
   ProgrammeIdParam,
@@ -119,6 +120,9 @@ function programmeFromPath(tx: TenantTx, params: unknown): string {
 function mapScopeError(error: unknown): never {
   if (error instanceof CatalogueProgrammeOutOfScopeError) {
     throw notFound();
+  }
+  if (error instanceof CatalogueCurrencyMismatchError) {
+    throw validationFailed([{ path: 'currency', code: 'currency_mismatch' }]);
   }
   throw error;
 }
