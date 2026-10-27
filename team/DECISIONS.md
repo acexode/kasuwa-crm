@@ -4666,3 +4666,42 @@ browser, the API and the web app): `records-ui`, `admin-ui`, `auth-ui`, `scripti
   before merging any PR that changes `apps/web` dependencies or a shared chunk.
 - **Accepted risk:** a UI regression can sit on main for up to a day before the nightly run finds it. A red
   nightly run is fixed before the next slice starts.
+
+### D-L208 — S0 review: lead fixes, what was declined, and the D-A3 merge (lead, 2026-10-27)
+
+The user asked the lead to fix review findings directly instead of returning them to Cursor, then to merge every
+approved PR. S0 merged: #228 (suites), #229 (T-0158), #230 (T-0160), #231 (T-0157), #232 (T-0159), #233 (T-0161),
+#234 (T-0162), #235 (T-0197), #236 (T-0154/0155/0163), #237 (gitleaks). Only T-0198 (zod 4) remains in S0.
+
+**Acceptance amendments by the lead:**
+- The T-0159 suite moves from `records-ui/` to `records/home-layout.acceptance.test.ts`: it is an API+DB suite, and
+  under D-L207 `records-ui/` runs only nightly.
+- T-0045 part 2 (`auth-retention`) now starves both pools: two reads hold the app pool and two real-workspace
+  sign-ins hold the auth pool. The four probes stay one identical 503. Per-client sign-in limits are off in that part.
+- T-0015 (`provisioning`) forced-scope leak walk skips a table `kasuwa_app` cannot read at all (`user_credential`
+  after T-0157): a permission error is a stronger guarantee than RLS.
+- `auth-role` section 4 and the `outbox` relay-URL control pass `DATABASE_URL` and `REDIS_URL` to `realtimeEnv`,
+  which T-0160 makes required. What each asserts is unchanged.
+- Re-pinned after recomputing: `tests/e2e/support/bff-session.ts` and `tests/e2e/p05-account.spec.ts` (T-0162).
+
+**Fixed on the build branches (by the lead or lead-run builders):**
+- T-0160: the handshake refuses any query string and any path but `/`; handshake lookups are capped
+  (`REALTIME_MAX_HANDSHAKES`, default 3); `realtimeEnv` requires both URLs as the task said.
+- T-0158: the e2e mocks answer `getMyCapabilities`; the account record, leads convert, activity composer, deals
+  board and Studio custom fields now read capabilities.
+- T-0159: a late load never overwrites an edit; writes are serialised; a failed read never licenses a write.
+- Docs: the `C:\kw\verify` path (a vertical-tab byte), stale "builder running" notes on 34 task files.
+
+**Declined:**
+- The T-0162 TOTP stale-lock takeover can, after a crashed holder plus a 25 ms stall, let two processes in. Every
+  timestamp- or pid-based takeover keeps the same check-then-act gap, Playwright runs one worker, and each change is
+  a re-pin. Accepted.
+- T-0161's two proposed acceptance regex narrowings. The command-palette one would let a `?programmeIds=` URL
+  template through a scope guard; the attribute one edits 17 suites for a false positive that does not occur.
+
+**Open follow-ups:**
+- T-0160: the revalidation sweep is sequential; with thousands of sockets a revoked session can outlive "a few
+  intervals". Batch it before the inbox (S3) puts real traffic on the gateway.
+- T-0013 `auth-availability` and the T-0095 deep-page latency fail intermittently on GitHub runners. Fix or move
+  them before they hide a real failure.
+- D-A3 (#231): the user told the lead to merge every approved PR, which included #231.
