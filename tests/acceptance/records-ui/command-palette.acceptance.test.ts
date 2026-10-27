@@ -752,7 +752,7 @@ describe('acceptance: T-0087 — crm_search exists, is off, is not production-re
     for (const { file, source } of clients) {
       const code = withoutComments(source);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       expect(code, `${file} builds a scope argument`).not.toMatch(
         /programmeIds?|ownerUserIds|(set|append)\(\s*['"`](programme|owner|scope)|['"`]x-[\w-]*(programme|tenant|scope)/i,
       );

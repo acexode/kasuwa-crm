@@ -468,7 +468,7 @@ describe('acceptance: T-0083 — crm_activities exists, is off, is not productio
     for (const { file, source } of clients) {
       const code = withoutComments(source);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       // A programme or an owner in a query string, a header or a list of them is scope from the client.
       expect(code, `${file} builds a scope argument`).not.toMatch(
         /programmeIds|ownerUserIds|(set|append)\(\s*['"`](programme|owner)|['"`]x-[\w-]*(programme|tenant)/i,

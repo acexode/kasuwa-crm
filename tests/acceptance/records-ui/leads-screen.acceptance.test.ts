@@ -461,7 +461,7 @@ describe('acceptance: T-0058 — crm_leads exists, is off, is not production-rea
     ).not.toEqual([]);
     for (const { file } of clients) {
       expect(code(file), `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code(file), `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code(file), `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       // A programme in a query string, a header or a list of them is scope from the client.
       expect(code(file), `${file} builds a scope argument`).not.toMatch(
         /programmeIds|(set|append)\(\s*['"`]programme|['"`]x-[\w-]*(programme|tenant)/i,

@@ -457,7 +457,7 @@ describe('acceptance: T-0063 — /accounts/[id] is gated on crm_record_view AND 
     for (const { file, source } of clients) {
       const code = withoutComments(source);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       // A programme in a query string, a header or a list of them is scope from the client.
       expect(code, `${file} builds a scope argument`).not.toMatch(
         /programmeIds|(set|append)\(\s*['"`]programme|['"`]x-[\w-]*(programme|tenant)/i,

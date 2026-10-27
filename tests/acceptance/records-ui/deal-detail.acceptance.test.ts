@@ -579,7 +579,7 @@ describe('acceptance: T-0110 — /deals/[dealId] is behind crm_pipeline, served 
     for (const { file, source } of clients) {
       const code = withoutComments(source);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       expect(code, `${file} builds a scope argument`).not.toMatch(/programmeIds|(set|append)\(\s*['"`]programme|['"`]x-[\w-]*(programme|tenant)/i);
     }
     for (const { file: name, source } of webSources()) {
