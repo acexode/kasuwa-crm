@@ -4705,3 +4705,25 @@ approved PR. S0 merged: #228 (suites), #229 (T-0158), #230 (T-0160), #231 (T-015
 - T-0013 `auth-availability` and the T-0095 deep-page latency fail intermittently on GitHub runners. Fix or move
   them before they hide a real failure.
 - D-A3 (#231): the user told the lead to merge every approved PR, which included #231.
+
+### D-L209 — zod 4: the server on classic, the browser on zod/mini, the wire on zod 3's codes (lead, 2026-10-27)
+
+T-0198 (#240) moved every package to zod 4.6.7 and retired GHSA-mrhx-c7xc-m3w5. S0 is complete.
+
+- **The browser ships `zod/mini`.** On the full gate, zod 4 classic added 12.5–15.7 KB transferred to every web
+  page: the deal detail measured 301,196 against its 290,000 ceiling, and `/`'s critical path was 12.8 KB over.
+  Raising budgets would break the ceilings and PRD 2.13, so the 29 browser modules under `apps/web` use
+  `zod/mini` (first-load JS down 16–17 kB per page; every byte budget passed). Server code, including the BFF
+  route handler, stays on classic. `zod/v3` stays forbidden.
+- **Sixteen UI suites** matched a literal `from 'zod'` to prove a module parses with Zod. They now also accept
+  `zod/mini` (lead edit).
+- **The wire keeps zod 3's codes.** `wireIssueCode` maps renamed codes back. `wireIssues` makes a discriminated
+  union's unknown or missing tag `invalid_union_discriminator` again, and reports a union value that matched one
+  option's type with that option's own issues (for example `too_big`), as zod 3 did. Both validation filters
+  read issues through it.
+- **Accepted change:** a `strictObject(...).superRefine(...)` body with an unknown key now reports only
+  `unrecognized_keys`, without the refinement's own detail. The body is still refused.
+- **`z.uuid()`** is stricter (RFC 9562 variant bits). Every seeded, fixture and generated id passes; `z.guid()` is
+  the fallback if legacy imported ids ever fail.
+- **Rule:** a new browser module imports `zod/mini`. A schema shared with the browser must not pull classic zod
+  into the client graph.
