@@ -730,6 +730,18 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0159 (D-L196, D-L204): the Home layout is kept per user on the server
+   * (`/api/v1/me/home-layout`) instead of in the browser's localStorage. Off,
+   * the browser store is used as before. Existing browser layouts are not
+   * migrated (decided: not worth it).
+   */
+  home_layout_server: {
+    description: 'The P03 Home layout is stored per user on the server instead of in the browser (T-0159, D-L196).',
+    defaultValue: false,
+    owner: 'T-0159, D-L196',
+    productionReady: false,
+  },
+  /**
    * D-L194, T-0132: Home widgets whose module is not built. With a flag on,
    * its widgets are offered and drawn in the design's own empty state, never
    * with a number or a name; off, they are neither drawn nor offered. Home's

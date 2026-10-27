@@ -88,7 +88,7 @@ const NETWORK_FAILURE: RecordsError = { code: NETWORK_ERROR_CODE };
 export async function requestRecords<T>(
   path: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
-  init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT'; readonly body?: unknown; readonly signal?: AbortSignal } = {
+  init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; readonly body?: unknown; readonly signal?: AbortSignal } = {
     method: 'GET',
   },
 ): Promise<RecordsResult<T>> {

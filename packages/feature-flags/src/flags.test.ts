@@ -71,6 +71,7 @@ describe('feature flags', () => {
       'ai_assistant',
       'search_filters',
       'crm_home',
+      'home_layout_server',
       'whatsapp_inbox',
       'quota',
       'approvals',

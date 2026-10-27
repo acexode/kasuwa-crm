@@ -117,6 +117,14 @@ export interface StackUrls {
    * unless the run's grep can select `@p26-notifications` (D-L177 C10).
    */
   webNotificationsUrl: string;
+  /**
+   * Home with its layout kept on the server (T-0159): the same production build
+   * under `next start`, NODE_ENV=test, `KASUWA_AUTH_MODE=jwt`, with `crm_home`
+   * and `home_layout_server` ON (plus the records flags Home reads through). Its
+   * spec injects no identity header. Empty unless the run's grep can select
+   * `@p03-home`.
+   */
+  webHomeUrl: string;
   /** apps/api, pointed at the Testcontainers database. */
   apiUrl: string;
   /** Static fixture pages used by the harness self-tests. */
