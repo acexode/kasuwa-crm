@@ -25,8 +25,8 @@ import { z } from 'zod';
  */
 
 export const WfmScope = z.object({
-  tenantId: z.string().uuid(),
-  programmeId: z.string().uuid(),
+  tenantId: z.uuid(),
+  programmeId: z.uuid(),
 });
 export type WfmScope = z.infer<typeof WfmScope>;
 
@@ -53,7 +53,7 @@ export type ShiftSegment = z.infer<typeof ShiftSegment>;
 
 export const PublishedShift = z.object({
   scope: WfmScope,
-  kasuwaUserId: z.string().uuid(),
+  kasuwaUserId: z.uuid(),
   shiftId: z.string().min(1),
   /** IANA zone, e.g. "Africa/Lagos". BPO rosters span WAT/EAT/SAST. */
   timezone: z.string().min(1),
@@ -78,7 +78,7 @@ export interface SchedulePort {
 
 export const AdherenceSummary = z.object({
   scope: WfmScope,
-  kasuwaUserId: z.string().uuid(),
+  kasuwaUserId: z.uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   /** Fraction in [0,1]; WFM owns the tolerance window that produced it. */
   adherence: z.number().min(0).max(1),

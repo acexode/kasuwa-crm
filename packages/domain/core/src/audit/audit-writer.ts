@@ -188,29 +188,26 @@ export const AUDIT_CHANGE_VALUE_MAX_LENGTH = 300;
 export const AUDIT_EVENT_MAX_CHANGES = 64;
 
 const Change = z
-  .object({
+  .strictObject({
     field: z.string().min(1).max(64),
     before: z.string().max(AUDIT_CHANGE_VALUE_MAX_LENGTH).nullable(),
     after: z.string().max(AUDIT_CHANGE_VALUE_MAX_LENGTH).nullable(),
     redacted: z.boolean(),
   })
-  .strict()
   .refine((value) => !value.redacted || (value.before === null && value.after === null), {
     message: 'a redacted change carries no values',
   });
 
-const EventInput = z
-  .object({
-    action: z.enum(AUDIT_ACTIONS),
-    objectType: z.enum(AUDIT_OBJECT_TYPES),
-    objectId: z.string().uuid().nullable(),
-    objectLabel: z.string().min(1).max(300),
-    programmeId: z.string().uuid().nullable(),
-    // 64: a publish names up to 400 compliance node ids, seven to a 300-character
-    // value, in its three buckets, plus the version number (T-0113): 59 entries.
-    changes: z.array(Change).max(AUDIT_EVENT_MAX_CHANGES),
-  })
-  .strict();
+const EventInput = z.strictObject({
+  action: z.enum(AUDIT_ACTIONS),
+  objectType: z.enum(AUDIT_OBJECT_TYPES),
+  objectId: z.uuid().nullable(),
+  objectLabel: z.string().min(1).max(300),
+  programmeId: z.uuid().nullable(),
+  // 64: a publish names up to 400 compliance node ids, seven to a 300-character
+  // value, in its three buckets, plus the version number (T-0113): 59 entries.
+  changes: z.array(Change).max(AUDIT_EVENT_MAX_CHANGES),
+});
 
 /** Thrown for a programme the session cannot reach. A programming error, never a user one. */
 export class AuditProgrammeOutOfScopeError extends Error {

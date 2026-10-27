@@ -10,7 +10,11 @@ import { z } from 'zod';
 export const IMPORT_HEADER_QUEUE = 'kasuwa.import.header';
 export const IMPORT_RUN_QUEUE = 'kasuwa.import.run';
 export const IMPORT_RETENTION_QUEUE = 'kasuwa.import.retention';
-export const IMPORT_QUEUES = [IMPORT_HEADER_QUEUE, IMPORT_RUN_QUEUE, IMPORT_RETENTION_QUEUE] as const;
+export const IMPORT_QUEUES = [
+  IMPORT_HEADER_QUEUE,
+  IMPORT_RUN_QUEUE,
+  IMPORT_RETENTION_QUEUE,
+] as const;
 export type ImportQueueName = (typeof IMPORT_QUEUES)[number];
 
 /** BullMQ job names (fixed text, never user input). */
@@ -36,13 +40,11 @@ export const IMPORT_RETENTION = Object.freeze({
 });
 
 /** `{ tenantId, userId, importId }`, closed: an extra key is refused. */
-export const ImportJobPayload = z
-  .object({
-    tenantId: z.string().uuid(),
-    userId: z.string().uuid(),
-    importId: z.string().uuid(),
-  })
-  .strict();
+export const ImportJobPayload = z.strictObject({
+  tenantId: z.uuid(),
+  userId: z.uuid(),
+  importId: z.uuid(),
+});
 export type ImportJobPayload = z.infer<typeof ImportJobPayload>;
 
 /**

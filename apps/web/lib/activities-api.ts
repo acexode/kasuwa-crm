@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { requestRecords, type RecordsResult } from './records-api';
 
 /**
@@ -40,28 +40,28 @@ export const ListedType = z.enum(['task', 'meeting']);
 export type ListedType = z.infer<typeof ListedType>;
 
 /** `displayName: null` when a name part is withheld from the caller (D-L68, T-0124). */
-const ContactSummary = z.object({ id: z.string(), displayName: z.string().nullable().optional() });
+const ContactSummary = z.object({ id: z.string(), displayName: z.optional(z.nullable(z.string())) });
 const AccountSummary = z.object({ id: z.string(), name: z.string() });
 
 export const MyActivity = z.object({
   id: z.string(),
   programmeId: z.string(),
   type: ListedType,
-  subject: z.string().nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
-  contact: ContactSummary.nullable().optional(),
-  account: AccountSummary.nullable().optional(),
-  version: z.number().int(),
+  subject: z.optional(z.nullable(z.string())),
+  dueAt: z.optional(z.nullable(z.string())),
+  completedAt: z.optional(z.nullable(z.string())),
+  startsAt: z.optional(z.nullable(z.string())),
+  endsAt: z.optional(z.nullable(z.string())),
+  contact: z.optional(z.nullable(ContactSummary)),
+  account: z.optional(z.nullable(AccountSummary)),
+  version: z.int(),
   withheldFields: z.array(z.string()),
 });
 export type MyActivity = z.infer<typeof MyActivity>;
 
 export const MyActivityPage = z.object({
   data: z.array(MyActivity),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type MyActivityPage = z.infer<typeof MyActivityPage>;
 
@@ -69,7 +69,7 @@ export type MyActivityPage = z.infer<typeof MyActivityPage>;
 export const WrittenActivity = z.object({
   id: z.string(),
   type: z.enum(['note', 'task', 'call', 'meeting']),
-  version: z.number().int(),
+  version: z.int(),
   withheldFields: z.array(z.string()),
 });
 export type WrittenActivity = z.infer<typeof WrittenActivity>;

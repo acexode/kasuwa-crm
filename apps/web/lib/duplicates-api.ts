@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { Contact, requestRecords, type RecordsResult } from './records-api';
 
 /**
@@ -33,21 +33,21 @@ export const MATCH_ON = ['phone', 'email'] as const;
 export const MatchOn = z.enum(MATCH_ON);
 export type MatchOn = z.infer<typeof MatchOn>;
 
-const Id = z.string().uuid();
-const Instant = z.string().datetime();
+const Id = z.uuid();
+const Instant = z.iso.datetime();
 
 const DuplicateContact = z.object({
   id: Id,
   /** `null` when field security withholds it: drawn as a label, never as the word "null". */
-  displayName: z.string().nullable(),
+  displayName: z.nullable(z.string()),
   updatedAt: Instant,
 });
 export type DuplicateContact = z.infer<typeof DuplicateContact>;
 
-const DuplicateSet = z.object({ matchOn: MatchOn, contacts: z.array(DuplicateContact).min(2) });
+const DuplicateSet = z.object({ matchOn: MatchOn, contacts: z.array(DuplicateContact).check(z.minLength(2)) });
 export type DuplicateSet = z.infer<typeof DuplicateSet>;
 
-const DuplicatePage = z.object({ data: z.array(DuplicateSet), nextCursor: z.string().nullable() });
+const DuplicatePage = z.object({ data: z.array(DuplicateSet), nextCursor: z.nullable(z.string()) });
 export type DuplicatePage = z.infer<typeof DuplicatePage>;
 
 /** The standard fields a merge may choose (`MergeField`). Never a compliance field. */
@@ -78,13 +78,13 @@ export const MergeSide = z.enum(['survivor', 'merged']);
 export type MergeSide = z.infer<typeof MergeSide>;
 
 /** A preview's record: a Contact, plus the company the merge may choose. */
-const PreviewContact = Contact.extend({ companyName: z.string().nullable().optional() });
+const PreviewContact = z.extend(Contact, { companyName: z.optional(z.nullable(z.string())) });
 export type PreviewContact = z.infer<typeof PreviewContact>;
 
 const ComplianceOutcome = z.object({
-  dnd: z.boolean().optional(),
-  whatsappOptIn: z.boolean().optional(),
-  consentState: z.enum(['unknown', 'opted_in', 'pending', 'withdrawn']).optional(),
+  dnd: z.optional(z.boolean()),
+  whatsappOptIn: z.optional(z.boolean()),
+  consentState: z.optional(z.enum(['unknown', 'opted_in', 'pending', 'withdrawn'])),
   withheldFields: z.array(z.enum(COMPLIANCE_FIELDS)),
 });
 export type ComplianceOutcome = z.infer<typeof ComplianceOutcome>;
@@ -98,7 +98,7 @@ const ContactMergePreview = z.object({
 });
 export type ContactMergePreview = z.infer<typeof ContactMergePreview>;
 
-const MergeParty = z.object({ id: Id, displayName: z.string().nullable() });
+const MergeParty = z.object({ id: Id, displayName: z.nullable(z.string()) });
 
 const ContactMerge = z.object({
   id: Id,
@@ -108,13 +108,13 @@ const ContactMerge = z.object({
   mergedByUserId: Id,
   mergedAt: Instant,
   undoUntil: Instant,
-  undoneAt: Instant.nullable(),
-  undoneByUserId: Id.nullable(),
-  survivorReverted: z.boolean().nullable(),
+  undoneAt: z.nullable(Instant),
+  undoneByUserId: z.nullable(Id),
+  survivorReverted: z.nullable(z.boolean()),
 });
 export type ContactMerge = z.infer<typeof ContactMerge>;
 
-const ContactMergePage = z.object({ data: z.array(ContactMerge), nextCursor: z.string().nullable() });
+const ContactMergePage = z.object({ data: z.array(ContactMerge), nextCursor: z.nullable(z.string()) });
 export type ContactMergePage = z.infer<typeof ContactMergePage>;
 
 const Programmes = z.object({ data: z.array(z.object({ id: z.string(), name: z.string() })) });
@@ -123,7 +123,7 @@ export type Programme = z.infer<typeof Programmes>['data'][number];
 export type DuplicatesResult<T> = RecordsResult<T>;
 
 export function listMyProgrammes(signal?: AbortSignal): Promise<DuplicatesResult<readonly Programme[]>> {
-  return requestRecords(PROGRAMMES_PATH, Programmes.transform((answer) => answer.data), { method: 'GET', ...(signal ? { signal } : {}) });
+  return requestRecords(PROGRAMMES_PATH, z.pipe(Programmes, z.transform((answer) => answer.data)), { method: 'GET', ...(signal ? { signal } : {}) });
 }
 
 function cursorQuery(cursor: string | undefined): string {

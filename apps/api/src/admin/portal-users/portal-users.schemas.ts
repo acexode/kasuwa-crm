@@ -7,14 +7,12 @@ import { z } from 'zod';
  * trying to supply its own scope (CLAUDE.md 2.2), which is refused by name.
  */
 
-export const PortalProgrammeIdParam = z.object({ programmeId: z.string().uuid() }).strict();
+export const PortalProgrammeIdParam = z.strictObject({ programmeId: z.uuid() });
 
 /** `#/components/schemas/InvitePortalUserRequest`. */
-export const InvitePortalUserBody = z
-  .object({
-    email: z.string().max(320).email(),
-    displayName: z.string().max(200).optional(),
-    access: z.enum(['viewer', 'reports_only']),
-  })
-  .strict();
+export const InvitePortalUserBody = z.strictObject({
+  email: z.string().max(320).email(),
+  displayName: z.string().max(200).optional(),
+  access: z.enum(['viewer', 'reports_only']),
+});
 export type InvitePortalUserBody = z.infer<typeof InvitePortalUserBody>;

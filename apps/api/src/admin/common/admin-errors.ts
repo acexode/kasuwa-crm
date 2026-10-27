@@ -2,7 +2,8 @@ import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus } from '@nestjs/common';
 import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Response } from 'express';
-import { ZodError, type ZodIssue } from 'zod';
+import { ZodError, type z } from 'zod';
+import { wireIssueCode, wireIssues } from '../../common/zod-issue-code';
 import { SCOPE_HEADER_REJECTED_BODY } from '../../tenancy/auth-context';
 
 /** True only for the guards' fixed scope-header body, compared field by field. */
@@ -163,7 +164,7 @@ export const invalidCursor = (): AdminError =>
 export const validationFailedFrom = (error: ZodError): AdminError => {
   // Stop building details at the cap, rather than mapping every issue first.
   const details: AdminErrorDetail[] = [];
-  for (const issue of error.issues) {
+  for (const issue of wireIssues(error.issues)) {
     for (const detail of toDetails(issue)) {
       if (details.length >= MAX_ERROR_DETAILS) return validationFailed(details);
       details.push(detail);
@@ -177,13 +178,15 @@ export const validationFailedFrom = (error: ZodError): AdminError => {
  * names `programmeIds` rather than the root. A custom issue may carry a stable
  * `params.reason`, which becomes the code.
  */
-export function toDetails(issue: ZodIssue): AdminErrorDetail[] {
+export function toDetails(issue: z.core.$ZodIssue): AdminErrorDetail[] {
   const base = issue.path.map(String);
   if (issue.code === 'unrecognized_keys') {
     return issue.keys.map((key) => ({ path: [...base, key].join('.'), code: issue.code }));
   }
   const reason: unknown = issue.code === 'custom' ? issue.params?.['reason'] : undefined;
-  return [{ path: base.join('.'), code: typeof reason === 'string' ? reason : issue.code }];
+  return [
+    { path: base.join('.'), code: typeof reason === 'string' ? reason : wireIssueCode(issue) },
+  ];
 }
 
 /**

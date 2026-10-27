@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { identifierShaped } from './identifier-shaped';
 import { Account } from './accounts-api';
@@ -52,7 +52,7 @@ export const DEFAULT_LEAD_SORT: LeadSort = '-createdAt';
  * longer a member of the contact's programme. The row prints the translated
  * `records.owner.former`, never the id. Always present, never omitted.
  */
-export const ContactOwner = z.object({ id: z.string(), displayName: z.string().nullable() });
+export const ContactOwner = z.object({ id: z.string(), displayName: z.nullable(z.string()) });
 export type ContactOwner = z.infer<typeof ContactOwner>;
 const ContactAccountSummary = z.object({ id: z.string(), name: z.string() });
 
@@ -62,16 +62,16 @@ const ContactAccountSummary = z.object({ id: z.string(), name: z.string() });
  * T-0061). Each is OMITTED when withheld (listed in `withheldFields`) and
  * `null` when there is no value, so each is `.nullable().optional()`.
  */
-export const Lead = Contact.extend({
-  companyName: z.string().nullable().optional(),
-  owner: ContactOwner.nullable().optional(),
-  account: ContactAccountSummary.nullable().optional(),
+export const Lead = z.extend(Contact, {
+  companyName: z.optional(z.nullable(z.string())),
+  owner: z.optional(z.nullable(ContactOwner)),
+  account: z.optional(z.nullable(ContactAccountSummary)),
 });
 export type Lead = z.infer<typeof Lead>;
 
 export const LeadPage = z.object({
   data: z.array(Lead),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type LeadPage = z.infer<typeof LeadPage>;
 

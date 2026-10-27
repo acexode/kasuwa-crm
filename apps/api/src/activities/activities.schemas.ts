@@ -31,22 +31,19 @@ const VERSION = z.number().int().min(1).max(2_147_483_647);
  * that changes the date catches it. The year is held to 1970..9999: `Date`
  * accepts year 0000, which Postgres rejects (22008), also a 500.
  */
-export const UtcDateTime = z
-  .string()
-  .datetime()
-  .refine(
-    (value) => {
-      const year = Number(value.slice(0, 4));
-      if (!(year >= 1970 && year <= 9999)) return false;
-      const parsed = new Date(value);
-      return (
-        !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
-      );
-    },
-    { params: { reason: 'invalid_date' } },
-  );
+export const UtcDateTime = z.iso.datetime().refine(
+  (value) => {
+    const year = Number(value.slice(0, 4));
+    if (!(year >= 1970 && year <= 9999)) return false;
+    const parsed = new Date(value);
+    return (
+      !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
+    );
+  },
+  { params: { reason: 'invalid_date' } },
+);
 
-export const ActivityIdParam = z.object({ id: z.string().uuid() });
+export const ActivityIdParam = z.object({ id: z.uuid() });
 
 /** The create body's keys a caller may send, as the contract names them. */
 export const CREATE_ACTIVITY_KEYS = [
@@ -91,14 +88,14 @@ export function meetingSpanIssue(
 
 const addIssue = (context: z.RefinementCtx, issue: Issue, message: string) =>
   context.addIssue({
-    code: z.ZodIssueCode.custom,
+    code: 'custom',
     path: [issue.path],
     message,
     params: { reason: issue.reason },
   });
 
 export const CreateActivityBody = z
-  .object({
+  .strictObject({
     type: z.enum(ACTIVITY_TYPES),
     subject: text(1, SUBJECT_MAX_LENGTH).nullable().optional(),
     body: text(1, BODY_MAX_LENGTH).nullable().optional(),
@@ -106,23 +103,22 @@ export const CreateActivityBody = z
     // A meeting's times (T-0082): never nullable, a meeting always has both.
     startsAt: UtcDateTime.optional(),
     endsAt: UtcDateTime.optional(),
-    ownerUserId: z.string().uuid().nullable().optional(),
-    contactId: z.string().uuid().nullable().optional(),
-    accountId: z.string().uuid().nullable().optional(),
+    ownerUserId: z.uuid().nullable().optional(),
+    contactId: z.uuid().nullable().optional(),
+    accountId: z.uuid().nullable().optional(),
     // T-0111: a LINK, never a target (R1); the service checks the deal is in
     // the activity's programme (R2).
-    dealId: z.string().uuid().nullable().optional(),
+    dealId: z.uuid().nullable().optional(),
     // T-0089: admitted here, validated against the live definitions separately.
     custom: z.unknown().optional(),
   })
-  .strict()
   .superRefine((body, context) => {
     if (
       (body.contactId === undefined || body.contactId === null) &&
       (body.accountId === undefined || body.accountId === null)
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['contactId'],
         message: 'an activity needs a contact or an account',
         params: { reason: 'target_required' },
@@ -142,7 +138,8 @@ export const CreateActivityBody = z
       }
       if (body.startsAt !== undefined && body.endsAt !== undefined) {
         const issue = meetingSpanIssue(body.startsAt, body.endsAt, 'endsAt');
-        if (issue !== null) addIssue(context, issue, 'a meeting ends after it starts, within a day');
+        if (issue !== null)
+          addIssue(context, issue, 'a meeting ends after it starts, within a day');
       }
     } else {
       for (const field of ['startsAt', 'endsAt'] as const) {
@@ -164,18 +161,17 @@ export type CreateActivityBody = z.infer<typeof CreateActivityBody>;
  * meeting's span, are judged against the stored row by the service.
  */
 export const UpdateActivityBody = z
-  .object({
+  .strictObject({
     version: VERSION,
     completed: z.literal(true).optional(),
-    ownerUserId: z.string().uuid().nullable().optional(),
+    ownerUserId: z.uuid().nullable().optional(),
     dueAt: UtcDateTime.nullable().optional(),
     startsAt: UtcDateTime.optional(),
     endsAt: UtcDateTime.optional(),
-    dealId: z.string().uuid().nullable().optional(),
+    dealId: z.uuid().nullable().optional(),
     // T-0089: a per-key merge, validated against the live definitions separately.
     custom: z.unknown().optional(),
   })
-  .strict()
   .refine(
     (body) =>
       body.completed !== undefined ||

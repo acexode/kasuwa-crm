@@ -47,30 +47,28 @@ export function isUuid(value: unknown): value is string {
 }
 
 /** `DealMoney`: closed, both parts required. */
-export const DealMoney = z
-  .object({
-    amountMinor: z.string().superRefine((value, context) => {
-      if (!AMOUNT_MINOR_PATTERN.test(value)) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'not a minor-unit amount',
-          params: { reason: INVALID_AMOUNT_REASON },
-        });
-      }
-    }),
-    currency: z.string().superRefine((value, context) => {
-      const known = (DEAL_CURRENCIES as readonly string[]).includes(value);
-      if (known) return;
+export const DealMoney = z.strictObject({
+  amountMinor: z.string().superRefine((value, context) => {
+    if (!AMOUNT_MINOR_PATTERN.test(value)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'not a supported currency',
-        // Three capitals is a code the server does not know; anything else
-        // is not a currency code at all.
-        params: { reason: CURRENCY_CODE.test(value) ? 'unknown_currency' : 'invalid_string' },
+        code: 'custom',
+        message: 'not a minor-unit amount',
+        params: { reason: INVALID_AMOUNT_REASON },
       });
-    }),
-  })
-  .strict();
+    }
+  }),
+  currency: z.string().superRefine((value, context) => {
+    const known = (DEAL_CURRENCIES as readonly string[]).includes(value);
+    if (known) return;
+    context.addIssue({
+      code: 'custom',
+      message: 'not a supported currency',
+      // Three capitals is a code the server does not know; anything else
+      // is not a currency code at all.
+      params: { reason: CURRENCY_CODE.test(value) ? 'unknown_currency' : 'invalid_string' },
+    });
+  }),
+});
 export type DealMoney = z.infer<typeof DealMoney>;
 
 /**
@@ -118,18 +116,17 @@ export type DealWritableField = (typeof DEAL_WRITABLE_FIELDS)[number];
 /** `custom` (T-0089): admitted here, validated against the live definitions separately. */
 const customField = { custom: z.unknown().optional() };
 
-export const CreateDealBody = z.object({ ...writableFields, ...customField }).strict();
+export const CreateDealBody = z.strictObject({ ...writableFields, ...customField });
 export type CreateDealBody = z.infer<typeof CreateDealBody>;
 
 /** `UpdateDealRequest`. Closed: `version` plus at least one field (D-L102). */
 export const UpdateDealBody = z
-  .object({
+  .strictObject({
     version: VERSION,
     ...writableFields,
     name: writableFields.name.optional(),
     ...customField,
   })
-  .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {
     message: 'an update must change something',
     path: [],
@@ -149,14 +146,13 @@ export type MoveField = (typeof MOVE_FIELDS)[number];
 
 /** `MoveDealFields`: closed, at least one, a value and never `null`. */
 const MoveDealFields = z
-  .object({
+  .strictObject({
     amount: DealMoney.optional(),
     expectedCloseDate: CalendarDate.optional(),
     nextStep: text(1, 200).optional(),
     primaryContactId: uuid.optional(),
     accountId: uuid.optional(),
   })
-  .strict()
   .refine((fields) => Object.keys(fields).length > 0, {
     message: 'fields must name at least one requirement',
     path: [],
@@ -168,21 +164,19 @@ const MoveDealFields = z
  * a stage of the deal's pipeline is one `unknown_reference` answer, a non-uuid
  * included (R4), decided by the service.
  */
-export const MoveDealBody = z
-  .object({
-    version: VERSION,
-    toStageId: z.string().max(64),
-    fields: MoveDealFields.optional(),
-    checks: z
-      .array(uuid)
-      .max(20)
-      .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, {
-        message: 'checks repeat',
-        params: { reason: 'not_unique' },
-      })
-      .optional(),
-  })
-  .strict();
+export const MoveDealBody = z.strictObject({
+  version: VERSION,
+  toStageId: z.string().max(64),
+  fields: MoveDealFields.optional(),
+  checks: z
+    .array(uuid)
+    .max(20)
+    .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, {
+      message: 'checks repeat',
+      params: { reason: 'not_unique' },
+    })
+    .optional(),
+});
 export type MoveDealBody = z.infer<typeof MoveDealBody>;
 
 /** listDeals' sort keys: never a withheld value (D-L115). */
@@ -200,7 +194,7 @@ export type DealSort = (typeof DEAL_SORTS)[number];
 export const DEFAULT_DEAL_SORT: DealSort = '-updatedAt';
 
 /** A repeated query parameter arrives as an array, a single one as a string. */
-function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
+function many<T extends z.ZodType>(item: T, maxItems: number) {
   return z
     .preprocess(
       (value) => (value === undefined || Array.isArray(value) ? value : [value]),
@@ -210,20 +204,17 @@ function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
 }
 
 /** UTC with a `Z` and a real calendar date, as the contract's date-times. */
-const UtcDateTime = z
-  .string()
-  .datetime()
-  .refine(
-    (value) => {
-      const year = Number(value.slice(0, 4));
-      if (!(year >= 1970 && year <= 9999)) return false;
-      const parsed = new Date(value);
-      return (
-        !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
-      );
-    },
-    { params: { reason: 'invalid_date' } },
-  );
+const UtcDateTime = z.iso.datetime().refine(
+  (value) => {
+    const year = Number(value.slice(0, 4));
+    if (!(year >= 1970 && year <= 9999)) return false;
+    const parsed = new Date(value);
+    return (
+      !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
+    );
+  },
+  { params: { reason: 'invalid_date' } },
+);
 
 /**
  * listDeals' query. `stageId` items are any string: one that is not a stage

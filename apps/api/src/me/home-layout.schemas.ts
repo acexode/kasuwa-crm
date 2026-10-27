@@ -48,12 +48,10 @@ export const HOME_LAYOUT_MAX_ITEMS = 19;
 
 const Span = z.union([z.literal(4), z.literal(6), z.literal(8), z.literal(12)]);
 
-export const HomeLayoutBody = z
-  .object({
-    role: z.enum(HOME_ROLES),
-    items: z
-      .array(z.object({ type: z.enum(HOME_WIDGET_TYPES), span: Span }).strict())
-      .max(HOME_LAYOUT_MAX_ITEMS),
-  })
-  .strict();
+export const HomeLayoutBody = z.strictObject({
+  role: z.enum(HOME_ROLES),
+  items: z
+    .array(z.object({ type: z.enum(HOME_WIDGET_TYPES), span: Span }).strict())
+    .max(HOME_LAYOUT_MAX_ITEMS),
+});
 export type HomeLayoutBody = z.infer<typeof HomeLayoutBody>;

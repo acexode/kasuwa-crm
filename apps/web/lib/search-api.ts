@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { requestRecords, type RecordsResult } from './records-api';
 import { HITS_PER_GROUP, parseHit, SEARCH_TYPES, type PersonSearchHit, type SearchGroup, type SearchHit, type SearchType } from './search-hits';
 
@@ -43,14 +43,14 @@ export {
 } from './search-hits';
 
 const RawAnswer = z.object({
-  groups: z.array(z.object({ type: z.string(), hits: z.array(z.unknown()) }).passthrough()),
+  groups: z.array(z.looseObject({ type: z.string(), hits: z.array(z.unknown()) })),
 });
 
 /**
  * The answer, in the served order and the served hit order (never re-sorted),
  * with unknown group types ignored and at most three hits per group.
  */
-export const SearchAnswer = RawAnswer.transform((answer): readonly SearchGroup[] =>
+export const SearchAnswer = z.pipe(RawAnswer, z.transform((answer): readonly SearchGroup[] =>
   answer.groups.flatMap((group) => {
     const type = SEARCH_TYPES.find((known) => known === group.type);
     if (type === undefined) return [];
@@ -60,7 +60,7 @@ export const SearchAnswer = RawAnswer.transform((answer): readonly SearchGroup[]
       .filter((hit): hit is SearchHit => hit !== null);
     return [{ type, hits }];
   }),
-);
+));
 
 /** searchRecords for a name. `q` is already planned (`planSearch`): never an identifier. */
 export function searchRecords(q: string, signal?: AbortSignal): Promise<RecordsResult<readonly SearchGroup[]>> {

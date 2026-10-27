@@ -14,18 +14,15 @@ import { AUDIT_ACTIONS, AUDIT_OBJECT_TYPES } from './audit-writer';
  * refuse it later as a 500 rather than a 400. Round-tripping through `Date`
  * catches it, because `Date` rolls an impossible day over into the next month.
  */
-const UtcDateTime = z
-  .string()
-  .datetime()
-  .refine((value) => {
-    const parsed = new Date(value);
-    return (
-      !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
-    );
-  });
+const UtcDateTime = z.iso.datetime().refine((value) => {
+  const parsed = new Date(value);
+  return (
+    !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value.slice(0, 10)
+  );
+});
 
 const filterFields = {
-  actorId: z.string().uuid().optional(),
+  actorId: z.uuid().optional(),
   action: z.enum(AUDIT_ACTIONS).optional(),
   objectType: z.string().min(1).max(64).optional(),
   from: UtcDateTime.optional(),
@@ -34,13 +31,11 @@ const filterFields = {
   sourceIpPrefix: z.string().max(45).optional(),
 };
 
-export const ListAuditEventsQuery = z
-  .object({
-    ...filterFields,
-    cursor: z.string().min(1).max(512).optional(),
-    pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  })
-  .strict();
+export const ListAuditEventsQuery = z.strictObject({
+  ...filterFields,
+  cursor: z.string().min(1).max(512).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+});
 export type ListAuditEventsQuery = z.infer<typeof ListAuditEventsQuery>;
 
 /**
@@ -49,19 +44,19 @@ export type ListAuditEventsQuery = z.infer<typeof ListAuditEventsQuery>;
  * tenant can read, so a free-text field there would be a tenant-wide message
  * board (and a place for personal data to land).
  */
-export const AuditFilters = z
-  .object({ ...filterFields, objectType: z.enum(AUDIT_OBJECT_TYPES).optional() })
-  .strict();
+export const AuditFilters = z.strictObject({
+  ...filterFields,
+  objectType: z.enum(AUDIT_OBJECT_TYPES).optional(),
+});
 export type AuditFilters = z.infer<typeof AuditFilters>;
 
 export const CreateAuditExportBody = z
-  .object({
+  .strictObject({
     format: z.enum(['csv', 'json']),
     scope: z.enum(['filtered', 'last_90_days']),
     includeIpAddresses: z.boolean().default(false),
     filters: AuditFilters.optional(),
   })
-  .strict()
   // `filters` applies "when `scope` is `filtered`". Accepting it with
   // `last_90_days` and ignoring it would export more than the caller asked for.
   .refine((body) => body.scope === 'filtered' || body.filters === undefined, {
@@ -70,4 +65,4 @@ export const CreateAuditExportBody = z
   });
 export type CreateAuditExportBody = z.infer<typeof CreateAuditExportBody>;
 
-export const ExportIdParam = z.object({ exportId: z.string().uuid() });
+export const ExportIdParam = z.object({ exportId: z.uuid() });

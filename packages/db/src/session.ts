@@ -18,7 +18,7 @@ import { z } from 'zod';
  * header-forgery cases in tests/acceptance/tenancy.
  */
 
-const Uuid = z.string().uuid();
+const Uuid = z.uuid();
 
 export interface SessionRequest {
   tenantId: string;

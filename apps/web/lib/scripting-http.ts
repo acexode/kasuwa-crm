@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 
 /**
@@ -62,7 +62,7 @@ export type ScriptingResult<T> =
 
 const ApiError = z.object({
   code: z.string(),
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
 });
 
 function failure(status: number, code: ScriptingScreenErrorCode, details: readonly ScriptingErrorDetail[] = []): ScriptingResult<never> {
@@ -73,7 +73,7 @@ export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT';
 
 export async function scriptingRequest<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodMiniType<T, unknown>,
   init: { readonly method?: Method; readonly body?: unknown; readonly signal?: AbortSignal } = {},
 ): Promise<ScriptingResult<T>> {
   let response: Response;

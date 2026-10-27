@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { text } from './text';
 
 /**
@@ -19,9 +18,7 @@ import { text } from './text';
  */
 export function looksLikeIdentifier(q: string): boolean {
   const normalised = q.normalize('NFKC');
-  return (
-    normalised.includes('@') || /\p{Nd}{6,}/u.test(normalised.replace(/[^\p{L}\p{Nd}]/gu, ''))
-  );
+  return normalised.includes('@') || /\p{Nd}{6,}/u.test(normalised.replace(/[^\p{L}\p{Nd}]/gu, ''));
 }
 
 /** The detail code an identifier-shaped `q` is refused with, at `q`. */
@@ -38,7 +35,7 @@ export function nameQuery(min = 1, max = 100) {
   return text(min, max).superRefine((value, context) => {
     if (looksLikeIdentifier(value)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: IDENTIFIER_IN_URL,
         params: { reason: IDENTIFIER_IN_URL },
       });

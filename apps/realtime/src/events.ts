@@ -11,8 +11,8 @@ export const EVENTS_CHANNEL = 'kasuwa.realtime.events';
 const MAX_RAW_BYTES = 64 * 1024;
 
 export const RealtimeEvent = z.object({
-  tenantId: z.string().uuid(),
-  programmeId: z.string().uuid(),
+  tenantId: z.uuid(),
+  programmeId: z.uuid(),
   type: z.string().min(1).max(64),
   ids: z.array(z.string().min(1).max(64)).max(200),
 });

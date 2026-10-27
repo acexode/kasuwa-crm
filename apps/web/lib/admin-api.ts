@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 
 /**
@@ -59,9 +59,9 @@ export const ApiError = z.object({
   error: z.string(),
   code: AdminErrorCode,
   message: z.string(),
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
-  conflictingIds: z.array(z.string()).optional(),
-  retryAt: z.string().optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
+  conflictingIds: z.optional(z.array(z.string())),
+  retryAt: z.optional(z.string()),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
@@ -96,7 +96,7 @@ export const HealthCheck = z.object({
   label: z.string(),
   status: z.enum(['pass', 'warn', 'fail', 'todo']),
   points: z.number(),
-  settingId: z.string().nullable().optional(),
+  settingId: z.optional(z.nullable(z.string())),
 });
 export type HealthCheck = z.infer<typeof HealthCheck>;
 
@@ -105,7 +105,7 @@ export const AdminHomeSummary = z.object({
     id: z.string(),
     name: z.string(),
     /** Null or empty while no plan is stored (M23); the subtitle then leaves it out. */
-    planName: z.string().nullable(),
+    planName: z.nullable(z.string()),
     countryCount: z.number(),
     userCount: z.number(),
   }),
@@ -126,10 +126,10 @@ export const AdminAlert = z.object({
   category: z.enum(['security', 'channels', 'compliance', 'billing', 'data']),
   title: z.string(),
   body: z.string(),
-  sourceLabel: z.string().nullable().optional(),
+  sourceLabel: z.optional(z.nullable(z.string())),
   raisedAt: z.string(),
-  actionLabel: z.string().nullable().optional(),
-  settingId: z.string().nullable().optional(),
+  actionLabel: z.optional(z.nullable(z.string())),
+  settingId: z.optional(z.nullable(z.string())),
   dismissed: z.boolean(),
 });
 export type AdminAlert = z.infer<typeof AdminAlert>;
@@ -140,7 +140,7 @@ export type AdminAlertList = z.infer<typeof AdminAlertList>;
 export const Money = z.object({
   amountMinor: z.string(),
   currency: z.string(),
-  estimatedTotalMinor: z.string().nullable().optional(),
+  estimatedTotalMinor: z.optional(z.nullable(z.string())),
 });
 export type Money = z.infer<typeof Money>;
 
@@ -149,10 +149,10 @@ export const UsageMeter = z.object({
   label: z.string(),
   unit: z.string(),
   used: z.number(),
-  limit: z.number().nullable().optional(),
-  warnAtPercent: z.number().nullable().optional(),
-  note: z.string().nullable().optional(),
-  spend: Money.nullable().optional(),
+  limit: z.optional(z.nullable(z.number())),
+  warnAtPercent: z.optional(z.nullable(z.number())),
+  note: z.optional(z.nullable(z.string())),
+  spend: z.optional(z.nullable(Money)),
 });
 export type UsageMeter = z.infer<typeof UsageMeter>;
 
@@ -179,68 +179,61 @@ export type ProgrammeChannel = z.infer<typeof ProgrammeChannel>;
 export const Programme = z.object({
   id: z.string(),
   name: z.string(),
-  clientName: z.string().nullable().optional(),
-  reference: z.string().nullable().optional(),
-  countryCode: z.string().nullable().optional(),
+  clientName: z.optional(z.nullable(z.string())),
+  reference: z.optional(z.nullable(z.string())),
+  countryCode: z.optional(z.nullable(z.string())),
   status: ProgrammeStatus,
-  channels: z.array(ProgrammeChannel).optional(),
-  agentCount: z.number().nullable().optional(),
-  slaAttainment7d: z.number().nullable().optional(),
-  retentionSummary: z.string().nullable().optional(),
+  channels: z.optional(z.array(ProgrammeChannel)),
+  agentCount: z.optional(z.nullable(z.number())),
+  slaAttainment7d: z.optional(z.nullable(z.number())),
+  retentionSummary: z.optional(z.nullable(z.string())),
 });
 export type Programme = z.infer<typeof Programme>;
 
 export const Page = z.object({
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
   hasMore: z.boolean(),
-  totalCount: z.number().nullable().optional(),
+  totalCount: z.optional(z.nullable(z.number())),
 });
 
 export const ProgrammeList = z.object({
   items: z.array(Programme),
   statusCounts: z.object({
-    active: z.number().optional(),
-    paused: z.number().optional(),
-    draft: z.number().optional(),
-    archived: z.number().optional(),
+    active: z.optional(z.number()),
+    paused: z.optional(z.number()),
+    draft: z.optional(z.number()),
+    archived: z.optional(z.number()),
   }),
   page: Page,
 });
 export type ProgrammeList = z.infer<typeof ProgrammeList>;
 
-export const ProgrammeDetail = Programme.extend({
+export const ProgrammeDetail = z.extend(Programme, {
   version: z.number(),
-  businessUnitId: z.string().optional(),
-  contract: z
+  businessUnitId: z.optional(z.string()),
+  contract: z.optional(z.nullable(z
     .object({
-      reference: z.string().nullable().optional(),
-      startedOn: z.string().nullable().optional(),
-      renewsOn: z.string().nullable().optional(),
-      billingBasis: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
-  operating: z
+      reference: z.optional(z.nullable(z.string())),
+      startedOn: z.optional(z.nullable(z.string())),
+      renewsOn: z.optional(z.nullable(z.string())),
+      billingBasis: z.optional(z.nullable(z.string())),
+    }))),
+  operating: z.optional(z.nullable(z
     .object({
-      timeZone: z.string().optional(),
-      hoursSummary: z.string().nullable().optional(),
-      holidayCalendar: z.string().nullable().optional(),
-      channels: z
-        .array(z.object({ channel: ProgrammeChannel, label: z.string() }))
-        .optional(),
-    })
-    .nullable()
-    .optional(),
-  people: z
+      timeZone: z.optional(z.string()),
+      hoursSummary: z.optional(z.nullable(z.string())),
+      holidayCalendar: z.optional(z.nullable(z.string())),
+      channels: z.optional(z
+        .array(z.object({ channel: ProgrammeChannel, label: z.string() }))),
+    }))),
+  people: z.optional(z.nullable(z
     .object({
-      programmeManagerName: z.string().nullable().optional(),
-      teamLeadCount: z.number().nullable().optional(),
-      agentCount: z.number().nullable().optional(),
-      qaAnalystCount: z.number().nullable().optional(),
-      portalUserCount: z.number().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+      programmeManagerName: z.optional(z.nullable(z.string())),
+      teamLeadCount: z.optional(z.nullable(z.number())),
+      agentCount: z.optional(z.nullable(z.number())),
+      qaAnalystCount: z.optional(z.nullable(z.number())),
+      portalUserCount: z.optional(z.nullable(z.number())),
+    }))),
 });
 export type ProgrammeDetail = z.infer<typeof ProgrammeDetail>;
 
@@ -252,8 +245,8 @@ export const ProgrammeKpis = z.object({
       label: z.string(),
       format: z.enum(['percent', 'count', 'duration_seconds']),
       value: z.number(),
-      targetValue: z.number().nullable().optional(),
-      status: z.enum(['good', 'warn', 'bad']).nullable().optional(),
+      targetValue: z.optional(z.nullable(z.number())),
+      status: z.optional(z.nullable(z.enum(['good', 'warn', 'bad']))),
     }),
   ),
 });
@@ -267,12 +260,12 @@ export const ProgrammeAgentList = z.object({
     z.object({
       userId: z.string(),
       displayName: z.string(),
-      initials: z.string().optional(),
-      teamName: z.string().nullable().optional(),
-      skills: z.array(z.string()).optional(),
-      languages: z.array(z.string()).optional(),
+      initials: z.optional(z.string()),
+      teamName: z.optional(z.nullable(z.string())),
+      skills: z.optional(z.array(z.string())),
+      languages: z.optional(z.array(z.string())),
       /** Null means "we do not know". It must never render as "Offline". */
-      presence: Presence.nullable(),
+      presence: z.nullable(Presence),
     }),
   ),
   page: Page,
@@ -289,7 +282,7 @@ export const SkillCover = z.object({
       label: z.string(),
       rostered: z.number(),
       /** Null when the WFM forecast is unavailable. No bar, no judgement. */
-      needed: z.number().nullable().optional(),
+      needed: z.optional(z.nullable(z.number())),
     }),
   ),
 });
@@ -308,9 +301,9 @@ export type SlaNotifyRole = z.infer<typeof SlaNotifyRole>;
 
 export const SlaTarget = z.object({
   channel: ProgrammeChannel,
-  firstResponseSeconds: z.number().nullable(),
+  firstResponseSeconds: z.nullable(z.number()),
   /** Null means there is no resolution target — voice's "Same call". */
-  resolutionSeconds: z.number().nullable(),
+  resolutionSeconds: z.nullable(z.number()),
   clock: SlaClock,
 });
 export type SlaTarget = z.infer<typeof SlaTarget>;
@@ -321,10 +314,10 @@ export const SlaPolicy = z.object({
   pauseOutsideOperatingHours: z.boolean(),
   pauseAwaitingCustomer: z.boolean(),
   warnAtPercentOfTarget: z.number(),
-  warnNotifyRole: SlaNotifyRole.optional(),
-  breachNotifyRole: SlaNotifyRole.optional(),
-  operatingHoursSummary: z.string().nullable().optional(),
-  timeZone: z.string().optional(),
+  warnNotifyRole: z.optional(SlaNotifyRole),
+  breachNotifyRole: z.optional(SlaNotifyRole),
+  operatingHoursSummary: z.optional(z.nullable(z.string())),
+  timeZone: z.optional(z.string()),
 });
 export type SlaPolicy = z.infer<typeof SlaPolicy>;
 
@@ -347,7 +340,7 @@ export const Disposition = z.object({
   active: z.boolean(),
   position: z.number(),
   /** Null when the aggregate is unavailable. The dialog then omits the line. */
-  usageCount90d: z.number().nullable().optional(),
+  usageCount90d: z.optional(z.nullable(z.number())),
 });
 export type Disposition = z.infer<typeof Disposition>;
 
@@ -361,15 +354,15 @@ export const AuditEntrySummary = z.object({
   id: z.string(),
   occurredAt: z.string(),
   action: z.string(),
-  actor: z.object({ displayName: z.string().nullable().optional() }).partial().passthrough(),
-  recordLabel: z.string().nullable().optional(),
-  summary: z.string().nullable().optional(),
+  actor: z.looseObject({ displayName: z.optional(z.nullable(z.string())) }),
+  recordLabel: z.optional(z.nullable(z.string())),
+  summary: z.optional(z.nullable(z.string())),
   // The events read is the audit log's own (`AuditEntry`); the home panel
   // reads the object it names so "What" can say "Updated · Script" and Record
   // can name it, as P02/A draws them (T-0140).
-  objectType: z.string().nullable().optional(),
-  objectLabel: z.string().nullable().optional(),
-  objectId: z.string().nullable().optional(),
+  objectType: z.optional(z.nullable(z.string())),
+  objectLabel: z.optional(z.nullable(z.string())),
+  objectId: z.optional(z.nullable(z.string())),
 });
 
 export const AuditEventList = z.object({
@@ -385,7 +378,7 @@ export type AuditEventList = z.infer<typeof AuditEventList>;
 async function request<T>(
   method: string,
   path: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   init: { body?: unknown; signal?: AbortSignal } = {},
 ): Promise<Result<T>> {
   let response: Response;
@@ -586,13 +579,13 @@ export type ScriptStatus = z.infer<typeof ScriptStatus>;
 export const Script = z.object({
   id: z.string(),
   name: z.string(),
-  channels: z.array(ProgrammeChannel).optional(),
+  channels: z.optional(z.array(ProgrammeChannel)),
   /** BCP 47 tags, e.g. `en`, `yo`, `ha`, `pcm`. Not display names. */
-  languages: z.array(z.string()).optional(),
+  languages: z.optional(z.array(z.string())),
   version: z.number(),
   status: ScriptStatus,
-  providerName: z.string().nullable().optional(),
-  rejectionReason: z.string().nullable().optional(),
+  providerName: z.optional(z.nullable(z.string())),
+  rejectionReason: z.optional(z.nullable(z.string())),
   updatedAt: z.string(),
 });
 export type Script = z.infer<typeof Script>;
@@ -628,7 +621,7 @@ export const RetentionPolicy = z.object({
   redactSensitiveNumbersInTranscripts: z.boolean(),
   legalHold: z.boolean(),
   /** Read-only. What these rules override. Null when there is no default. */
-  workspaceDefaultDays: z.number().nullable().optional(),
+  workspaceDefaultDays: z.optional(z.nullable(z.number())),
 });
 export type RetentionPolicy = z.infer<typeof RetentionPolicy>;
 
@@ -671,7 +664,7 @@ export const PortalUser = z.object({
   emailMasked: z.string(),
   access: z.enum(['viewer', 'reports_only']),
   status: z.enum(['invited', 'active', 'suspended']),
-  invitedAt: z.string().optional(),
+  invitedAt: z.optional(z.string()),
 });
 export type PortalUser = z.infer<typeof PortalUser>;
 
@@ -697,7 +690,7 @@ export function listPortalUsers(programmeId: string, signal?: AbortSignal) {
 export const ArchivePreview = z.object({
   agentsLosingAccess: z.number(),
   openInteractionsBecomingReadOnly: z.number(),
-  retentionSummary: z.string().nullable().optional(),
+  retentionSummary: z.optional(z.nullable(z.string())),
   portalUsersSignedOut: z.number(),
   restorableUntilDays: z.number(),
 });
@@ -739,23 +732,22 @@ export function archiveProgramme(programmeId: string, confirmation: string, sign
 export const Role = z.object({
   id: z.string(),
   name: z.string(),
-  parentRoleId: z.string().nullable(),
+  parentRoleId: z.nullable(z.string()),
   userCount: z.number(),
-  descendantUserCount: z.number().optional(),
+  descendantUserCount: z.optional(z.number()),
 });
 export type Role = z.infer<typeof Role>;
 
 export const RoleList = z.object({ version: z.number(), items: z.array(Role) });
 export type RoleList = z.infer<typeof RoleList>;
 
-export const RoleDetail = Role.extend({
-  seesRecordsOwnedBy: z
+export const RoleDetail = z.extend(Role, {
+  seesRecordsOwnedBy: z.optional(z
     .object({
       roleCount: z.number(),
       userCount: z.number(),
       sample: z.array(z.object({ id: z.string(), name: z.string() })),
-    })
-    .optional(),
+    })),
 });
 export type RoleDetail = z.infer<typeof RoleDetail>;
 
@@ -823,7 +815,7 @@ export const PermissionSetList = z.object({
       permissionSetId: z.string(),
       label: z.string(),
       /** Null when the count is unavailable. Never rendered as zero. */
-      userCount: z.number().nullable().optional(),
+      userCount: z.optional(z.nullable(z.number())),
       locked: z.boolean(),
     }),
   ),
@@ -838,7 +830,7 @@ export type PermissionSetList = z.infer<typeof PermissionSetList>;
 export const FieldSecurityMatrix = z.object({
   objectApiName: z.string(),
   version: z.number(),
-  totalFieldCount: z.number().optional(),
+  totalFieldCount: z.optional(z.number()),
   rows: z.array(
     z.object({
       fieldApiName: z.string(),
@@ -942,9 +934,9 @@ export type AuditAction = z.infer<typeof AuditAction>;
 
 export const AuditActor = z.object({
   kind: z.enum(['user', 'system']),
-  id: z.string().nullable().optional(),
+  id: z.optional(z.nullable(z.string())),
   displayName: z.string(),
-  roleName: z.string().nullable().optional(),
+  roleName: z.optional(z.nullable(z.string())),
 });
 export type AuditActor = z.infer<typeof AuditActor>;
 
@@ -956,8 +948,8 @@ export type AuditActor = z.infer<typeof AuditActor>;
  */
 export const AuditChange = z.object({
   field: z.string(),
-  before: z.string().nullable().optional(),
-  after: z.string().nullable().optional(),
+  before: z.optional(z.nullable(z.string())),
+  after: z.optional(z.nullable(z.string())),
   redacted: z.boolean(),
 });
 export type AuditChange = z.infer<typeof AuditChange>;
@@ -969,16 +961,16 @@ export const AuditEntry = z.object({
   action: AuditAction,
   objectType: z.string(),
   objectLabel: z.string(),
-  objectId: z.string().nullable().optional(),
-  programmeId: z.string().nullable().optional(),
+  objectId: z.optional(z.nullable(z.string())),
+  programmeId: z.optional(z.nullable(z.string())),
   /**
    * Personal data under the NDPA. Null means "not shown to you" — and the
    * screen must never let that be told apart from "none was recorded", or the
    * field becomes an oracle for what the log holds.
    */
-  sourceIp: z.string().nullable().optional(),
-  sourceLocation: z.string().nullable().optional(),
-  changes: z.array(AuditChange).optional(),
+  sourceIp: z.optional(z.nullable(z.string())),
+  sourceLocation: z.optional(z.nullable(z.string())),
+  changes: z.optional(z.array(AuditChange)),
 });
 export type AuditEntry = z.infer<typeof AuditEntry>;
 
@@ -988,7 +980,7 @@ export type AuditEntryList = z.infer<typeof AuditEntryList>;
 export const AuditFilterOptions = z.object({
   actors: z.array(
     z.object({
-      id: z.string().nullable().optional(),
+      id: z.optional(z.nullable(z.string())),
       displayName: z.string(),
       kind: z.enum(['user', 'system']),
     }),
@@ -1002,12 +994,12 @@ export const AuditExport = z.object({
   exportId: z.string(),
   status: z.enum(['queued', 'running', 'ready', 'failed', 'expired']),
   format: z.enum(['csv', 'json']),
-  estimatedRowCount: z.number().nullable().optional(),
+  estimatedRowCount: z.optional(z.nullable(z.number())),
   /** Masked. Never the full address, and never a URL. */
-  deliveryEmailHint: z.string().nullable().optional(),
-  linkExpiresAfterHours: z.number().nullable().optional(),
+  deliveryEmailHint: z.optional(z.nullable(z.string())),
+  linkExpiresAfterHours: z.optional(z.nullable(z.number())),
   requestedAt: z.string(),
-  completedAt: z.string().nullable().optional(),
+  completedAt: z.optional(z.nullable(z.string())),
 });
 export type AuditExport = z.infer<typeof AuditExport>;
 

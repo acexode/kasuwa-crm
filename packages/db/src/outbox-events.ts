@@ -33,10 +33,7 @@ import { z } from 'zod';
  * id writes an event the relay rejects ten times and kills, silently. Every
  * id in a payload schema and in the producer's input goes through this.
  */
-export const OutboxUuid = z
-  .string()
-  .uuid()
-  .transform((value) => value.toLowerCase());
+export const OutboxUuid = z.uuid().transform((value) => value.toLowerCase());
 const Uuid = OutboxUuid;
 
 /** One queue per consuming domain (ADR-0018 point 6). */
@@ -52,13 +49,11 @@ export type OutboxQueueName = (typeof OUTBOX_QUEUES)[keyof typeof OUTBOX_QUEUES]
  * personal data in this sense (D-L71). Either owner may be null: a contact can
  * be assigned from, or released to, nobody.
  */
-export const ContactOwnerChangedPayload = z
-  .object({
-    contactId: Uuid,
-    previousOwnerId: Uuid.nullable(),
-    newOwnerId: Uuid.nullable(),
-  })
-  .strict();
+export const ContactOwnerChangedPayload = z.strictObject({
+  contactId: Uuid,
+  previousOwnerId: Uuid.nullable(),
+  newOwnerId: Uuid.nullable(),
+});
 
 export type ContactOwnerChangedPayload = z.infer<typeof ContactOwnerChangedPayload>;
 
@@ -67,33 +62,27 @@ export type ContactOwnerChangedPayload = z.infer<typeof ContactOwnerChangedPaylo
  * I2): the same shape as the contact's, keyed by the aggregate they are about.
  * Ids only (D-P29); either owner may be null.
  */
-export const AccountOwnerChangedPayload = z
-  .object({
-    accountId: Uuid,
-    previousOwnerId: Uuid.nullable(),
-    newOwnerId: Uuid.nullable(),
-  })
-  .strict();
+export const AccountOwnerChangedPayload = z.strictObject({
+  accountId: Uuid,
+  previousOwnerId: Uuid.nullable(),
+  newOwnerId: Uuid.nullable(),
+});
 
 export type AccountOwnerChangedPayload = z.infer<typeof AccountOwnerChangedPayload>;
 
-export const DealOwnerChangedPayload = z
-  .object({
-    dealId: Uuid,
-    previousOwnerId: Uuid.nullable(),
-    newOwnerId: Uuid.nullable(),
-  })
-  .strict();
+export const DealOwnerChangedPayload = z.strictObject({
+  dealId: Uuid,
+  previousOwnerId: Uuid.nullable(),
+  newOwnerId: Uuid.nullable(),
+});
 
 export type DealOwnerChangedPayload = z.infer<typeof DealOwnerChangedPayload>;
 
-export const ActivityAssignedPayload = z
-  .object({
-    activityId: Uuid,
-    previousOwnerId: Uuid.nullable(),
-    newOwnerId: Uuid.nullable(),
-  })
-  .strict();
+export const ActivityAssignedPayload = z.strictObject({
+  activityId: Uuid,
+  previousOwnerId: Uuid.nullable(),
+  newOwnerId: Uuid.nullable(),
+});
 
 export type ActivityAssignedPayload = z.infer<typeof ActivityAssignedPayload>;
 
@@ -102,14 +91,14 @@ export type ActivityAssignedPayload = z.infer<typeof ActivityAssignedPayload>;
  * import job, never one per row. The job's id and nothing else: the outcome
  * is re-read from the job, and the recipient is its creator.
  */
-export const ImportFinishedPayload = z.object({ importId: Uuid }).strict();
+export const ImportFinishedPayload = z.strictObject({ importId: Uuid });
 
 export type ImportFinishedPayload = z.infer<typeof ImportFinishedPayload>;
 
 /** Everything the outbox needs to know about one event type. */
 export interface OutboxEventDefinition {
   /** The strict payload schema. */
-  readonly schema: z.ZodType<Record<string, unknown>, z.ZodTypeDef, unknown>;
+  readonly schema: z.ZodType<Record<string, unknown>, unknown>;
   /** Written to `schema_version`; the relay refuses a row with another. */
   readonly schemaVersion: number;
   /** The only aggregate type this event may be about. */
@@ -185,7 +174,7 @@ assertOneQueuePerAggregateType(OUTBOX_EVENT_TYPES);
  * from `OUTBOX_EVENT_TYPES`, so the two can never disagree.
  */
 export const OUTBOX_EVENT_SCHEMAS: Readonly<
-  Record<string, z.ZodType<Record<string, unknown>, z.ZodTypeDef, unknown>>
+  Record<string, z.ZodType<Record<string, unknown>, unknown>>
 > =
   Object.freeze(
     Object.fromEntries(
@@ -257,10 +246,11 @@ export const OutboxEnvelopeIdentity = z.object({
 export type OutboxEnvelopeIdentity = z.infer<typeof OutboxEnvelopeIdentity>;
 
 /** The full envelope the relay builds. */
-export const OutboxEnvelope = OutboxEnvelopeIdentity.extend({
+export const OutboxEnvelope = z.strictObject({
+  ...OutboxEnvelopeIdentity.shape,
   schemaVersion: z.number().int().min(1).max(32_767),
-  payload: z.record(z.unknown()),
-  createdAt: z.string().datetime({ offset: true }),
-}).strict();
+  payload: z.record(z.string(), z.unknown()),
+  createdAt: z.iso.datetime({ offset: true }),
+});
 
 export type OutboxEnvelope = z.infer<typeof OutboxEnvelope>;

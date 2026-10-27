@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { listCalendar, listMyActivities, browserTimeZone, updateActivity, type MyActivity } from '../../lib/activities-api';
 import { requestRecords } from '../../lib/records-api';
 import {

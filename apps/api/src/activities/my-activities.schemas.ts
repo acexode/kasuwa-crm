@@ -28,7 +28,10 @@ const cursor = z.string().optional();
 export const ListMyActivitiesQuery = z.object({
   timeZone: z
     .string()
-    .refine(isIanaTimeZone, { message: 'not an IANA zone name', params: { reason: 'invalid_time_zone' } }),
+    .refine(isIanaTimeZone, {
+      message: 'not an IANA zone name',
+      params: { reason: 'invalid_time_zone' },
+    }),
   bucket: z.enum(ACTIVITY_BUCKETS),
   cursor,
   limit,
@@ -50,14 +53,14 @@ export const ListCalendarQuery = z
     // Never clamped: a window that is too long is refused, not shortened.
     if (!(span > 0)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['to'],
         message: 'to must be after from',
         params: { reason: 'invalid_window' },
       });
     } else if (span > CALENDAR_WINDOW_MAX_MS) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['to'],
         message: 'the window is at most 42 days',
         params: { reason: 'window_too_long' },

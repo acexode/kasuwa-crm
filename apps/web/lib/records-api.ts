@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { requestRecords, type RecordsResult } from './records-request';
 import { identifierShaped } from './identifier-shaped';
@@ -72,36 +72,36 @@ export type Phone = z.infer<typeof Phone>;
  * when withheld and `null` when there is none. The P04 rows print them
  * (T-0133); an id is never a name.
  */
-const ContactOwnerRef = z.object({ id: z.string(), displayName: z.string().nullable() });
+const ContactOwnerRef = z.object({ id: z.string(), displayName: z.nullable(z.string()) });
 const ContactAccountRef = z.object({ id: z.string(), name: z.string() });
 
 export const Contact = z.object({
   id: z.string(),
   programmeId: z.string(),
-  version: z.number().int(),
+  version: z.int(),
   /** Omitted, and listed in `withheldFields`, when `givenNames` or `familyName` is withheld (D-L68, T-0124): never composed from a readable part. */
-  displayName: z.string().optional(),
-  givenNames: z.string().nullable().optional(),
-  familyName: z.string().nullable().optional(),
-  phones: z.array(Phone).optional(),
-  emails: z.array(z.string()).optional(),
-  accountId: z.string().nullable().optional(),
-  account: ContactAccountRef.nullable().optional(),
-  ownerUserId: z.string().nullable().optional(),
-  owner: ContactOwnerRef.nullable().optional(),
-  status: ContactStatus.nullable().optional(),
-  source: ContactSource.nullable().optional(),
-  tags: z.array(z.string()).optional(),
-  preferredLanguage: z.string().nullable().optional(),
-  preferredChannel: PreferredChannel.nullable().optional(),
-  state: z.string().nullable().optional(),
-  lga: z.string().nullable().optional(),
-  dnd: z.boolean().optional(),
-  whatsappOptIn: z.boolean().optional(),
-  consentState: ConsentState.optional(),
-  phoneNetwork: z.string().nullable().optional(),
+  displayName: z.optional(z.string()),
+  givenNames: z.optional(z.nullable(z.string())),
+  familyName: z.optional(z.nullable(z.string())),
+  phones: z.optional(z.array(Phone)),
+  emails: z.optional(z.array(z.string())),
+  accountId: z.optional(z.nullable(z.string())),
+  account: z.optional(z.nullable(ContactAccountRef)),
+  ownerUserId: z.optional(z.nullable(z.string())),
+  owner: z.optional(z.nullable(ContactOwnerRef)),
+  status: z.optional(z.nullable(ContactStatus)),
+  source: z.optional(z.nullable(ContactSource)),
+  tags: z.optional(z.array(z.string())),
+  preferredLanguage: z.optional(z.nullable(z.string())),
+  preferredChannel: z.optional(z.nullable(PreferredChannel)),
+  state: z.optional(z.nullable(z.string())),
+  lga: z.optional(z.nullable(z.string())),
+  dnd: z.optional(z.boolean()),
+  whatsappOptIn: z.optional(z.boolean()),
+  consentState: z.optional(ConsentState),
+  phoneNetwork: z.optional(z.nullable(z.string())),
   /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
-  custom: z.record(z.string(), z.unknown()).optional(),
+  custom: z.optional(z.record(z.string(), z.unknown())),
   createdAt: z.string(),
   updatedAt: z.string(),
   withheldFields: z.array(z.string()),
@@ -110,7 +110,7 @@ export type Contact = z.infer<typeof Contact>;
 
 export const ContactPage = z.object({
   data: z.array(Contact),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type ContactPage = z.infer<typeof ContactPage>;
 

@@ -29,20 +29,18 @@ const Seconds = z.number().int().min(1).max(PG_INT_MAX).nullable();
 const Days = z.number().int().min(1).max(PG_INT_MAX);
 const NotifyRole = z.enum(SLA_NOTIFY_ROLES);
 
-export const ProgrammeIdParam = z.object({ programmeId: z.string().uuid() });
+export const ProgrammeIdParam = z.object({ programmeId: z.uuid() });
 
-const SlaTargetWrite = z
-  .object({
-    channel: z.enum(SLA_CHANNELS),
-    firstResponseSeconds: Seconds,
-    resolutionSeconds: Seconds,
-    clock: z.enum(SLA_CLOCKS),
-  })
-  .strict();
+const SlaTargetWrite = z.strictObject({
+  channel: z.enum(SLA_CHANNELS),
+  firstResponseSeconds: Seconds,
+  resolutionSeconds: Seconds,
+  clock: z.enum(SLA_CLOCKS),
+});
 
 /** `SlaPolicyWrite`. Two targets for one channel are ambiguous, so refused (D-L50). */
 export const SlaPolicyWriteBody = z
-  .object({
+  .strictObject({
     version: Version,
     targets: z.array(SlaTargetWrite).min(1).max(SLA_CHANNELS.length),
     pauseOutsideOperatingHours: z.boolean(),
@@ -51,13 +49,12 @@ export const SlaPolicyWriteBody = z
     warnNotifyRole: NotifyRole,
     breachNotifyRole: NotifyRole,
   })
-  .strict()
   .superRefine((body, context) => {
     const seen = new Set<string>();
     body.targets.forEach((target, index) => {
       if (seen.has(target.channel)) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['targets', index, 'channel'],
           params: { reason: 'duplicate' },
         });
@@ -68,16 +65,14 @@ export const SlaPolicyWriteBody = z
 export type SlaPolicyWriteBody = z.infer<typeof SlaPolicyWriteBody>;
 
 /** `RetentionPolicyWrite`. Every field is required; the first write sends `version: 0`. */
-export const RetentionPolicyWriteBody = z
-  .object({
-    version: Version,
-    callRecordingsDays: Days,
-    messageTranscriptsDays: Days,
-    screenRecordingsDays: Days,
-    qaEvaluationsDays: Days,
-    onExpiry: z.enum(RETENTION_ON_EXPIRY),
-    redactSensitiveNumbersInTranscripts: z.boolean(),
-    legalHold: z.boolean(),
-  })
-  .strict();
+export const RetentionPolicyWriteBody = z.strictObject({
+  version: Version,
+  callRecordingsDays: Days,
+  messageTranscriptsDays: Days,
+  screenRecordingsDays: Days,
+  qaEvaluationsDays: Days,
+  onExpiry: z.enum(RETENTION_ON_EXPIRY),
+  redactSensitiveNumbersInTranscripts: z.boolean(),
+  legalHold: z.boolean(),
+});
 export type RetentionPolicyWriteBody = z.infer<typeof RetentionPolicyWriteBody>;

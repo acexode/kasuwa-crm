@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { ACCOUNTS_PATH, Account } from './accounts-api';
 import { ActivityItem } from './contact-record-api';
 import { ContactPage, requestRecords, type RecordsResult } from './records-api';
@@ -54,20 +54,20 @@ const AccountFieldChangedItem = z.object({
   id: z.string(),
   type: z.literal('field_changed'),
   occurredAt: z.string(),
-  actor: z.object({ id: z.string(), displayName: z.string() }).nullable(),
+  actor: z.nullable(z.object({ id: z.string(), displayName: z.string() })),
   field: AccountTimelineField,
   redacted: z.literal(true),
 });
 
 /** The contact timeline's activity item, with the `version` T-0080 made required. */
-const AccountActivityItem = ActivityItem.extend({ version: z.number().int() });
+const AccountActivityItem = z.extend(ActivityItem, { version: z.int() });
 
 export const AccountTimelineItem = z.discriminatedUnion('type', [AccountFieldChangedItem, AccountActivityItem]);
 export type AccountTimelineItem = z.infer<typeof AccountTimelineItem>;
 
 export const AccountTimelinePage = z.object({
   data: z.array(AccountTimelineItem),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type AccountTimelinePage = z.infer<typeof AccountTimelinePage>;
 

@@ -574,7 +574,7 @@ describe('acceptance: T-0097 — crm_duplicates exists, is off, is not productio
     for (const { file, source } of clients) {
       const code = withoutComments(source);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       expect(code, `${file} builds a scope argument`).not.toMatch(/programmeIds|ownerUserIds|(set|append)\(\s*['"`](programme|owner|scope)|['"`]x-[\w-]*(programme|tenant|scope)|[?&]programmeId=/i);
       // Sets and merges name people at a URL that is the same for every user: never the HTTP cache (records-cache.test.ts).
       expect(/\brequestRecords\b/.test(code) || /cache:\s*['"]no-store['"]/.test(code), `${file} neither goes through requestRecords nor sends cache: 'no-store'`).toBe(true);

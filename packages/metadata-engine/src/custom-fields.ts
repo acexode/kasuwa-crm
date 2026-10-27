@@ -199,20 +199,20 @@ export type CustomSchemaMode = 'create' | 'patch';
 
 function reason(ctx: z.RefinementCtx, code: string, path: readonly string[] = []): void {
   // The message is a constant: details are built from `path` and `params.reason` only.
-  ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid', path: [...path], params: { reason: code } });
+  ctx.addIssue({ code: 'custom', message: 'invalid', path: [...path], params: { reason: code } });
 }
 
 /**
  * The Zod schema for one object's `custom`, built from its LIVE definitions
  * (retired fields are absent, so a retired key is refused exactly like one
- * that never existed: `unknown_field`). `.strict()`: an unknown key is an
+ * that never existed: `unknown_field`). Strict: an unknown key is an
  * issue, never stripped.
  */
 export function customFieldsSchema(
   defs: readonly CustomFieldDef[],
   mode: CustomSchemaMode,
-): z.ZodType<Record<string, unknown>, z.ZodTypeDef, unknown> {
-  const shape: Record<string, z.ZodTypeAny> = {};
+): z.ZodType<Record<string, unknown>, unknown> {
+  const shape: Record<string, z.ZodType> = {};
   for (const def of defs) {
     shape[def.apiName] = z
       .unknown()
@@ -241,11 +241,7 @@ export function customFieldsSchema(
       if (keys.length > MAX_CUSTOM_KEYS) reason(ctx, 'too_many_keys');
       if (mode === 'patch' && keys.length === 0) reason(ctx, 'nothing_to_update');
     })
-    .pipe(z.object(shape).strict()) as unknown as z.ZodType<
-    Record<string, unknown>,
-    z.ZodTypeDef,
-    unknown
-  >;
+    .pipe(z.strictObject(shape));
 }
 
 /** A detail on the wire: a path and a code, never a value. */
@@ -272,7 +268,7 @@ export function customIssueDetails(error: ZodError, root = 'custom'): CustomIssu
     details.push({ path, code });
   };
   for (const issue of error.issues) {
-    if (issue.code === z.ZodIssueCode.unrecognized_keys) {
+    if (issue.code === 'unrecognized_keys') {
       for (const key of issue.keys) push(isCustomFieldKey(key) ? `${root}.${key}` : root, 'unknown_field');
       continue;
     }
@@ -292,7 +288,7 @@ function issuePath(issue: ZodIssue, root: string): string {
 }
 
 function issueCode(issue: ZodIssue): string {
-  const code: unknown = issue.code === z.ZodIssueCode.custom ? issue.params?.['reason'] : undefined;
+  const code: unknown = issue.code === 'custom' ? issue.params?.['reason'] : undefined;
   return typeof code === 'string' ? code : 'invalid_value';
 }
 
@@ -354,10 +350,10 @@ export interface CustomFieldAccess {
   retired: readonly string[];
 }
 
-const PicklistValues = z.array(z.object({ value: z.string() }).passthrough());
+const PicklistValues = z.array(z.looseObject({ value: z.string() }));
 
 const DefRow = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   apiName: z.string(),
   type: z.string(),
   classification: fieldClassificationSchema,
@@ -370,15 +366,15 @@ const AccessRow = z.object({
   grants: z.array(
     z.object({
       field: z.string(),
-      set: z.string().uuid(),
+      set: z.uuid(),
       locked: z.boolean(),
       level: fieldAccessLevelSchema,
     }),
   ),
   memberships: z.array(
     z.object({
-      programme: z.string().uuid(),
-      set: z.string().uuid().nullable(),
+      programme: z.uuid(),
+      set: z.uuid().nullable(),
       locked: z.boolean(),
     }),
   ),

@@ -25,13 +25,9 @@
 #   says why it is not reachable here and what ends it. The ones that need a
 #   major upgrade (vitest 3/4, vite 6, nx 22, testcontainers) are not this task.
 #
-#   ACCEPTED, RUNTIME-BOUNDED (D-L206), until 2026-12-31 only: a RUNTIME finding
-#   that only a major upgrade fixes, so it cannot be called dev/test/build-only.
-#   It says what caps the input that triggers it, and names the task that
-#   removes it:
-#     GHSA-mrhx-c7xc-m3w5  zod 3.25.76 (fixed in 4.6.6)         fix: T-0198
-#   GHSA-8cw4-87c7-c6xx (csv-parse 5.6.0) was the second; T-0197 fixed it
-#   (csv-parse 7) and its entry is gone.
+#   ACCEPTED, RUNTIME-BOUNDED (D-L206): none left. GHSA-8cw4-87c7-c6xx (csv-parse
+#   5.6.0) was fixed by T-0197 (csv-parse 7) and GHSA-mrhx-c7xc-m3w5 (zod 3.25.76)
+#   by T-0198 (zod 4.6.7); both entries are gone.
 #   See team/reports/T-0153.md for the analysis.
 #
 # The new expiry is 2027-01-31. After it the scan goes red until each entry is
@@ -233,7 +229,3 @@ id = "GHSA-rq7h-c2jc-7f22"
 ignoreUntil = 2027-01-31T00:00:00Z
 reason = "vite 5.4.21 (vitest 2.1.9's transform engine): files outside server.fs.allow served when project paths match system paths (CVSS 6.3, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
 
-[[IgnoredVulns]]
-id = "GHSA-mrhx-c7xc-m3w5"
-ignoreUntil = 2026-12-31T00:00:00Z
-reason = "zod 3.25.76 (CVSS 8.2, fixed in 4.6.6): memory exhaustion while validating an oversized constrained collection. runtime-bounded: zod validates request bodies in apps/api. bounded: every JSON body is capped at 512 KiB by apps/api/src/common/json-body-limit.ts before any route or zod schema runs, and a larger body is body-parser's 413, so the collection size that triggers this is capped. This is a time-boxed acceptance, not a not-reachable claim. fix: T-0198 (zod 3 to 4, S0, before S1) removes it; re-triage by the expiry."

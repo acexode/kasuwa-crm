@@ -15,47 +15,39 @@ import { z } from 'zod';
 const Category = z.enum(DISPOSITION_CATEGORIES);
 const Label = z.string().min(1).max(120);
 
-export const ProgrammeIdParam = z.object({ programmeId: z.string().uuid() });
+export const ProgrammeIdParam = z.object({ programmeId: z.uuid() });
 
 export const DispositionParams = z.object({
-  programmeId: z.string().uuid(),
-  dispositionId: z.string().uuid(),
+  programmeId: z.uuid(),
+  dispositionId: z.uuid(),
 });
 
-export const DispositionWriteBody = z
-  .object({
-    code: z
-      .string()
-      .min(1)
-      .max(16)
-      .regex(/^[A-Z0-9_]+$/u),
-    label: Label,
-    category: Category,
-    noteRequired: z.boolean().default(false),
-    followUpRequired: z.boolean().default(false),
-  })
-  .strict();
+export const DispositionWriteBody = z.strictObject({
+  code: z
+    .string()
+    .min(1)
+    .max(16)
+    .regex(/^[A-Z0-9_]+$/u),
+  label: Label,
+  category: Category,
+  noteRequired: z.boolean().default(false),
+  followUpRequired: z.boolean().default(false),
+});
 export type DispositionWriteBody = z.infer<typeof DispositionWriteBody>;
 
-export const DispositionPatchBody = z
-  .object({
-    label: Label.optional(),
-    category: Category.optional(),
-    noteRequired: z.boolean().optional(),
-    followUpRequired: z.boolean().optional(),
-    active: z.boolean().optional(),
-  })
-  .strict();
+export const DispositionPatchBody = z.strictObject({
+  label: Label.optional(),
+  category: Category.optional(),
+  noteRequired: z.boolean().optional(),
+  followUpRequired: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
 export type DispositionPatchBody = z.infer<typeof DispositionPatchBody>;
 
-export const DispositionOrderBody = z
-  .object({ dispositionIds: z.array(z.string().uuid()) })
-  .strict();
+export const DispositionOrderBody = z.strictObject({ dispositionIds: z.array(z.uuid()) });
 export type DispositionOrderBody = z.infer<typeof DispositionOrderBody>;
 
-export const ListProgrammeScriptsQuery = z
-  .object({
-    cursor: z.string().min(1).max(512).optional(),
-    pageSize: z.coerce.number().int().min(1).max(200).default(50),
-  })
-  .strict();
+export const ListProgrammeScriptsQuery = z.strictObject({
+  cursor: z.string().min(1).max(512).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).default(50),
+});

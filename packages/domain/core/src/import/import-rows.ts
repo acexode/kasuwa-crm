@@ -84,9 +84,10 @@ export type ParsedImportRow =
   | { readonly ok: false; readonly errors: readonly ImportCellError[] };
 
 /** The create schema an assembled row passes once more (the API's `CreateContactBody` minus target and custom). */
-const ImportedContactSchema = z
-  .object({ ...CONTACT_WRITABLE_FIELDS, source: ContactSourceSchema.optional() })
-  .strict();
+const ImportedContactSchema = z.strictObject({
+  ...CONTACT_WRITABLE_FIELDS,
+  source: ContactSourceSchema.optional(),
+});
 
 /** A text issue's code: too long, required (too short), or anything else invalid. */
 function textCode(error: z.ZodError, emptyIsRequired: boolean): ImportRowErrorCode {
@@ -108,7 +109,10 @@ const lowerEnum = <T extends readonly string[]>(values: T, cell: string): T[numb
 const TAG_SEPARATOR = /[;,]/u;
 
 /** Parses one record. `record` is the row's cells by column index. */
-export function parseImportRow(record: readonly string[], context: ImportRowContext): ParsedImportRow {
+export function parseImportRow(
+  record: readonly string[],
+  context: ImportRowContext,
+): ParsedImportRow {
   const errors: ImportCellError[] = [];
   const fail = (column: number | null, code: ImportRowErrorCode) => errors.push({ column, code });
   const values: ContactValues = {};
@@ -215,7 +219,10 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
         break;
       }
       case 'tags': {
-        const parts = cell.split(TAG_SEPARATOR).map((t) => t.trim()).filter((t) => t !== '');
+        const parts = cell
+          .split(TAG_SEPARATOR)
+          .map((t) => t.trim())
+          .filter((t) => t !== '');
         if (parts.some((t) => t.length > 64)) fail(index, 'too_long');
         else for (const tag of parts) if (!tags.includes(tag)) tags.push(tag);
         break;
@@ -239,7 +246,11 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
         break;
       case 'consentState':
         if (cell === 'withdrawn' || cell === 'unknown') values.consentState = cell;
-        else fail(index, cell === 'opted_in' || cell === 'pending' ? 'consent_grant_refused' : 'invalid_value');
+        else
+          fail(
+            index,
+            cell === 'opted_in' || cell === 'pending' ? 'consent_grant_refused' : 'invalid_value',
+          );
         break;
     }
   }
@@ -257,7 +268,8 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
       .join(' ');
     const column = nameParts[0]?.column ?? null;
     if (joined === '') {
-      if (!errors.some((e) => nameParts.some((part) => part.column === e.column))) fail(column, 'required');
+      if (!errors.some((e) => nameParts.some((part) => part.column === e.column)))
+        fail(column, 'required');
     } else if (!CONTACT_WRITABLE_FIELDS.displayName.safeParse(joined).success) {
       fail(column, 'too_long');
     } else {
@@ -265,7 +277,11 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
     }
   }
 
-  if (phones.length > CONTACT_MAX_PHONES || emails.length > CONTACT_MAX_EMAILS || tags.length > 50) {
+  if (
+    phones.length > CONTACT_MAX_PHONES ||
+    emails.length > CONTACT_MAX_EMAILS ||
+    tags.length > 50
+  ) {
     fail(null, 'too_long');
   }
   if (phones.length > 0) values.phones = phones;
@@ -283,7 +299,8 @@ export function parseImportRow(record: readonly string[], context: ImportRowCont
     }
   }
 
-  if (errors.length === 0 && !ImportedContactSchema.safeParse(values).success) fail(null, 'invalid_value');
+  if (errors.length === 0 && !ImportedContactSchema.safeParse(values).success)
+    fail(null, 'invalid_value');
   if (errors.length > 0) {
     return { ok: false, errors: errors.sort((a, b) => (a.column ?? -1) - (b.column ?? -1)) };
   }

@@ -45,7 +45,7 @@ export function text(min: number, max: number) {
   return z.string().superRefine((value, context) => {
     if (hasNul(value)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'contains a NUL character',
         params: { reason: NUL_REASON },
       });
@@ -54,13 +54,13 @@ export function text(min: number, max: number) {
     const length = codePointLength(value);
     if (length < min) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `shorter than ${min}`,
         params: { reason: TOO_SHORT_REASON },
       });
     } else if (length > max) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `longer than ${max}`,
         params: { reason: TOO_LONG_REASON },
       });

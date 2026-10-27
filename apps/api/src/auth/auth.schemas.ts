@@ -13,39 +13,31 @@ import { z } from 'zod';
  * passwords and codes.
  */
 
-export const SignInBody = z
-  .object({
-    tenantSlug: z.string().min(1).max(64),
-    email: z.string().email().max(320),
-    password: z.string().min(1).max(512),
-  })
-  .strict();
+export const SignInBody = z.strictObject({
+  tenantSlug: z.string().min(1).max(64),
+  email: z.email().max(320),
+  password: z.string().min(1).max(512),
+});
 export type SignInInput = z.infer<typeof SignInBody>;
 
 export const MfaMethod = z.enum(['totp', 'sms', 'backup_code']);
 export type MfaMethodType = z.infer<typeof MfaMethod>;
 
-export const MfaChallengeBody = z
-  .object({
-    challengeId: z.string().min(1).max(128),
-    method: MfaMethod,
-  })
-  .strict();
+export const MfaChallengeBody = z.strictObject({
+  challengeId: z.string().min(1).max(128),
+  method: MfaMethod,
+});
 export type MfaChallengeInput = z.infer<typeof MfaChallengeBody>;
 
-export const MfaVerifyBody = z
-  .object({
-    challengeId: z.string().min(1).max(128),
-    code: z.string().min(1).max(32),
-  })
-  .strict();
+export const MfaVerifyBody = z.strictObject({
+  challengeId: z.string().min(1).max(128),
+  code: z.string().min(1).max(32),
+});
 export type MfaVerifyInput = z.infer<typeof MfaVerifyBody>;
 
-export const SsoLookupBody = z
-  .object({
-    domain: z.string().min(3).max(253),
-  })
-  .strict();
+export const SsoLookupBody = z.strictObject({
+  domain: z.string().min(3).max(253),
+});
 export type SsoLookupInput = z.infer<typeof SsoLookupBody>;
 
 export interface MfaMethodDescription {
@@ -94,36 +86,28 @@ export interface SessionResponse {
 // a second factor, and a field that took one would be the bypass this task
 // exists to prevent.
 
-export const MfaEnrolBody = z
-  .object({
-    challengeId: z.string().min(1).max(128),
-  })
-  .strict();
+export const MfaEnrolBody = z.strictObject({
+  challengeId: z.string().min(1).max(128),
+});
 export type MfaEnrolInput = z.infer<typeof MfaEnrolBody>;
 
-export const MfaEnrolConfirmBody = z
-  .object({
-    challengeId: z.string().min(1).max(128),
-    code: z.string().min(1).max(32),
-  })
-  .strict();
+export const MfaEnrolConfirmBody = z.strictObject({
+  challengeId: z.string().min(1).max(128),
+  code: z.string().min(1).max(32),
+});
 export type MfaEnrolConfirmInput = z.infer<typeof MfaEnrolConfirmBody>;
 
 /** The current second factor, presented again before a write (step-up). */
-export const StepUpBody = z
-  .object({
-    code: z.string().min(1).max(32),
-    method: z.enum(['totp', 'backup_code']).default('totp'),
-  })
-  .strict();
+export const StepUpBody = z.strictObject({
+  code: z.string().min(1).max(32),
+  method: z.enum(['totp', 'backup_code']).default('totp'),
+});
 export type StepUpInput = z.infer<typeof StepUpBody>;
 
 /** A code from the NEW secret. */
-export const TotpConfirmBody = z
-  .object({
-    code: z.string().min(1).max(32),
-  })
-  .strict();
+export const TotpConfirmBody = z.strictObject({
+  code: z.string().min(1).max(32),
+});
 export type TotpConfirmInput = z.infer<typeof TotpConfirmBody>;
 
 /** Sent once. Never logged, never cached (`Cache-Control: no-store`). */

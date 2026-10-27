@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { SPANS, WIDGET_TYPES } from '../components/home/home-model';
 import { requestRecords, type RecordsResult } from './records-request';
 

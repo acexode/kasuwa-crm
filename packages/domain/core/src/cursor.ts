@@ -46,7 +46,7 @@ export class InvalidCursorError extends Error {
 /**
  * ISO-8601 with an explicit offset and 0–6 fractional digits.
  *
- * Written out rather than taken from `z.string().datetime()` because that
+ * Written out rather than taken from `z.iso.datetime()` because that
  * helper's `precision` option pins the fractional part to an exact length: we
  * need "up to microseconds", so that cursors issued before T-0019 (three
  * digits) still decode. The `refine` rejects the strings the shape allows but
@@ -65,7 +65,7 @@ const CursorPayload = z.object({
     .regex(ISO_TIMESTAMP)
     .refine((value) => !Number.isNaN(Date.parse(value))),
   /** Row id of the last row on the previous page; breaks ties on `c`. */
-  i: z.string().uuid(),
+  i: z.uuid(),
 });
 
 /** A position whose timestamp has not been through a `Date`. */
@@ -172,13 +172,11 @@ export const LIST_CURSOR_VERSION = 1;
  */
 export const MAX_CURSOR_LENGTH = 2048;
 
-const ListCursorPayload = z
-  .object({
-    v: z.literal(LIST_CURSOR_VERSION),
-    s: z.string().min(1).max(32),
-    i: z.string().uuid(),
-  })
-  .strict();
+const ListCursorPayload = z.strictObject({
+  v: z.literal(LIST_CURSOR_VERSION),
+  s: z.string().min(1).max(32),
+  i: z.uuid(),
+});
 
 export interface ListCursor {
   /** The sort the position belongs to, e.g. `displayName`. */
@@ -271,12 +269,10 @@ function namesListCursorKey(payload: unknown): boolean {
 /** The longest pipeline or board cursor the boundary accepts (the contract's maxLength). */
 export const MAX_ID_CURSOR_LENGTH = 512;
 
-const IdCursorPayload = z
-  .object({
-    v: z.literal(LIST_CURSOR_VERSION),
-    i: z.string().uuid(),
-  })
-  .strict();
+const IdCursorPayload = z.strictObject({
+  v: z.literal(LIST_CURSOR_VERSION),
+  i: z.uuid(),
+});
 
 export function encodeIdCursor(id: string): string {
   const parsed = IdCursorPayload.safeParse({ v: LIST_CURSOR_VERSION, i: id });

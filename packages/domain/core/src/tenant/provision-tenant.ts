@@ -305,7 +305,7 @@ export function assertValidTenantSlug(slug: unknown): string {
 
 const Inputs = z.object({
   name: z.string().trim().min(1).max(200),
-  adminEmail: z.string().trim().email().max(320),
+  adminEmail: z.string().trim().pipe(z.email().max(320)),
   adminDisplayName: z.string().trim().min(1).max(200),
 });
 

@@ -121,7 +121,7 @@ function plainObject(value: unknown): Record<string, unknown> | null {
 }
 
 const isUuid = (value: unknown): value is string =>
-  typeof value === 'string' && z.string().uuid().safeParse(value).success;
+  typeof value === 'string' && z.uuid().safeParse(value).success;
 
 /** Membership of each distinct non-null owner of the two contacts (D-L67, D-P23). */
 async function ownerMembership(
@@ -298,10 +298,13 @@ export function toContactMergeWire(
 /** What undo restores (PII; never served, never logged). Versioned so a later reader can refuse. */
 const Snapshot = z.object({
   v: z.literal(1),
-  merged: z.object({ values: z.record(z.unknown()), custom: z.record(z.unknown()) }),
+  merged: z.object({
+    values: z.record(z.string(), z.unknown()),
+    custom: z.record(z.string(), z.unknown()),
+  }),
   survivor: z.object({
-    values: z.record(z.unknown()),
-    custom: z.record(z.unknown()),
+    values: z.record(z.string(), z.unknown()),
+    custom: z.record(z.string(), z.unknown()),
     versionAfter: z.number().int(),
   }),
   moved: z.object({ activities: z.array(z.string()), deals: z.array(z.string()) }),

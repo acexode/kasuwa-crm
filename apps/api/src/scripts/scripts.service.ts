@@ -115,7 +115,7 @@ function plainBody(body: unknown): Record<string, unknown> {
  * review, T-0113): its nesting depth, NUL and lone surrogates anywhere, then
  * the raw collection bounds, and only then the closed schema.
  */
-function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
+function parseBody<S extends z.ZodType>(schema: S, body: unknown): z.output<S> {
   const raw = plainBody(body);
   const problems = stringProblems(raw);
   if (problems.length > 0) throw validationFailed(problems);
@@ -126,7 +126,7 @@ function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S
   return parsed.data as z.output<S>;
 }
 
-function parseOr400<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output<S> {
+function parseOr400<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   return parsed.data as z.output<S>;
@@ -143,7 +143,7 @@ export function storedGraph(value: unknown): StoredGraph {
   return EMPTY_DRAFT_GRAPH;
 }
 
-const StoredTranslations = z.record(ScriptLocaleSchema, TranslationTextsSchema);
+const StoredTranslations = z.partialRecord(ScriptLocaleSchema, TranslationTextsSchema);
 
 export function storedTranslations(value: unknown): Translations {
   const parsed = StoredTranslations.safeParse(value);
@@ -209,7 +209,7 @@ export async function listScriptsFor(
 /** The programme a create targets: 404 for one the session does not reach. */
 function createTarget(tx: TenantTx, raw: Record<string, unknown>): string {
   const requested = raw.programmeId;
-  if (typeof requested !== 'string' || !z.string().uuid().safeParse(requested).success) {
+  if (typeof requested !== 'string' || !z.uuid().safeParse(requested).success) {
     throw validationFailed([
       { path: 'programmeId', code: requested === undefined ? 'required' : 'invalid_string' },
     ]);

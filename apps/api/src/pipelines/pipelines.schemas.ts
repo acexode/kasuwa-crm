@@ -24,7 +24,7 @@ const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** A repeated query parameter arrives as an array, a single one as a string. */
-function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
+function many<T extends z.ZodType>(item: T, maxItems: number) {
   return z
     .preprocess(
       (value) => (value === undefined || Array.isArray(value) ? value : [value]),

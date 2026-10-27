@@ -111,17 +111,13 @@ export const SESSION_ENDED_HEADER = 'x-kasuwa-session';
  * passthrough: an unknown key is a 502, because the BFF cannot know that a key
  * it has never heard of is not a second credential.
  */
-const IssuedUser = z
-  .object({ id: z.string(), tenantId: z.string(), email: z.string(), displayName: z.string(), locale: z.string() })
-  .strict();
-const SessionEstablished = z
-  .object({
-    accessToken: z.string().min(1),
-    tokenType: z.literal('Bearer'),
-    expiresAt: z.string().datetime({ offset: true }),
-    user: IssuedUser,
-  })
-  .strict();
+const IssuedUser = z.strictObject({ id: z.string(), tenantId: z.string(), email: z.string(), displayName: z.string(), locale: z.string() });
+const SessionEstablished = z.strictObject({
+  accessToken: z.string().min(1),
+  tokenType: z.literal('Bearer'),
+  expiresAt: z.iso.datetime({ offset: true }),
+  user: IssuedUser,
+});
 const SessionWithBackupCodes = SessionEstablished.extend({
   backupCodes: z.array(z.string()).min(1).max(10),
 }).strict();

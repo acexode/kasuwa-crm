@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { SPANS, WIDGET_TYPES, type HomeRole, type Layout } from './home-model';
 
 /**
@@ -31,8 +31,7 @@ const Stored = z.object({
         type: z.enum(WIDGET_TYPES),
         span: z.union([z.literal(SPANS[0]), z.literal(SPANS[1]), z.literal(SPANS[2]), z.literal(SPANS[3])]),
       }),
-    )
-    .max(WIDGET_TYPES.length),
+    ).check(z.maxLength(WIDGET_TYPES.length)),
 });
 
 const KEY_PREFIX = 'kasuwa.home.layout:';

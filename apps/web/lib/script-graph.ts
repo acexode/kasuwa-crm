@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 /**
  * The typed script graph of `docs/api/scripting.openapi.yaml` (T-0112), shared
@@ -32,7 +32,7 @@ export type FormFieldType = z.infer<typeof FormFieldType>;
 /** The pattern NodeId and ChoiceKey share. */
 export const KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 
-const Position = z.object({ x: z.number().int(), y: z.number().int() });
+const Position = z.object({ x: z.int(), y: z.int() });
 export type Position = z.infer<typeof Position>;
 
 const Choice = z.object({ key: z.string(), label: z.string(), next: z.string() });
@@ -45,34 +45,34 @@ export const FormField = z.object({
   label: z.string(),
   type: FormFieldType,
   required: z.boolean(),
-  maxLength: z.number().int().optional(),
-  minimum: z.number().int().optional(),
-  maximum: z.number().int().optional(),
-  currency: z.string().optional(),
-  minimumMinor: z.string().optional(),
-  maximumMinor: z.string().optional(),
-  minDaysAhead: z.number().int().optional(),
-  maxDaysAhead: z.number().int().optional(),
-  options: z.array(FieldOption).optional(),
+  maxLength: z.optional(z.int()),
+  minimum: z.optional(z.int()),
+  maximum: z.optional(z.int()),
+  currency: z.optional(z.string()),
+  minimumMinor: z.optional(z.string()),
+  maximumMinor: z.optional(z.string()),
+  minDaysAhead: z.optional(z.int()),
+  maxDaysAhead: z.optional(z.int()),
+  options: z.optional(z.array(FieldOption)),
 });
 export type FormField = z.infer<typeof FormField>;
 
-export const ConditionValue = z.union([z.string(), z.number().int(), z.boolean(), z.array(z.string())]);
+export const ConditionValue = z.union([z.string(), z.int(), z.boolean(), z.array(z.string())]);
 export type ConditionValue = z.infer<typeof ConditionValue>;
 
 const ContactFieldCondition = z.object({
   source: z.literal('contact_field'),
   field: z.string(),
   operator: ConditionOperator,
-  value: ConditionValue.optional(),
+  value: z.optional(ConditionValue),
 });
 
 const AnswerCondition = z.object({
   source: z.literal('answer'),
   nodeId: z.string(),
-  fieldKey: z.string().optional(),
+  fieldKey: z.optional(z.string()),
   operator: ConditionOperator,
-  value: ConditionValue.optional(),
+  value: z.optional(ConditionValue),
 });
 
 export const BranchCondition = z.discriminatedUnion('source', [ContactFieldCondition, AnswerCondition]);
@@ -84,7 +84,7 @@ const SayNode = z.object({
   title: z.string(),
   text: z.string(),
   next: z.string(),
-  position: Position.optional(),
+  position: z.optional(Position),
 });
 
 const QuestionNode = z.object({
@@ -92,9 +92,9 @@ const QuestionNode = z.object({
   type: z.literal('question'),
   title: z.string(),
   text: z.string(),
-  hint: z.string().nullable().optional(),
+  hint: z.optional(z.nullable(z.string())),
   choices: z.array(Choice),
-  position: Position.optional(),
+  position: z.optional(Position),
 });
 
 const FormNode = z.object({
@@ -104,7 +104,7 @@ const FormNode = z.object({
   text: z.string(),
   fields: z.array(FormField),
   next: z.string(),
-  position: Position.optional(),
+  position: z.optional(Position),
 });
 
 const BranchNode = z.object({
@@ -114,7 +114,7 @@ const BranchNode = z.object({
   condition: BranchCondition,
   whenTrue: z.string(),
   whenFalse: z.string(),
-  position: Position.optional(),
+  position: z.optional(Position),
 });
 
 const ComplianceNode = z.object({
@@ -123,16 +123,16 @@ const ComplianceNode = z.object({
   title: z.string(),
   text: z.string(),
   next: z.string(),
-  position: Position.optional(),
+  position: z.optional(Position),
 });
 
 const EndNode = z.object({
   id: z.string(),
   type: z.literal('end'),
   title: z.string(),
-  text: z.string().nullable().optional(),
-  suggestedDispositionId: z.string().nullable().optional(),
-  position: Position.optional(),
+  text: z.optional(z.nullable(z.string())),
+  suggestedDispositionId: z.optional(z.nullable(z.string())),
+  position: z.optional(Position),
 });
 
 export const ScriptNode = z.discriminatedUnion('type', [SayNode, QuestionNode, FormNode, BranchNode, ComplianceNode, EndNode]);
@@ -146,18 +146,18 @@ export const ScriptGraph = z.object({ startNodeId: z.string(), nodes: z.array(Sc
 export type ScriptGraph = z.infer<typeof ScriptGraph>;
 
 export const NodeTranslation = z.object({
-  title: z.string().optional(),
-  text: z.string().optional(),
-  hint: z.string().optional(),
-  choices: z.record(z.string()).optional(),
-  fields: z.record(z.string()).optional(),
+  title: z.optional(z.string()),
+  text: z.optional(z.string()),
+  hint: z.optional(z.string()),
+  choices: z.optional(z.record(z.string(), z.string())),
+  fields: z.optional(z.record(z.string(), z.string())),
 });
 export type NodeTranslation = z.infer<typeof NodeTranslation>;
 
-export const TranslationTexts = z.record(NodeTranslation);
+export const TranslationTexts = z.record(z.string(), NodeTranslation);
 export type TranslationTexts = z.infer<typeof TranslationTexts>;
 
-export const Translations = z.record(TranslationTexts);
+export const Translations = z.record(z.string(), TranslationTexts);
 export type Translations = z.infer<typeof Translations>;
 
 export const StaffRef = z.object({ id: z.string(), displayName: z.string() });
@@ -165,23 +165,23 @@ export type StaffRef = z.infer<typeof StaffRef>;
 
 export const VersionSummary = z.object({
   id: z.string(),
-  number: z.number().int(),
+  number: z.int(),
   publishedAt: z.string(),
-  publishedBy: StaffRef.nullable(),
+  publishedBy: z.nullable(StaffRef),
 });
 export type VersionSummary = z.infer<typeof VersionSummary>;
 
 export const ScriptVersion = z.object({
   id: z.string(),
   scriptId: z.string(),
-  number: z.number().int(),
+  number: z.int(),
   name: z.string(),
   sourceLocale: ScriptLocale,
   graph: ScriptGraph,
   translations: Translations,
   changes: z.array(z.string()),
   publishedAt: z.string(),
-  publishedBy: StaffRef.nullable(),
+  publishedBy: z.nullable(StaffRef),
 });
 export type ScriptVersion = z.infer<typeof ScriptVersion>;
 

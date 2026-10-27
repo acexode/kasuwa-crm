@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 import type { RecordsResult } from './records-api';
 import { parseRetryAfter } from './retry-after';
@@ -75,17 +75,17 @@ export interface NotificationQuery {
 }
 
 const RawItem = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   kind: z.string(),
   objectType: z.string(),
   objectId: z.string(),
-  actor: z.object({ displayName: z.string().nullable() }),
-  objectDisplayName: z.string().nullable(),
-  createdAt: z.string().datetime(),
-  readAt: z.string().datetime().nullable(),
+  actor: z.object({ displayName: z.nullable(z.string()) }),
+  objectDisplayName: z.nullable(z.string()),
+  createdAt: z.iso.datetime(),
+  readAt: z.nullable(z.iso.datetime()),
 });
 
-const Head = z.object({ id: z.string().uuid() });
+const Head = z.object({ id: z.uuid() });
 
 /** The `code`s these operations answer with (the shared envelope's), a copy of the records client's so this module imports no value from it (D-L182). */
 const Envelope = z.object({
@@ -102,7 +102,7 @@ const NETWORK_FAILURE: RecordsResult<never> = { ok: false, error: { code: 'netwo
  */
 async function request<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodMiniType<T, unknown>,
   init: { readonly method: 'GET' | 'POST' | 'PATCH'; readonly body?: unknown; readonly signal?: AbortSignal },
 ): Promise<RecordsResult<T>> {
   let response: Response;
@@ -134,17 +134,17 @@ async function request<T>(
 
 const RawPage = z.object({
   data: z.array(z.unknown()),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 
 const CountAnswer = z.object({
-  count: z.number().int().min(0).max(99),
+  count: z.int().check(z.gte(0)).check(z.lte(99)),
   capped: z.boolean(),
 });
 
 const UpdateAnswer = z.object({
-  id: z.string().uuid(),
-  readAt: z.string().datetime().nullable(),
+  id: z.uuid(),
+  readAt: z.nullable(z.iso.datetime()),
 });
 
 export function isKind(value: string): value is NotificationKind {
@@ -171,14 +171,14 @@ export function toItem(raw: unknown): NotificationItem | null {
   };
 }
 
-const PageAnswer = RawPage.transform((page): NotificationPage => {
+const PageAnswer = z.pipe(RawPage, z.transform((page): NotificationPage => {
   const head = page.data.map((row) => Head.safeParse(row)).find((result) => result.success);
   return {
     items: page.data.map(toItem).filter((item): item is NotificationItem => item !== null),
     nextCursor: page.nextCursor,
     headId: head?.success === true ? head.data.id : null,
   };
-});
+}));
 
 /** The query string for `listNotifications`: declared parameters only, `kind` once. */
 export function notificationSearch(query: NotificationQuery): string {

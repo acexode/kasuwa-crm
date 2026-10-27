@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { apiFetch } from './api-fetch';
 import { identifierShaped } from './identifier-shaped';
@@ -44,15 +44,15 @@ export function isDealCurrency(value: string): value is DealCurrency {
 }
 
 export const DealMoney = z.object({
-  amountMinor: z.string().regex(/^(0|[1-9][0-9]{0,17})$/),
-  currency: z.string().regex(/^[A-Z]{3}$/),
+  amountMinor: z.string().check(z.regex(/^(0|[1-9][0-9]{0,17})$/)),
+  currency: z.string().check(z.regex(/^[A-Z]{3}$/)),
 });
 export type DealMoney = z.infer<typeof DealMoney>;
 
 export const StageTotal = z.object({
-  currency: z.string().regex(/^[A-Z]{3}$/),
-  amountMinor: z.string().regex(/^(0|[1-9][0-9]{0,23})$/),
-  weightedAmountMinor: z.string().regex(/^(0|[1-9][0-9]{0,23})$/),
+  currency: z.string().check(z.regex(/^[A-Z]{3}$/)),
+  amountMinor: z.string().check(z.regex(/^(0|[1-9][0-9]{0,23})$/)),
+  weightedAmountMinor: z.string().check(z.regex(/^(0|[1-9][0-9]{0,23})$/)),
 });
 export type StageTotal = z.infer<typeof StageTotal>;
 
@@ -73,9 +73,9 @@ export const PipelineStage = z.object({
   id: z.string(),
   name: z.string(),
   kind: StageKind,
-  position: z.number().int(),
-  probabilityBp: z.number().int(),
-  rottingAfterDays: z.number().int().nullable(),
+  position: z.int(),
+  probabilityBp: z.int(),
+  rottingAfterDays: z.nullable(z.int()),
   requirements: z.array(StageRequirement),
 });
 export type PipelineStage = z.infer<typeof PipelineStage>;
@@ -84,17 +84,17 @@ export const Pipeline = z.object({
   id: z.string(),
   programmeId: z.string(),
   name: z.string(),
-  version: z.number().int(),
+  version: z.int(),
   stages: z.array(PipelineStage),
   transitions: z.array(z.object({ fromStageId: z.string(), toStageId: z.string() })),
 });
 export type Pipeline = z.infer<typeof Pipeline>;
 
 /** `programmeId` tells two pipelines of the same name apart, by their programme's name (T-0135). */
-export const PipelineSummary = z.object({ id: z.string(), name: z.string(), programmeId: z.string().optional() });
+export const PipelineSummary = z.object({ id: z.string(), name: z.string(), programmeId: z.optional(z.string()) });
 export type PipelineSummary = z.infer<typeof PipelineSummary>;
 
-export const PipelinePage = z.object({ data: z.array(PipelineSummary), nextCursor: z.string().nullable() });
+export const PipelinePage = z.object({ data: z.array(PipelineSummary), nextCursor: z.nullable(z.string()) });
 export type PipelinePage = z.infer<typeof PipelinePage>;
 
 export const DealRotting = z.enum(['fresh', 'stale', 'rotting']);
@@ -110,38 +110,38 @@ export const Deal = z.object({
   programmeId: z.string(),
   pipelineId: z.string(),
   stageId: z.string(),
-  version: z.number().int(),
+  version: z.int(),
   name: z.string(),
-  amount: DealMoney.nullable().optional(),
-  weightedAmount: DealMoney.nullable().optional(),
-  expectedCloseDate: z.string().nullable().optional(),
-  ownerUserId: z.string().nullable().optional(),
-  owner: z.object({ id: z.string(), displayName: z.string().nullable() }).nullable().optional(),
-  primaryContactId: z.string().nullable().optional(),
+  amount: z.optional(z.nullable(DealMoney)),
+  weightedAmount: z.optional(z.nullable(DealMoney)),
+  expectedCloseDate: z.optional(z.nullable(z.string())),
+  ownerUserId: z.optional(z.nullable(z.string())),
+  owner: z.optional(z.nullable(z.object({ id: z.string(), displayName: z.nullable(z.string()) }))),
+  primaryContactId: z.optional(z.nullable(z.string())),
   /** `displayName: null` when a name part is withheld from the caller (D-L68, T-0124): print the stand-in. */
-  contact: z.object({ id: z.string(), displayName: z.string().nullable().optional() }).nullable().optional(),
-  accountId: z.string().nullable().optional(),
-  account: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
-  nextStep: z.string().nullable().optional(),
+  contact: z.optional(z.nullable(z.object({ id: z.string(), displayName: z.optional(z.nullable(z.string())) }))),
+  accountId: z.optional(z.nullable(z.string())),
+  account: z.optional(z.nullable(z.object({ id: z.string(), name: z.string() }))),
+  nextStep: z.optional(z.nullable(z.string())),
   /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
-  custom: z.record(z.string(), z.unknown()).optional(),
+  custom: z.optional(z.record(z.string(), z.unknown())),
   stageEnteredAt: z.string(),
-  closedAt: z.string().nullable(),
-  rotting: DealRotting.nullable(),
+  closedAt: z.nullable(z.string()),
+  rotting: z.nullable(DealRotting),
   checks: z.array(z.object({ requirementId: z.string() })),
   withheldFields: z.array(z.string()),
 });
 export type Deal = z.infer<typeof Deal>;
 
-export const DealPage = z.object({ data: z.array(Deal), nextCursor: z.string().nullable() });
+export const DealPage = z.object({ data: z.array(Deal), nextCursor: z.nullable(z.string()) });
 export type DealPage = z.infer<typeof DealPage>;
 
 export const BoardStage = z.object({
   stageId: z.string(),
-  count: z.number().int(),
-  totals: z.array(StageTotal).optional(),
+  count: z.int(),
+  totals: z.optional(z.array(StageTotal)),
   cards: z.array(Deal),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type BoardStage = z.infer<typeof BoardStage>;
 
@@ -182,7 +182,7 @@ export type PipelineResult<T> = { readonly ok: true; readonly value: T } | { rea
 
 const ApiError = z.object({
   code: z.string(),
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
 });
 
 const NETWORK_FAILURE: PipelineError = { status: 0, code: NETWORK, details: [] };
@@ -196,7 +196,7 @@ const NETWORK_FAILURE: PipelineError = { status: 0, code: NETWORK, details: [] }
  */
 export async function pipelineRequest<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodMiniType<T, unknown>,
   body?: unknown,
   method?: 'POST' | 'PATCH',
 ): Promise<PipelineResult<T>> {
@@ -380,7 +380,7 @@ export interface PickerRow {
 }
 
 const PickedContacts = z.object({
-  data: z.array(z.object({ id: z.string(), programmeId: z.string(), displayName: z.string().optional() })),
+  data: z.array(z.object({ id: z.string(), programmeId: z.string(), displayName: z.optional(z.string()) })),
 });
 const PickedAccounts = z.object({
   data: z.array(z.object({ id: z.string(), programmeId: z.string(), name: z.string() })),

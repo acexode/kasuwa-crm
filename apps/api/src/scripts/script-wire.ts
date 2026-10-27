@@ -82,9 +82,7 @@ export function inLocaleOrder(locales: readonly string[]): string[] {
 }
 
 function translationLocales(translations: unknown): string[] {
-  return typeof translations === 'object' && translations !== null
-    ? Object.keys(translations)
-    : [];
+  return typeof translations === 'object' && translations !== null ? Object.keys(translations) : [];
 }
 
 export function toScriptSummaryWire(script: ScriptSummaryRecord): ScriptSummaryWire {
@@ -138,7 +136,7 @@ export function toVersionWire(version: VersionRecord): VersionWire {
 
 // --- cursors -----------------------------------------------------------------------
 
-const CursorPayload = z.object({ id: z.string().uuid() }).strict();
+const CursorPayload = z.strictObject({ id: z.uuid() });
 
 /**
  * A cursor carries the last row's id and nothing else (D-L80): never a name,

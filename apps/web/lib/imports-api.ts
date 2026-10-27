@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { requestRecords, type RecordsResult } from './records-api';
 import { IMPORT_STATUSES, type DefaultCountry } from './import-model';
 
@@ -27,13 +27,13 @@ export const IMPORTS_PATH = '/api/v1/imports';
 export const PROGRAMMES_PATH = '/api/v1/me/programmes';
 
 const Status = z.enum(IMPORT_STATUSES);
-const Count = z.number().int().nonnegative();
+const Count = z.int().check(z.nonnegative());
 const Counts = z.object({ created: Count, skipped: Count, failed: Count });
-const ColumnMapping = z.object({ index: z.number().int().nonnegative(), field: z.string().nullable() });
+const ColumnMapping = z.object({ index: z.int().check(z.nonnegative()), field: z.nullable(z.string()) });
 
 const RowError = z.object({
-  row: z.number().int(),
-  column: z.number().int().nonnegative().nullable(),
+  row: z.int(),
+  column: z.nullable(z.int().check(z.nonnegative())),
   /** A code this client has no label for is drawn as the generic one, never as the raw code. */
   code: z.string(),
 });
@@ -43,16 +43,16 @@ export const ImportJob = z.object({
   id: z.string(),
   programmeId: z.string(),
   status: Status,
-  filename: z.string().nullable(),
-  headers: z.array(z.string()).nullable(),
-  suggestedMapping: z.array(ColumnMapping).nullable(),
-  mapping: z.object({ columns: z.array(ColumnMapping), defaultCountry: z.string() }).nullable(),
+  filename: z.nullable(z.string()),
+  headers: z.nullable(z.array(z.string())),
+  suggestedMapping: z.nullable(z.array(ColumnMapping)),
+  mapping: z.nullable(z.object({ columns: z.array(ColumnMapping), defaultCountry: z.string() })),
   counts: Counts,
   errors: z.array(RowError),
   errorsTruncated: z.boolean(),
-  rawFileDeletedAt: z.string().nullable(),
+  rawFileDeletedAt: z.nullable(z.string()),
   createdAt: z.string(),
-  finishedAt: z.string().nullable(),
+  finishedAt: z.nullable(z.string()),
 });
 export type ImportJob = z.infer<typeof ImportJob>;
 
@@ -61,14 +61,14 @@ export const ImportSummary = z.object({
   id: z.string(),
   programmeId: z.string(),
   status: Status,
-  filename: z.string().nullable(),
+  filename: z.nullable(z.string()),
   counts: Counts,
-  rawFileDeletedAt: z.string().nullable(),
+  rawFileDeletedAt: z.nullable(z.string()),
   createdAt: z.string(),
 });
 export type ImportSummary = z.infer<typeof ImportSummary>;
 
-const ImportPage = z.object({ data: z.array(ImportSummary), nextCursor: z.string().nullable() });
+const ImportPage = z.object({ data: z.array(ImportSummary), nextCursor: z.nullable(z.string()) });
 export type ImportPage = z.infer<typeof ImportPage>;
 
 /**
@@ -91,12 +91,12 @@ export function isPartUrl(value: string, page?: { readonly origin: string; reado
 }
 
 const UploadPart = z.object({
-  partNumber: z.number().int().positive(),
-  url: z.string().url().refine((value) => isPartUrl(value, typeof window === 'undefined' ? undefined : window.location), { message: 'part_url' }),
-  sizeBytes: z.number().int().positive(),
+  partNumber: z.int().check(z.positive()),
+  url: z.url().check(z.refine((value) => isPartUrl(value, typeof window === 'undefined' ? undefined : window.location), { message: 'part_url' })),
+  sizeBytes: z.int().check(z.positive()),
 });
 export type UploadPart = z.infer<typeof UploadPart>;
-const ImportUpload = z.object({ importId: z.string(), parts: z.array(UploadPart).min(1), expiresAt: z.string() });
+const ImportUpload = z.object({ importId: z.string(), parts: z.array(UploadPart).check(z.minLength(1)), expiresAt: z.string() });
 export type ImportUpload = z.infer<typeof ImportUpload>;
 
 const Programmes = z.object({ data: z.array(z.object({ id: z.string(), name: z.string() })) });
@@ -105,7 +105,7 @@ export type Programme = z.infer<typeof Programmes>['data'][number];
 export type ImportResult<T> = RecordsResult<T>;
 
 export function listMyProgrammes(signal?: AbortSignal): Promise<ImportResult<readonly Programme[]>> {
-  return requestRecords(PROGRAMMES_PATH, Programmes.transform((answer) => answer.data), { method: 'GET', ...(signal ? { signal } : {}) });
+  return requestRecords(PROGRAMMES_PATH, z.pipe(Programmes, z.transform((answer) => answer.data)), { method: 'GET', ...(signal ? { signal } : {}) });
 }
 
 export function listImports(cursor?: string, signal?: AbortSignal): Promise<ImportResult<ImportPage>> {

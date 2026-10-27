@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 
 /**
@@ -26,10 +26,10 @@ const Definition = z.object({
   label: z.string(),
   type: FieldType,
   config: z.object({
-    values: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
-    currencyCode: z.enum(['NGN', 'GHS', 'KES', 'ZAR']).optional(),
+    values: z.optional(z.array(z.object({ value: z.string(), label: z.string() }))),
+    currencyCode: z.optional(z.enum(['NGN', 'GHS', 'KES', 'ZAR'])),
   }),
-  retiredAt: z.string().nullable().optional(),
+  retiredAt: z.optional(z.nullable(z.string())),
 });
 
 const Answer = z.object({ items: z.array(Definition) });

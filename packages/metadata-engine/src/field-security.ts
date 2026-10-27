@@ -229,26 +229,26 @@ export function planFieldSecurityChanges(input: {
 // api_name and every changed name are bound parameters, never identifiers.
 
 const objectRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   version: z.number().int(),
 });
 
 const fieldRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   api_name: z.string(),
   label: z.string(),
   classification: fieldClassificationSchema,
 });
 
 const setRowSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   key: z.string(),
   locked: z.boolean(),
 });
 
 const grantRowSchema = z.object({
-  field_id: z.string().uuid(),
-  permission_set_id: z.string().uuid(),
+  field_id: z.uuid(),
+  permission_set_id: z.uuid(),
   level: fieldAccessLevelSchema,
 });
 

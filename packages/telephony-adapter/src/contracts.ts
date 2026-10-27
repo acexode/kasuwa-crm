@@ -37,8 +37,8 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 
 export const TenantScope = z.object({
-  tenantId: z.string().uuid(),
-  programmeId: z.string().uuid(),
+  tenantId: z.uuid(),
+  programmeId: z.uuid(),
 });
 export type TenantScope = z.infer<typeof TenantScope>;
 
@@ -48,7 +48,7 @@ export type TenantScope = z.infer<typeof TenantScope>;
 
 export const AgentIdentity = z.object({
   /** Kasuwa `user.id`. */
-  kasuwaUserId: z.string().uuid(),
+  kasuwaUserId: z.uuid(),
   /** Opaque agent identifier on the telephony platform. */
   platformAgentId: z.string().min(1),
 });
@@ -153,7 +153,7 @@ export const RecordingRef = z.object({
 export type RecordingRef = z.infer<typeof RecordingRef>;
 
 export const SignedPlaybackUrl = z.object({
-  url: z.string().url(),
+  url: z.url(),
   expiresAt: z.coerce.date(),
 });
 export type SignedPlaybackUrl = z.infer<typeof SignedPlaybackUrl>;

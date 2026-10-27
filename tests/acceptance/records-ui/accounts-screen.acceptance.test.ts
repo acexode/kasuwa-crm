@@ -359,7 +359,7 @@ describe('acceptance: T-0057 — crm_accounts exists, is off, is not production-
       const code = withoutComments(source);
       expect(code, `${file} does not use a relative /api/v1/accounts path`).toMatch(/['"`]\/api\/v1\/accounts['"`/?]/);
       expect(code, `${file} names an absolute API origin`).not.toMatch(/https?:\/\/[^'"`]*\/api\/v1/);
-      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod['"]/);
+      expect(code, `${file} does not parse with Zod`).toMatch(/from ['"]zod(?:\/mini)?['"]/);
       // createAccount's TARGET programmeId is a body property; a programme in a
       // query string, a header or a list of them is scope from the client.
       expect(code, `${file} builds a scope argument`).not.toMatch(

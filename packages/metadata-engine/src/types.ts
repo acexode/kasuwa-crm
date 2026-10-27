@@ -44,7 +44,7 @@ export const FIELD_TYPES = [
 export const fieldTypeSchema = z.enum(FIELD_TYPES);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 
-const uuidSchema = z.string().uuid();
+const uuidSchema = z.uuid();
 const labelSchema = z.string().min(1).max(255);
 
 export const objectDefSchema = z.object({
@@ -95,7 +95,7 @@ export const objectDefSummarySchema = z.object({
 export type ObjectDefSummary = z.infer<typeof objectDefSummarySchema>;
 
 /** Type-specific settings. Shape varies by type; validated per type below. */
-export const fieldConfigSchema = z.record(z.unknown());
+export const fieldConfigSchema = z.record(z.string(), z.unknown());
 
 export const fieldDefSchema = z.object({
   id: uuidSchema,
@@ -167,6 +167,6 @@ export function parseFieldConfig(type: FieldType, config: unknown): Record<strin
     case 'currency':
       return currencyConfigSchema.parse(config);
     default:
-      return z.object({}).strict().parse(config);
+      return z.strictObject({}).parse(config);
   }
 }

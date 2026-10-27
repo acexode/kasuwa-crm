@@ -103,35 +103,29 @@ export type BranchNode = Extract<ScriptNode, { type: 'branch' }>;
 // the database so a row no write path produces is an empty list, never a crash
 // and never a value passed on unchecked.
 
-const StoredStep = z
-  .object({
-    nodeId: z.string(),
-    enteredAt: z.string(),
-    branchOutcome: z.boolean().nullable().optional(),
-  })
-  .strict();
+const StoredStep = z.strictObject({
+  nodeId: z.string(),
+  enteredAt: z.string(),
+  branchOutcome: z.boolean().nullable().optional(),
+});
 
-const StoredAck = z
-  .object({
-    nodeId: z.string(),
-    locale: z.enum(SCRIPT_LOCALES),
-    profileLocale: z.enum(SCRIPT_LOCALES).nullable(),
-    acknowledgedAt: z.string(),
-  })
-  .strict();
+const StoredAck = z.strictObject({
+  nodeId: z.string(),
+  locale: z.enum(SCRIPT_LOCALES),
+  profileLocale: z.enum(SCRIPT_LOCALES).nullable(),
+  acknowledgedAt: z.string(),
+});
 
-const StoredMoney = z.object({ amountMinor: z.string(), currency: z.string() }).strict();
+const StoredMoney = z.strictObject({ amountMinor: z.string(), currency: z.string() });
 const StoredValue = z.union([z.string(), z.number(), StoredMoney]);
 
 const StoredAnswer = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('question'), choiceKey: z.string(), answeredAt: z.string() }).strict(),
-  z
-    .object({
-      type: z.literal('form'),
-      values: z.record(z.string(), StoredValue),
-      updatedAt: z.string(),
-    })
-    .strict(),
+  z.strictObject({ type: z.literal('question'), choiceKey: z.string(), answeredAt: z.string() }),
+  z.strictObject({
+    type: z.literal('form'),
+    values: z.record(z.string(), StoredValue),
+    updatedAt: z.string(),
+  }),
 ]);
 
 export function storedPath(value: unknown): RunStep[] {
@@ -168,9 +162,7 @@ export function answersBytes(answers: RunAnswers): number {
 
 /** What the server may know about one contact field, for the run's agent, right now. */
 export type FieldReading =
-  | { kind: 'value'; value: unknown }
-  | { kind: 'withheld' }
-  | { kind: 'sensitive' };
+  { kind: 'value'; value: unknown } | { kind: 'withheld' } | { kind: 'sensitive' };
 
 export type FieldReader = (field: string) => Promise<FieldReading>;
 
@@ -247,7 +239,9 @@ export function conditionHolds(
 
 /** The answer a branch on `source: answer` reads: a question's choice, or a form field's value. */
 export function answerValue(answers: RunAnswers, nodeId: string, fieldKey?: string): unknown {
-  const answer = Object.prototype.hasOwnProperty.call(answers, nodeId) ? answers[nodeId] : undefined;
+  const answer = Object.prototype.hasOwnProperty.call(answers, nodeId)
+    ? answers[nodeId]
+    : undefined;
   if (answer === undefined) return undefined;
   if (fieldKey === undefined) return answer.type === 'question' ? answer.choiceKey : undefined;
   if (answer.type !== 'form') return undefined;
@@ -472,7 +466,11 @@ function dayNumber(value: string): number | null {
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const at = Date.UTC(year, month - 1, day);
   const back = new Date(at);
-  if (back.getUTCFullYear() !== year || back.getUTCMonth() !== month - 1 || back.getUTCDate() !== day) {
+  if (
+    back.getUTCFullYear() !== year ||
+    back.getUTCMonth() !== month - 1 ||
+    back.getUTCDate() !== day
+  ) {
     return null;
   }
   return at / 86_400_000;
@@ -506,7 +504,8 @@ export function fieldValueProblem(field: FormField, value: unknown, today: strin
       return null;
     }
     case 'money': {
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'invalid_type';
+      if (typeof value !== 'object' || value === null || Array.isArray(value))
+        return 'invalid_type';
       const keys = Object.keys(value).sort();
       if (keys.length !== 2 || keys[0] !== 'amountMinor' || keys[1] !== 'currency') {
         return 'invalid_type';
@@ -517,7 +516,8 @@ export function fieldValueProblem(field: FormField, value: unknown, today: strin
       // One currency per field, never converted.
       if (currency !== field.currency) return 'currency_mismatch';
       const amount = BigInt(amountMinor);
-      if (field.minimumMinor !== undefined && amount < BigInt(field.minimumMinor)) return 'too_small';
+      if (field.minimumMinor !== undefined && amount < BigInt(field.minimumMinor))
+        return 'too_small';
       if (field.maximumMinor !== undefined && amount > BigInt(field.maximumMinor)) return 'too_big';
       return null;
     }
@@ -602,8 +602,7 @@ export interface CompletionSubject {
 }
 
 export type CompletionDecision =
-  | { kind: 'refused'; details: RunDetail[] }
-  | { kind: 'allowed'; unacknowledged: string[] };
+  { kind: 'refused'; details: RunDetail[] } | { kind: 'allowed'; unacknowledged: string[] };
 
 /**
  * completeScriptRun's `409 compliance_unacknowledged` (D-L91, D-L93), or what
@@ -627,7 +626,8 @@ export function completionDecision(
   const notAcknowledged = (ids: readonly string[]): RunDetail[] =>
     ids.map((nodeId) => ({ path: `nodes.${nodeId}`, code: 'not_acknowledged' }));
   if (outcome === 'completed') {
-    const current = run.currentNodeId === null ? undefined : nodesById(graph).get(run.currentNodeId);
+    const current =
+      run.currentNodeId === null ? undefined : nodesById(graph).get(run.currentNodeId);
     if (run.status !== 'stopped' && current?.type !== 'end') {
       return { kind: 'refused', details: [{ path: 'outcome', code: 'not_at_end' }] };
     }

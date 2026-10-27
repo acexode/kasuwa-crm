@@ -40,7 +40,7 @@ import {
  * tenant transaction — still decides everything they can reach.
  */
 
-const Uuid = z.string().uuid();
+const Uuid = z.uuid();
 
 export interface AuthTx {
   /**

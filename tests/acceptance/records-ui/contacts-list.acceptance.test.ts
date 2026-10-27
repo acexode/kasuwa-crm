@@ -273,7 +273,7 @@ describe('acceptance: T-0042 — crm_records exists, is off, and gates /contacts
     expect(existsSync(file), 'apps/web/lib/records-api.ts does not exist').toBe(true);
     const source = withoutComments(existsSync(file) ? readFileSync(file, 'utf8') : '');
     expect(source, 'records-api.ts does not use a relative /api/v1 path').toMatch(/['"`]\/api\/v1(\/contacts)?['"`/]/);
-    expect(source, 'records-api.ts does not parse with Zod').toMatch(/from ['"]zod['"]/);
+    expect(source, 'records-api.ts does not parse with Zod').toMatch(/from ['"]zod(?:\/mini)?['"]/);
     expect(source, 'records-api.ts builds a scope argument').not.toMatch(
       /programmeIds|(set|append)\(\s*['"`]programme/,
     );

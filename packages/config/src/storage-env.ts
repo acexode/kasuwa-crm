@@ -45,8 +45,8 @@ import type { EnvSource } from './schemas.mjs';
  */
 
 const StorageSchema = z.object({
-  S3_ENDPOINT: z.string().url().optional(),
-  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
+  S3_ENDPOINT: z.url().optional(),
+  S3_PUBLIC_ENDPOINT: z.url().optional(),
   S3_REGION: z.string().min(1).max(64),
   S3_BUCKET: z.string().min(3).max(63),
   S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false'),
@@ -91,8 +91,8 @@ function describe(error: z.ZodError): string[] {
   return error.issues.map((issue) => {
     const path = issue.path.join('.') || '(root)';
     const message =
-      issue.code === 'invalid_enum_value'
-        ? `must be one of ${issue.options.map((option) => `'${String(option)}'`).join(' | ')}`
+      issue.code === 'invalid_value'
+        ? `must be one of ${issue.values.map((option) => `'${String(option)}'`).join(' | ')}`
         : issue.message;
     return `  ${path}: ${message}`;
   });

@@ -182,7 +182,7 @@ describe('bucketRange (T-0082, L1)', () => {
 describe('query schemas (T-0082)', () => {
   const codes = (result: {
     success: boolean;
-    error?: { issues: { path: (string | number)[]; code: string; params?: unknown }[] };
+    error?: { issues: { path: PropertyKey[]; code: string; params?: unknown }[] };
   }) =>
     result.success
       ? []
@@ -342,7 +342,9 @@ describe('toMyActivityWire (T-0082, L3)', () => {
 
   it('is judged in the activity’s own programme', () => {
     const both = access({}, { subject: 'none' });
-    expect(toMyActivityWire({ ...row, programmeId: A2 }, both, names()).withheldFields).toEqual(['subject']);
+    expect(toMyActivityWire({ ...row, programmeId: A2 }, both, names()).withheldFields).toEqual([
+      'subject',
+    ]);
     expect(toMyActivityWire(row, both, names()).withheldFields).toEqual([]);
   });
 
@@ -411,9 +413,9 @@ describe('typeDetails: the rules judged on the stored row (T-0082, W2)', () => {
     expect(at(meeting, { startsAt: iso(START + HOUR - DAY - 1) })).toEqual(['startsAt:too_long']);
     expect(at(meeting, { endsAt: iso(START + DAY) })).toEqual([]);
     // Both sent: judged at endsAt; each alone would fail against the stored other.
-    expect(at(meeting, { startsAt: iso(START + 3 * DAY), endsAt: iso(START + 3 * DAY + HOUR) })).toEqual(
-      [],
-    );
+    expect(
+      at(meeting, { startsAt: iso(START + 3 * DAY), endsAt: iso(START + 3 * DAY + HOUR) }),
+    ).toEqual([]);
     expect(at(meeting, { startsAt: iso(START), endsAt: iso(START - 1) })).toEqual([
       'endsAt:invalid_range',
     ]);
