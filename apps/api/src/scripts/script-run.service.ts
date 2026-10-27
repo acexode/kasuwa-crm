@@ -8,12 +8,7 @@ import {
   type Contact,
   type ContactFieldAccess,
 } from '@kasuwa/domain-core';
-import {
-  canProgramme,
-  loadGrants,
-  type Grants,
-  type ProgrammeAction,
-} from '@kasuwa/permissions';
+import { canProgramme, loadGrants, type Grants, type ProgrammeAction } from '@kasuwa/permissions';
 import type { z } from 'zod';
 import { recordAuditEvent } from '../admin/audit/audit-writer';
 import {
@@ -158,8 +153,7 @@ export function withoutRawValueKeys(details: readonly AdminErrorDetail[]): Admin
   const out: AdminErrorDetail[] = [];
   for (const detail of details) {
     const [head, key] = detail.path.split('.');
-    const path =
-      head === 'values' && key !== undefined && !isNodeId(key) ? 'values' : detail.path;
+    const path = head === 'values' && key !== undefined && !isNodeId(key) ? 'values' : detail.path;
     const id = `${path} ${detail.code}`;
     if (seen.has(id)) continue;
     seen.add(id);
@@ -169,7 +163,7 @@ export function withoutRawValueKeys(details: readonly AdminErrorDetail[]): Admin
 }
 
 /** NUL and lone surrogates anywhere first (linear, depth-bounded), then the closed schema. */
-function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S> {
+function parseBody<S extends z.ZodType>(schema: S, body: unknown): z.output<S> {
   const raw = plainBody(body);
   const problems = stringProblems(raw);
   if (problems.length > 0) throw validationFailed(withoutRawValueKeys(problems));
@@ -183,7 +177,7 @@ function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.output<S
   return parsed.data as z.output<S>;
 }
 
-function parseOr400<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output<S> {
+function parseOr400<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   return parsed.data as z.output<S>;
@@ -434,7 +428,11 @@ export async function startScriptRunFor(tx: TenantTx, body: unknown): Promise<St
   );
   await recordAuditEvent(
     tx,
-    runStartedEvent({ id: runId, programmeId, label: version.name }, version.id, entered.stopReason),
+    runStartedEvent(
+      { id: runId, programmeId, label: version.name },
+      version.id,
+      entered.stopReason,
+    ),
   );
   return { created: true, run: await reread(tx, runId) };
 }
@@ -504,7 +502,11 @@ export async function advanceScriptRunFor(
     );
   }
   if (decision.kind === 'answers_incomplete') {
-    throw conflictWith('answers_incomplete', 'Fill in the required fields first.', decision.details);
+    throw conflictWith(
+      'answers_incomplete',
+      'Fill in the required fields first.',
+      decision.details,
+    );
   }
 
   const now = nowIso();

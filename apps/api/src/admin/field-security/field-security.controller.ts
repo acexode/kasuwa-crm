@@ -9,19 +9,17 @@ import { AdminController } from '../common/admin-controller.decorator';
  * on the way OUT as well: the screen keys its tabs on this shape, and an id or
  * a tenant id that crept into a row would be published by accident.
  */
-export const fieldSecurityObjectListSchema = z
-  .object({
-    items: z.array(
-      z
-        .object({
-          objectApiName: z.string(),
-          label: z.string(),
-          fieldCount: z.number().int().nonnegative(),
-        })
-        .strict(),
-    ),
-  })
-  .strict();
+export const fieldSecurityObjectListSchema = z.strictObject({
+  items: z.array(
+    z
+      .object({
+        objectApiName: z.string(),
+        label: z.string(),
+        fieldCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+  ),
+});
 export type FieldSecurityObjectList = z.infer<typeof fieldSecurityObjectListSchema>;
 
 export function toFieldSecurityObjectList(

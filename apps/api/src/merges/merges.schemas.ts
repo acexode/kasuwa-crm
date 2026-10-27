@@ -43,7 +43,7 @@ export const MergeChoices = z.record(z.string(), Side).superRefine((choices, ctx
   for (const key of Object.keys(choices)) {
     if (!isMergeFieldKey(key) && customChoiceKey(key) === null) {
       // The key is a client's text: reported at `choices`, never named.
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [], params: { reason: 'unknown_field' } });
+      ctx.addIssue({ code: 'custom', path: [], params: { reason: 'unknown_field' } });
       return;
     }
   }
@@ -51,21 +51,19 @@ export const MergeChoices = z.record(z.string(), Side).superRefine((choices, ctx
 export type MergeChoices = z.infer<typeof MergeChoices>;
 
 /** `CreateContactMergeRequest`. Closed. */
-export const CreateContactMergeBody = z
-  .object({
-    survivorId: z.string().uuid(),
-    mergedId: z.string().uuid(),
-    survivorVersion: Version,
-    mergedVersion: Version,
-    choices: MergeChoices.optional(),
-  })
-  .strict();
+export const CreateContactMergeBody = z.strictObject({
+  survivorId: z.uuid(),
+  mergedId: z.uuid(),
+  survivorVersion: Version,
+  mergedVersion: Version,
+  choices: MergeChoices.optional(),
+});
 export type CreateContactMergeBody = z.infer<typeof CreateContactMergeBody>;
 
-export const ProgrammeIdParam = z.object({ programmeId: z.string().uuid() });
-export const MergeIdParam = z.object({ mergeId: z.string().uuid() });
-export const ContactIdParam = z.object({ id: z.string().uuid() });
-export const MergePreviewQuery = z.object({ with: z.string().uuid() });
+export const ProgrammeIdParam = z.object({ programmeId: z.uuid() });
+export const MergeIdParam = z.object({ mergeId: z.uuid() });
+export const ContactIdParam = z.object({ id: z.uuid() });
+export const MergePreviewQuery = z.object({ with: z.uuid() });
 
 /** `cursor` and `limit` only: no total, no offset (both lists). */
 export const PageQuery = z.object({

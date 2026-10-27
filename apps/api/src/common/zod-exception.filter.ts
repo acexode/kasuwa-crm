@@ -4,6 +4,7 @@ import { InvalidCursorError } from '@kasuwa/domain-core';
 import type { Response } from 'express';
 import { ZodError } from 'zod';
 import { MAX_ERROR_DETAILS } from '../admin/common/admin-errors';
+import { wireIssueCode } from './zod-issue-code';
 
 /**
  * Turns boundary-validation failures into 400s with a stable shape.
@@ -39,7 +40,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       // At most 50, in issue order (MAX_ERROR_DETAILS, T-0113 security review).
       details: exception.issues.slice(0, MAX_ERROR_DETAILS).map((issue) => ({
         path: issue.path.join('.'),
-        code: issue.code,
+        code: wireIssueCode(issue),
       })),
     });
   }

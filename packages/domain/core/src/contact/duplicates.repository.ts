@@ -53,14 +53,12 @@ export interface DuplicatePosition {
 export const MAX_DUPLICATE_ORDINAL = Math.max(CONTACT_MAX_PHONES, CONTACT_MAX_EMAILS) - 1;
 const MAX_ORDINAL = MAX_DUPLICATE_ORDINAL;
 
-const CursorPayload = z
-  .object({
-    v: z.literal(LIST_CURSOR_VERSION),
-    id: z.string().uuid(),
-    m: z.enum(['phone', 'email']),
-    n: z.number().int().min(0).max(MAX_ORDINAL),
-  })
-  .strict();
+const CursorPayload = z.strictObject({
+  v: z.literal(LIST_CURSOR_VERSION),
+  id: z.uuid(),
+  m: z.enum(['phone', 'email']),
+  n: z.number().int().min(0).max(MAX_ORDINAL),
+});
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 

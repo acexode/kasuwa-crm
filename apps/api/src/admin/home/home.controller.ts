@@ -15,12 +15,10 @@ import {
   type Severity,
 } from './home.rules';
 
-const AlertIdParam = z.object({ alertId: z.string().uuid() });
+const AlertIdParam = z.object({ alertId: z.uuid() });
 
 /** `includeDismissed` arrives as text; anything but `true`/`false` is a 400. */
-const ListAlertsQuery = z
-  .object({ includeDismissed: z.enum(['true', 'false']).optional() })
-  .strict();
+const ListAlertsQuery = z.strictObject({ includeDismissed: z.enum(['true', 'false']).optional() });
 
 export interface AdminHomeSummaryResponse {
   tenant: {
@@ -116,10 +114,7 @@ export class AdminHomeController {
         userCount: users.userCount,
       },
       dataRegion: dataRegionForCell(tenant.regionCell),
-      health: deriveSetupHealth(
-        { usersWithoutMfa: users.usersWithoutMfa, ...alerts },
-        new Date(),
-      ),
+      health: deriveSetupHealth({ usersWithoutMfa: users.usersWithoutMfa, ...alerts }, new Date()),
     };
   }
 

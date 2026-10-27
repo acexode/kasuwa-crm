@@ -12,7 +12,7 @@ import {
   ListProgrammeScriptsQuery,
 } from './dispositions.schemas';
 
-function detailsOf(schema: z.ZodTypeAny, input: unknown): unknown {
+function detailsOf(schema: z.ZodType, input: unknown): unknown {
   try {
     parseBody(schema, input);
   } catch (error) {

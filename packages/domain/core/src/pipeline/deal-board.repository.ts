@@ -329,9 +329,9 @@ const CARD_COLUMNS = `
       AND deal_check.pipeline_id = d.pipeline_id AND deal_check.deal_id = d.id) AS checks`;
 
 const CheckJson = z.object({
-  requirementId: z.string().uuid(),
+  requirementId: z.uuid(),
   checkedAt: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
-  checkedBy: z.string().uuid(),
+  checkedBy: z.uuid(),
   checkedByIsMember: z.boolean(),
   /** Read only for a member of the deal's programme (D-L127). */
   checkedByName: z.string().nullable(),

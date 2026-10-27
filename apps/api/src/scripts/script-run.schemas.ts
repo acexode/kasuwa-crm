@@ -26,41 +26,42 @@ import {
 /** `revision`: 1..2^31-1, an integer, never a string (D-L93). */
 const Revision = z.number().int().min(1).max(INT32_MAX);
 
-const Uuid = z.string().uuid();
+const Uuid = z.uuid();
 
 /** StartScriptRunRequest: the script and the contact, nothing else. */
-export const StartRunBody = z.object({ scriptId: Uuid, contactId: Uuid }).strict();
+export const StartRunBody = z.strictObject({ scriptId: Uuid, contactId: Uuid });
 export type StartRunBody = z.infer<typeof StartRunBody>;
 
 /** AdvanceScriptRunRequest: the client names only the choice on a question. */
-export const AdvanceRunBody = z
-  .object({ revision: Revision, choiceKey: ChoiceKeySchema.optional() })
-  .strict();
+export const AdvanceRunBody = z.strictObject({
+  revision: Revision,
+  choiceKey: ChoiceKeySchema.optional(),
+});
 export type AdvanceRunBody = z.infer<typeof AdvanceRunBody>;
 
 /** AcknowledgeScriptRunNodeRequest: no time; the server stamps it. */
-export const AcknowledgeBody = z
-  .object({ revision: Revision, nodeId: NodeIdSchema, locale: ScriptLocaleSchema })
-  .strict();
+export const AcknowledgeBody = z.strictObject({
+  revision: Revision,
+  nodeId: NodeIdSchema,
+  locale: ScriptLocaleSchema,
+});
 export type AcknowledgeBody = z.infer<typeof AcknowledgeBody>;
 
 /** RecordScriptRunAnswersRequest. `values` is `sensitive`: 1..20 keys, judged per field later. */
-export const AnswersBody = z
-  .object({
-    revision: Revision,
-    nodeId: NodeIdSchema,
-    values: z.record(ChoiceKeySchema, z.unknown()).superRefine((values, context) => {
-      const count = Object.keys(values).length;
-      if (count < 1 || count > 20) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'between 1 and 20 values',
-          params: { reason: count < 1 ? SCRIPT_REASON.tooSmall : SCRIPT_REASON.tooBig },
-        });
-      }
-    }),
-  })
-  .strict();
+export const AnswersBody = z.strictObject({
+  revision: Revision,
+  nodeId: NodeIdSchema,
+  values: z.record(ChoiceKeySchema, z.unknown()).superRefine((values, context) => {
+    const count = Object.keys(values).length;
+    if (count < 1 || count > 20) {
+      context.addIssue({
+        code: 'custom',
+        message: 'between 1 and 20 values',
+        params: { reason: count < 1 ? SCRIPT_REASON.tooSmall : SCRIPT_REASON.tooBig },
+      });
+    }
+  }),
+});
 export type AnswersBody = z.infer<typeof AnswersBody>;
 
 /** UTC with a `Z`, as the contract's `followUp.dueAt` says; an offset or a bare date is 400. */
@@ -80,7 +81,7 @@ const DueAt = z.string().superRefine((value, context) => {
     return null;
   })();
   if (reason !== null) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: reason, params: { reason } });
+    context.addIssue({ code: 'custom', message: reason, params: { reason } });
   }
 });
 
@@ -89,15 +90,13 @@ const DueAt = z.string().superRefine((value, context) => {
  * `superseded` is server-only. No subject, owner, acknowledgement, time or
  * unread list: the server works them out.
  */
-export const CompleteBody = z
-  .object({
-    revision: Revision,
-    outcome: z.enum(['completed', 'interrupted']),
-    dispositionId: Uuid,
-    note: wording(1, 10_000).optional(),
-    followUp: z.object({ dueAt: DueAt }).strict().optional(),
-  })
-  .strict();
+export const CompleteBody = z.strictObject({
+  revision: Revision,
+  outcome: z.enum(['completed', 'interrupted']),
+  dispositionId: Uuid,
+  note: wording(1, 10_000).optional(),
+  followUp: z.object({ dueAt: DueAt }).strict().optional(),
+});
 export type CompleteBody = z.infer<typeof CompleteBody>;
 
 /** `runId` in a path: not a uuid is `400` (RunId). */

@@ -44,8 +44,8 @@ export {
 } from '@kasuwa/config';
 
 export const StubAuthHeaders = z.object({
-  [STUB_TENANT_HEADER]: z.string().uuid(),
-  [STUB_USER_HEADER]: z.string().uuid(),
+  [STUB_TENANT_HEADER]: z.uuid(),
+  [STUB_USER_HEADER]: z.uuid(),
 });
 
 export class ScopeHeaderRejectedError extends Error {

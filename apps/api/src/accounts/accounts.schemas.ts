@@ -31,10 +31,10 @@ export const PHONE_TYPES = ['mobile', 'work', 'home', 'other'] as const;
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-export const AccountIdParam = z.object({ accountId: z.string().uuid() });
+export const AccountIdParam = z.object({ accountId: z.uuid() });
 
 /** A repeated query parameter arrives as an array, a single one as a string. */
-function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
+function many<T extends z.ZodType>(item: T, maxItems: number) {
   return z
     .preprocess(
       (value) => (value === undefined || Array.isArray(value) ? value : [value]),
@@ -95,37 +95,33 @@ export const ListAccountContactsQuery = z.object({
 export type ListAccountContactsQuery = z.infer<typeof ListAccountContactsQuery>;
 
 /** `Phone`: closed, E.164 only. */
-const Phone = z
-  .object({
-    type: z.enum(PHONE_TYPES),
-    e164: z.string().regex(E164),
-  })
-  .strict();
+const Phone = z.strictObject({
+  type: z.enum(PHONE_TYPES),
+  e164: z.string().regex(E164),
+});
 
 /** Properties both writes accept, as the contract names them. */
 const writableFields = {
   name: text(1, 200),
-  ownerUserId: z.string().uuid().nullable().optional(),
+  ownerUserId: z.uuid().nullable().optional(),
   industry: text(1, 64).nullable().optional(),
   tier: z.enum(ACCOUNT_TIERS).nullable().optional(),
   tags: z.array(text(1, 64)).max(50).optional(),
   phones: z.array(Phone).max(10).optional(),
   state: text(0, 64).nullable().optional(),
   lga: text(0, 64).nullable().optional(),
-  parentAccountId: z.string().uuid().nullable().optional(),
+  parentAccountId: z.uuid().nullable().optional(),
 };
 
 /** `custom` (T-0089): admitted here, validated against the live definitions separately. */
 const customField = { custom: z.unknown().optional() };
 
 /** `CreateAccountRequest`. Closed: `id`, `version`, `owner`, timestamps, `withheldFields` are 400. */
-export const CreateAccountBody = z
-  .object({
-    programmeId: z.string().uuid().optional(),
-    ...writableFields,
-    ...customField,
-  })
-  .strict();
+export const CreateAccountBody = z.strictObject({
+  programmeId: z.uuid().optional(),
+  ...writableFields,
+  ...customField,
+});
 export type CreateAccountBody = z.infer<typeof CreateAccountBody>;
 
 /**
@@ -134,14 +130,13 @@ export type CreateAccountBody = z.infer<typeof CreateAccountBody>;
  * edit (D-L76), so sending it, even with the account's own programme, is 400.
  */
 export const UpdateAccountBody = z
-  .object({
+  .strictObject({
     // Postgres `integer`: anything larger is 22003 at `::integer`, a 500, not a 400.
     version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
     name: writableFields.name.optional(),
     ...customField,
   })
-  .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {
     message: 'an update must change something',
     path: [],

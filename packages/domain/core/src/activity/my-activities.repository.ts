@@ -72,12 +72,10 @@ const KIND_CODE: Record<MyActivityCursorKind, string> = { tasks: 't', calendar: 
 /** The contract's `ActivityCursor` maxLength. */
 export const MAX_ACTIVITY_CURSOR_LENGTH = 512;
 
-const ActivityCursorPayload = z
-  .object({
-    k: z.enum(['t', 'c']),
-    i: z.string().uuid(),
-  })
-  .strict();
+const ActivityCursorPayload = z.strictObject({
+  k: z.enum(['t', 'c']),
+  i: z.uuid(),
+});
 
 /** An opaque cursor holding a list kind and one id: never a time, a name or a scope. */
 export function encodeActivityCursor(kind: MyActivityCursorKind, id: string): string {
@@ -117,9 +115,7 @@ let zoneNames: ReadonlySet<string> | null = null;
  */
 export async function timeZoneNameExists(tx: TenantTx, name: string): Promise<boolean> {
   if (zoneNames === null) {
-    const rows = await tx.query<{ name: string }>(
-      'SELECT name FROM pg_catalog.pg_timezone_names',
-    );
+    const rows = await tx.query<{ name: string }>('SELECT name FROM pg_catalog.pg_timezone_names');
     zoneNames = new Set(rows.map((row) => row.name));
   }
   return zoneNames.has(name);
@@ -128,17 +124,17 @@ export async function timeZoneNameExists(tx: TenantTx, name: string): Promise<bo
 // --- rows ---------------------------------------------------------------------
 
 const RawRow = z.object({
-  id: z.string().uuid(),
-  programme_id: z.string().uuid(),
+  id: z.uuid(),
+  programme_id: z.uuid(),
   type: z.enum(['task', 'meeting']),
   subject: z.string().nullable(),
   due_at: z.date().nullable(),
   completed_at: z.date().nullable(),
   starts_at: z.date().nullable(),
   ends_at: z.date().nullable(),
-  contact_id: z.string().uuid().nullable(),
+  contact_id: z.uuid().nullable(),
   contact_display_name: z.string().nullable(),
-  account_id: z.string().uuid().nullable(),
+  account_id: z.uuid().nullable(),
   account_name: z.string().nullable(),
   version: z.number().int().min(1),
 });
@@ -228,7 +224,12 @@ export async function listMyOpenTasks(
   options: ListMyOpenTasksOptions,
 ): Promise<MyActivityPageRows> {
   const { tenantId, userId, programmeIds } = tx.session;
-  const values: unknown[] = [tenantId, userId, [...programmeIds], [...options.dueReadableProgrammeIds]];
+  const values: unknown[] = [
+    tenantId,
+    userId,
+    [...programmeIds],
+    [...options.dueReadableProgrammeIds],
+  ];
   const bind = (value: unknown) => {
     values.push(value);
     return `$${values.length}`;

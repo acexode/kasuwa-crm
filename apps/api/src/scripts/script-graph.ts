@@ -74,13 +74,13 @@ export function wording(min: number, max: number) {
     const length = codePoints(value);
     if (length < min) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `shorter than ${min}`,
         params: { reason: SCRIPT_REASON.tooSmall },
       });
     } else if (length > max) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `longer than ${max}`,
         params: { reason: SCRIPT_REASON.tooBig },
       });
@@ -231,7 +231,8 @@ export function rawBoundsProblems(body: Record<string, unknown>): StringProblem[
           });
         }
         const condition = asRecord(node.condition);
-        if (condition !== null && arrayLength(condition.value) > 20) tooBig(`${at}.condition.value`);
+        if (condition !== null && arrayLength(condition.value) > 20)
+          tooBig(`${at}.condition.value`);
       });
     }
   }
@@ -271,52 +272,44 @@ export function hasLoneSurrogate(text: string): boolean {
 
 // --- nodes ---------------------------------------------------------------------
 
-const CanvasPosition = z
-  .object({
-    x: z.number().int().min(0).max(100_000),
-    y: z.number().int().min(0).max(100_000),
-  })
-  .strict();
+const CanvasPosition = z.strictObject({
+  x: z.number().int().min(0).max(100_000),
+  y: z.number().int().min(0).max(100_000),
+});
 
 const Title = wording(1, 120);
 const Text = wording(1, 4000);
 const Label = wording(1, 120);
 
-const SayNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('say'),
-    title: Title,
-    text: Text,
-    next: NodeIdSchema,
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const SayNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('say'),
+  title: Title,
+  text: Text,
+  next: NodeIdSchema,
+  position: CanvasPosition.optional(),
+});
 
-const QuestionChoice = z
-  .object({ key: ChoiceKeySchema, label: Label, next: NodeIdSchema })
-  .strict();
+const QuestionChoice = z.strictObject({ key: ChoiceKeySchema, label: Label, next: NodeIdSchema });
 
-const QuestionNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('question'),
-    title: Title,
-    text: Text,
-    hint: wording(0, 500).nullable().optional(),
-    choices: z.array(QuestionChoice).min(2).max(12),
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const QuestionNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('question'),
+  title: Title,
+  text: Text,
+  hint: wording(0, 500).nullable().optional(),
+  choices: z.array(QuestionChoice).min(2).max(12),
+  position: CanvasPosition.optional(),
+});
 
 const FIELD_TYPES = ['text', 'number', 'money', 'date', 'choice'] as const;
 
-const FormFieldOption = z.object({ key: ChoiceKeySchema, label: Label }).strict();
+const FormFieldOption = z.strictObject({ key: ChoiceKeySchema, label: Label });
 
 const MINOR_UNITS = /^[0-9]{1,18}$/;
 
 const FormField = z
-  .object({
+  .strictObject({
     key: ChoiceKeySchema,
     label: Label,
     type: z.enum(FIELD_TYPES),
@@ -334,12 +327,11 @@ const FormField = z
     maxDaysAhead: z.number().int().min(0).max(366).optional(),
     options: z.array(FormFieldOption).min(1).max(30).optional(),
   })
-  .strict()
   .superRefine((field, context) => {
     const require = (key: keyof typeof field) => {
       if (field[key] === undefined) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: [key],
           message: 'required for this field type',
           params: { reason: SCRIPT_REASON.required },
@@ -356,25 +348,18 @@ const FormField = z
     if (field.options !== undefined) duplicateKeys(field.options, ['options'], context);
   });
 
-const FormNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('form'),
-    title: Title,
-    text: Text,
-    fields: z.array(FormField).min(1).max(20),
-    next: NodeIdSchema,
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const FormNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('form'),
+  title: Title,
+  text: Text,
+  fields: z.array(FormField).min(1).max(20),
+  next: NodeIdSchema,
+  position: CanvasPosition.optional(),
+});
 
 const ConditionText = z.string().max(200);
-const ConditionValue = z.union([
-  ConditionText,
-  int32,
-  z.boolean(),
-  z.array(ConditionText).max(20),
-]);
+const ConditionValue = z.union([ConditionText, int32, z.boolean(), z.array(ConditionText).max(20)]);
 
 const OPERATORS = [
   'equals',
@@ -395,7 +380,7 @@ function operatorTakes(
   const { operator, value } = condition;
   const mismatch = () =>
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: ['value'],
       message: 'the value does not fit the operator',
       params: { reason: SCRIPT_REASON.valueMismatch },
@@ -415,62 +400,52 @@ function operatorTakes(
   }
 }
 
-const ContactFieldCondition = z
-  .object({
-    source: z.literal('contact_field'),
-    field: z.string().regex(CONTACT_FIELD_PATTERN),
-    operator: z.enum(OPERATORS),
-    value: ConditionValue.optional(),
-  })
-  .strict();
+const ContactFieldCondition = z.strictObject({
+  source: z.literal('contact_field'),
+  field: z.string().regex(CONTACT_FIELD_PATTERN),
+  operator: z.enum(OPERATORS),
+  value: ConditionValue.optional(),
+});
 
-const AnswerCondition = z
-  .object({
-    source: z.literal('answer'),
-    nodeId: NodeIdSchema,
-    fieldKey: ChoiceKeySchema.optional(),
-    operator: z.enum(OPERATORS),
-    value: ConditionValue.optional(),
-  })
-  .strict();
+const AnswerCondition = z.strictObject({
+  source: z.literal('answer'),
+  nodeId: NodeIdSchema,
+  fieldKey: ChoiceKeySchema.optional(),
+  operator: z.enum(OPERATORS),
+  value: ConditionValue.optional(),
+});
 
 const BranchCondition = z
   .discriminatedUnion('source', [ContactFieldCondition, AnswerCondition])
   .superRefine(operatorTakes);
 
-const BranchNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('branch'),
-    title: Title,
-    condition: BranchCondition,
-    whenTrue: NodeIdSchema,
-    whenFalse: NodeIdSchema,
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const BranchNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('branch'),
+  title: Title,
+  condition: BranchCondition,
+  whenTrue: NodeIdSchema,
+  whenFalse: NodeIdSchema,
+  position: CanvasPosition.optional(),
+});
 
-const ComplianceNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('compliance'),
-    title: Title,
-    text: Text,
-    next: NodeIdSchema,
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const ComplianceNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('compliance'),
+  title: Title,
+  text: Text,
+  next: NodeIdSchema,
+  position: CanvasPosition.optional(),
+});
 
-const EndNode = z
-  .object({
-    id: NodeIdSchema,
-    type: z.literal('end'),
-    title: Title,
-    text: wording(0, 4000).nullable().optional(),
-    suggestedDispositionId: z.string().uuid().nullable().optional(),
-    position: CanvasPosition.optional(),
-  })
-  .strict();
+const EndNode = z.strictObject({
+  id: NodeIdSchema,
+  type: z.literal('end'),
+  title: Title,
+  text: wording(0, 4000).nullable().optional(),
+  suggestedDispositionId: z.uuid().nullable().optional(),
+  position: CanvasPosition.optional(),
+});
 
 const ScriptNode = z.discriminatedUnion('type', [
   SayNode,
@@ -490,7 +465,7 @@ function duplicateKeys(
   items.forEach((item, index) => {
     if (seen.has(item.key)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: [...base, index, 'key'],
         message: 'duplicate key',
         params: { reason: SCRIPT_REASON.duplicateKey },
@@ -505,17 +480,16 @@ function duplicateKeys(
  * (R5: refused on save, so a graph with two nodes of one id is never stored).
  */
 export const ScriptGraphSchema = z
-  .object({
+  .strictObject({
     startNodeId: NodeIdSchema,
     nodes: z.array(ScriptNode).min(1).max(200),
   })
-  .strict()
   .superRefine((graph, context) => {
     const seen = new Set<string>();
     graph.nodes.forEach((node, index) => {
       if (seen.has(node.id)) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['nodes', index, 'id'],
           message: 'duplicate node id',
           params: { reason: SCRIPT_REASON.duplicateId },
@@ -559,14 +533,11 @@ export interface StoredGraph {
 
 // --- translations ----------------------------------------------------------------
 
-function maxProperties<T extends z.ZodTypeAny>(
-  schema: T,
-  max: number,
-): z.ZodEffects<T, z.output<T>, z.input<T>> {
+function maxProperties<T extends z.ZodType>(schema: T, max: number): T {
   return schema.superRefine((value: unknown, context) => {
     if (typeof value === 'object' && value !== null && Object.keys(value).length > max) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `more than ${max} properties`,
         params: { reason: SCRIPT_REASON.tooBig },
       });
@@ -575,15 +546,13 @@ function maxProperties<T extends z.ZodTypeAny>(
 }
 
 /** A node's wording in one locale. Absent keys fall back to the source wording. */
-export const NodeTranslationSchema = z
-  .object({
-    title: wording(1, 120).optional(),
-    text: wording(1, 4000).optional(),
-    hint: wording(1, 500).optional(),
-    choices: maxProperties(z.record(ChoiceKeySchema, Label), 12).optional(),
-    fields: maxProperties(z.record(ChoiceKeySchema, Label), 20).optional(),
-  })
-  .strict();
+export const NodeTranslationSchema = z.strictObject({
+  title: wording(1, 120).optional(),
+  text: wording(1, 4000).optional(),
+  hint: wording(1, 500).optional(),
+  choices: maxProperties(z.record(ChoiceKeySchema, Label), 12).optional(),
+  fields: maxProperties(z.record(ChoiceKeySchema, Label), 20).optional(),
+});
 export type NodeTranslation = z.infer<typeof NodeTranslationSchema>;
 
 /** One locale's wording, keyed by node id. */
@@ -644,7 +613,8 @@ export function translationMismatches(
       } else {
         const keys = new Set(node.choices.map((choice) => choice.key));
         for (const key of Object.keys(translation.choices)) {
-          if (!keys.has(key)) mismatches.push({ path: `${at}.choices.${key}`, code: 'unknown_choice' });
+          if (!keys.has(key))
+            mismatches.push({ path: `${at}.choices.${key}`, code: 'unknown_choice' });
         }
       }
     }

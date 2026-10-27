@@ -19,21 +19,19 @@ import { z } from 'zod';
 const Level = z.enum(FIELD_ACCESS_LEVELS);
 
 /** getFieldSecurityMatrix's query. */
-export const FieldSecurityMatrixQuery = z
-  .object({
-    object: z.string().min(1).max(64),
-    q: z.string().max(200).optional(),
-    sensitiveOnly: z
-      .enum(['true', 'false'])
-      .optional()
-      .transform((value) => value === 'true'),
-  })
-  .strict();
+export const FieldSecurityMatrixQuery = z.strictObject({
+  object: z.string().min(1).max(64),
+  q: z.string().max(200).optional(),
+  sensitiveOnly: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+});
 export type FieldSecurityMatrixQuery = z.infer<typeof FieldSecurityMatrixQuery>;
 
 /** `FieldSecurityWrite`. The same cell twice in one save is ambiguous, so it is refused. */
 export const FieldSecurityWriteBody = z
-  .object({
+  .strictObject({
     objectApiName: z.string().min(1).max(64),
     version: z.number().int(),
     changes: z
@@ -49,7 +47,6 @@ export const FieldSecurityWriteBody = z
       .min(1)
       .max(2000),
   })
-  .strict()
   .refine(
     (body) =>
       new Set(body.changes.map((change) => `${change.fieldApiName}\u0000${change.permissionSetId}`))
@@ -63,25 +60,23 @@ export type FieldSecurityWriteBody = z.infer<typeof FieldSecurityWriteBody>;
  * the response "never contains a field's data", and an id, a tenant id or a
  * programme that crept into a row would be published by accident.
  */
-export const fieldSecurityMatrixSchema = z
-  .object({
-    objectApiName: z.string(),
-    version: z.number().int(),
-    totalFieldCount: z.number().int().nonnegative(),
-    rows: z.array(
-      z
-        .object({
-          fieldApiName: z.string(),
-          label: z.string(),
-          classification: z.enum(FIELD_CLASSIFICATIONS),
-          cells: z.array(
-            z.object({ permissionSetId: z.string(), level: Level, locked: z.boolean() }).strict(),
-          ),
-        })
-        .strict(),
-    ),
-  })
-  .strict();
+export const fieldSecurityMatrixSchema = z.strictObject({
+  objectApiName: z.string(),
+  version: z.number().int(),
+  totalFieldCount: z.number().int().nonnegative(),
+  rows: z.array(
+    z
+      .object({
+        fieldApiName: z.string(),
+        label: z.string(),
+        classification: z.enum(FIELD_CLASSIFICATIONS),
+        cells: z.array(
+          z.object({ permissionSetId: z.string(), level: Level, locked: z.boolean() }).strict(),
+        ),
+      })
+      .strict(),
+  ),
+});
 
 export function toFieldSecurityMatrixResponse(matrix: FieldSecurityMatrix): FieldSecurityMatrix {
   return fieldSecurityMatrixSchema.parse(matrix);

@@ -193,9 +193,9 @@ const position = {
 };
 
 const CURSOR_PAYLOADS = {
-  k: z.object({ k: z.string().uuid(), ...position }).strict(),
-  a: z.object({ a: z.string().uuid(), ...position }).strict(),
-  d: z.object({ d: z.string().uuid(), ...position }).strict(),
+  k: z.strictObject({ k: z.uuid(), ...position }),
+  a: z.strictObject({ a: z.uuid(), ...position }),
+  d: z.strictObject({ d: z.uuid(), ...position }),
 } as const;
 
 export interface RecordTimelineCursor {
@@ -253,9 +253,9 @@ const RawRow = z.object({
   redacted: z.boolean().nullable(),
   before_value: z.string().nullable(),
   after_value: z.string().nullable(),
-  actor_id: z.string().uuid().nullable(),
+  actor_id: z.uuid().nullable(),
   actor_name: z.string().nullable(),
-  activity_id: z.string().uuid().nullable(),
+  activity_id: z.uuid().nullable(),
   activity_type: z.string().nullable(),
   subject: z.string().nullable(),
   body: z.string().nullable(),

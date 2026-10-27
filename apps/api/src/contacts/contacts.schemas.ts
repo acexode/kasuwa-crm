@@ -33,10 +33,10 @@ export {
 const UUID_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-export const ContactIdParam = z.object({ id: z.string().uuid() });
+export const ContactIdParam = z.object({ id: z.uuid() });
 
 /** A repeated query parameter arrives as an array, a single one as a string. */
-function many<T extends z.ZodTypeAny>(item: T, maxItems: number) {
+function many<T extends z.ZodType>(item: T, maxItems: number) {
   return z
     .preprocess(
       (value) => (value === undefined || Array.isArray(value) ? value : [value]),
@@ -70,7 +70,7 @@ export const ListContactsQuery = z.object({
   whatsappOptIn: queryBoolean,
   // T-0094: the contacts one import created. An import the caller cannot see
   // (another tenant, programme, or no `contact.import`) is an empty page.
-  importId: z.string().uuid().optional(),
+  importId: z.uuid().optional(),
   sort: z.enum(CONTACT_SORTS).default(DEFAULT_CONTACT_SORT),
   cursor: z.string().min(1).max(MAX_CURSOR_LENGTH).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
@@ -105,7 +105,7 @@ const writableFields = {
 /** `CreateContactRequest`. Closed: `id`, `version`, `dnd`, `phoneNetwork`, timestamps are 400. */
 export const CreateContactBody = z
   .object({
-    programmeId: z.string().uuid().optional(),
+    programmeId: z.uuid().optional(),
     ...writableFields,
     source: z.enum(CONTACT_SOURCES).optional(),
     // T-0089: admitted here and validated separately, against the live
@@ -123,7 +123,7 @@ export type CreateContactBody = z.infer<typeof CreateContactBody>;
  * no `source` (how a contact arrived does not change).
  */
 export const UpdateContactBody = z
-  .object({
+  .strictObject({
     // Postgres `integer`: anything larger is 22003 at `::integer`, a 500, not a 400.
     version: z.number().int().min(1).max(2_147_483_647),
     ...writableFields,
@@ -131,7 +131,6 @@ export const UpdateContactBody = z
     // T-0089: validated separately, against the live definitions.
     custom: z.unknown().optional(),
   })
-  .strict()
   .refine((body) => Object.keys(body).some((key) => key !== 'version'), {
     message: 'an update must change something',
     path: [],

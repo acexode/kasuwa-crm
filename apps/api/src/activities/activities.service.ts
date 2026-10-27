@@ -111,7 +111,7 @@ function own(raw: Record<string, unknown>, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(raw, key) ? raw[key] : undefined;
 }
 
-const TargetId = z.string().uuid();
+const TargetId = z.uuid();
 
 /**
  * The target that decides a create's programme: the contact when one is
@@ -203,18 +203,25 @@ export async function createActivityFor(tx: TenantTx, body: unknown): Promise<Ac
   details.push(...(await dealDetail(tx, programmeId, parsed.dealId)));
   if (details.length > 0) throw validationFailed(details); // 400
 
-  const activity = await customBackstopAs400(() => insertActivity(tx, programmeId, {
-    type: parsed.type,
-    subject: parsed.subject ?? null,
-    body: parsed.body ?? null,
-    dueAt: parsed.dueAt ?? null,
-    startsAt: parsed.startsAt ?? null,
-    endsAt: parsed.endsAt ?? null,
-    ownerUserId: parsed.ownerUserId ?? null,
-    contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
-    accountId: parsed.accountId ?? null,
-    dealId: lowerOrNull(parsed.dealId) ?? null,
-  }, customValues));
+  const activity = await customBackstopAs400(() =>
+    insertActivity(
+      tx,
+      programmeId,
+      {
+        type: parsed.type,
+        subject: parsed.subject ?? null,
+        body: parsed.body ?? null,
+        dueAt: parsed.dueAt ?? null,
+        startsAt: parsed.startsAt ?? null,
+        endsAt: parsed.endsAt ?? null,
+        ownerUserId: parsed.ownerUserId ?? null,
+        contactId: target.kind === 'contact' ? target.id : (parsed.contactId ?? null),
+        accountId: parsed.accountId ?? null,
+        dealId: lowerOrNull(parsed.dealId) ?? null,
+      },
+      customValues,
+    ),
+  );
   await recordAuditWithCustom(
     tx,
     activityAuditEvent('created', activity, activityCreateChanges(parsed)),
@@ -325,12 +332,14 @@ export async function updateActivityFor(
   const target = { id: current.id, programmeId: current.programmeId };
   if (patch !== undefined) await assertCustomPatchFits(tx, custom, target, patch); // 400
 
-  const updated = await customBackstopAs400(() => updateActivityIfVersion(
-    tx,
-    { ...target, version },
-    { complete: completed, ownerUserId, dueAt, startsAt, endsAt, dealId: lowerOrNull(dealId) },
-    patch,
-  ));
+  const updated = await customBackstopAs400(() =>
+    updateActivityIfVersion(
+      tx,
+      { ...target, version },
+      { complete: completed, ownerUserId, dueAt, startsAt, endsAt, dealId: lowerOrNull(dealId) },
+      patch,
+    ),
+  );
   if (updated === null) throw staleWrite(); // 409
   await recordAuditWithCustom(
     tx,

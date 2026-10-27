@@ -81,20 +81,19 @@ const VERSION = z.number().int().min(1).max(2_147_483_647);
  * programme, no owner, no companyName.
  */
 export const ConvertContactBody = z
-  .object({
+  .strictObject({
     version: VERSION,
-    accountId: z.string().uuid().optional(),
+    accountId: z.uuid().optional(),
     newAccount: z
       .object({ name: text(1, 200) })
       .strict()
       .optional(),
   })
-  .strict()
   .superRefine((body, context) => {
     const targets = Number(body.accountId !== undefined) + Number(body.newAccount !== undefined);
     if (targets !== 1) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'exactly one of accountId or newAccount',
         path: [],
         params: { reason: 'exactly_one_target' },
@@ -146,7 +145,10 @@ export async function convertContactFor(
   const grants = await loadGrants(tx);
   if (!canProgramme(grants, 'contact.write', programmeId)) throw notPermitted();
   const keys = plainKeys(body);
-  if (keys?.includes('newAccount') === true && !canProgramme(grants, 'account.write', programmeId)) {
+  if (
+    keys?.includes('newAccount') === true &&
+    !canProgramme(grants, 'account.write', programmeId)
+  ) {
     throw notPermitted();
   }
   // The tenant-admin flag never lifts field security (D-L63). A caller who
@@ -177,8 +179,7 @@ export async function convertContactFor(
 
   // The account the contact holds now: in its own programme (0019's
   // composite key), so reachable whenever the contact is.
-  const linked =
-    current.accountId === null ? null : await findAccountById(tx, current.accountId);
+  const linked = current.accountId === null ? null : await findAccountById(tx, current.accountId);
 
   const plan = planConvert(
     {

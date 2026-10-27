@@ -11,7 +11,7 @@ import { notFound, validationFailedFrom } from './admin-errors';
  */
 
 /** Parse a body or query; a failure is `400 validation_failed`. */
-export function parseOr400<S extends z.ZodTypeAny>(schema: S, input: unknown): z.output<S> {
+export function parseOr400<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const result = schema.safeParse(input);
   if (!result.success) {
     throw validationFailedFrom(result.error);
@@ -20,7 +20,7 @@ export function parseOr400<S extends z.ZodTypeAny>(schema: S, input: unknown): z
 }
 
 /** Parse path params holding a record id; a failure is the one `404` body. */
-export function parseIdOr404<S extends z.ZodTypeAny>(schema: S, params: unknown): z.output<S> {
+export function parseIdOr404<S extends z.ZodType>(schema: S, params: unknown): z.output<S> {
   const result = schema.safeParse(params);
   if (!result.success) {
     throw notFound();

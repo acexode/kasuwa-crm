@@ -21,46 +21,44 @@ const Q = z
   .optional()
   .transform((value) => (value === undefined || value.trim() === '' ? undefined : value.trim()));
 
-export const ProgrammeIdParam = z.object({ programmeId: z.string().uuid() });
+export const ProgrammeIdParam = z.object({ programmeId: z.uuid() });
 
-export const ListProgrammesQuery = z
-  .object({
-    q: Q,
-    status: z.enum(PROGRAMME_STATUSES).optional(),
-    cursor: Cursor,
-    pageSize: PageSize,
-  })
-  .strict();
+export const ListProgrammesQuery = z.strictObject({
+  q: Q,
+  status: z.enum(PROGRAMME_STATUSES).optional(),
+  cursor: Cursor,
+  pageSize: PageSize,
+});
 export type ListProgrammesQuery = z.infer<typeof ListProgrammesQuery>;
 
-export const ListProgrammeAgentsQuery = z
-  .object({ q: Q, cursor: Cursor, pageSize: PageSize })
-  .strict();
+export const ListProgrammeAgentsQuery = z.strictObject({
+  q: Q,
+  cursor: Cursor,
+  pageSize: PageSize,
+});
 
 const Name = z.string().trim().min(1).max(200);
 
-export const UpdateProgrammeBody = z
-  .object({
-    version: z.number().int().nonnegative(),
-    name: Name.optional(),
-    clientName: z
-      .string()
-      .trim()
-      .max(200)
-      .nullable()
-      .optional()
-      .transform((value) => (value === '' ? null : value)),
-    /**
-     * The spec accepts `active | paused`, but `programme` has no lifecycle
-     * column and T-0024 forbids the migration that would add one. The lead's
-     * ruling: refuse any status change rather than accept one and drop it.
-     */
-    status: z
-      .unknown()
-      .refine(() => false, { params: { reason: 'not_supported' } })
-      .optional(),
-  })
-  .strict();
+export const UpdateProgrammeBody = z.strictObject({
+  version: z.number().int().nonnegative(),
+  name: Name.optional(),
+  clientName: z
+    .string()
+    .trim()
+    .max(200)
+    .nullable()
+    .optional()
+    .transform((value) => (value === '' ? null : value)),
+  /**
+   * The spec accepts `active | paused`, but `programme` has no lifecycle
+   * column and T-0024 forbids the migration that would add one. The lead's
+   * ruling: refuse any status change rather than accept one and drop it.
+   */
+  status: z
+    .unknown()
+    .refine(() => false, { params: { reason: 'not_supported' } })
+    .optional(),
+});
 export type UpdateProgrammeBody = z.infer<typeof UpdateProgrammeBody>;
 
 /** `templateId` is undefined in the spec today: "Sending one is 400". */
@@ -78,23 +76,21 @@ const NotSupported = z
  * migration. The create response therefore omits it rather than echo a value
  * nothing persisted.
  */
-export const CreateProgrammeBody = z
-  .object({
-    name: Name,
-    clientName: z
-      .string()
-      .trim()
-      .max(200)
-      .optional()
-      .transform((value) => (value === undefined || value === '' ? null : value)),
-    countryCode: z
-      .string()
-      .regex(/^[A-Z]{2}$/u)
-      .optional(),
-    businessUnitId: z.string().uuid(),
-    templateId: NotSupported,
-  })
-  .strict();
+export const CreateProgrammeBody = z.strictObject({
+  name: Name,
+  clientName: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? null : value)),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/u)
+    .optional(),
+  businessUnitId: z.uuid(),
+  templateId: NotSupported,
+});
 export type CreateProgrammeBody = z.infer<typeof CreateProgrammeBody>;
 
 /**
@@ -102,7 +98,5 @@ export type CreateProgrammeBody = z.infer<typeof CreateProgrammeBody>;
  * programme's name — never trimmed or case-folded, so `"Name "` is a mismatch.
  * The comparison itself happens against the locked row, not here.
  */
-export const ArchiveProgrammeBody = z
-  .object({ confirmation: z.string().max(1000) })
-  .strict();
+export const ArchiveProgrammeBody = z.strictObject({ confirmation: z.string().max(1000) });
 export type ArchiveProgrammeBody = z.infer<typeof ArchiveProgrammeBody>;

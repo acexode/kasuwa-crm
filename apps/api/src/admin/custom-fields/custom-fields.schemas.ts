@@ -37,7 +37,7 @@ function labelText(min: number, max: number) {
   return text(min, max).superRefine((value, context) => {
     if (hasLoneSurrogate(value)) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'contains a lone surrogate',
         params: { reason: NUL_REASON },
       });
@@ -45,56 +45,49 @@ function labelText(min: number, max: number) {
   });
 }
 
-export const CustomFieldIdParam = z.object({ fieldId: z.string().uuid() });
+export const CustomFieldIdParam = z.object({ fieldId: z.uuid() });
 
-export const ListCustomFieldsQuery = z
-  .object({
-    object: z.enum(CUSTOM_FIELD_OBJECTS),
-    includeRetired: z
-      .enum(['true', 'false'])
-      .transform((value) => value === 'true')
-      .optional(),
-  })
-  .strict();
+export const ListCustomFieldsQuery = z.strictObject({
+  object: z.enum(CUSTOM_FIELD_OBJECTS),
+  includeRetired: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+});
 
 const isCustomFieldType = (value: string): value is CustomFieldType =>
   (CUSTOM_FIELD_TYPES as readonly string[]).includes(value);
 
-export const CreateCustomFieldBody = z
-  .object({
-    objectApiName: z.enum(CUSTOM_FIELD_OBJECTS),
-    apiName: z.string().refine(isCustomFieldKey, {
-      message: 'not a custom api name',
-      params: { reason: 'invalid_api_name' },
-    }),
-    label: labelText(1, 255),
-    type: z.string().refine(isCustomFieldType, {
-      message: 'not a Phase 2 type',
-      params: { reason: 'unsupported_type' },
-    }),
-    classification: z.enum(FIELD_CLASSIFICATIONS).default('none'),
-    description: labelText(0, 2000).nullable().optional(),
-    config: z.unknown().optional(),
-  })
-  .strict();
+export const CreateCustomFieldBody = z.strictObject({
+  objectApiName: z.enum(CUSTOM_FIELD_OBJECTS),
+  apiName: z.string().refine(isCustomFieldKey, {
+    message: 'not a custom api name',
+    params: { reason: 'invalid_api_name' },
+  }),
+  label: labelText(1, 255),
+  type: z.string().refine(isCustomFieldType, {
+    message: 'not a Phase 2 type',
+    params: { reason: 'unsupported_type' },
+  }),
+  classification: z.enum(FIELD_CLASSIFICATIONS).default('none'),
+  description: labelText(0, 2000).nullable().optional(),
+  config: z.unknown().optional(),
+});
 export type CreateCustomFieldBody = z.infer<typeof CreateCustomFieldBody>;
 
-const PicklistValue = z
-  .object({
-    value: z.string().regex(PICKLIST_VALUE_PATTERN),
-    label: labelText(1, 255),
-  })
-  .strict();
+const PicklistValue = z.strictObject({
+  value: z.string().regex(PICKLIST_VALUE_PATTERN),
+  label: labelText(1, 255),
+});
 
 export const UpdateCustomFieldBody = z
-  .object({
+  .strictObject({
     label: labelText(1, 255).optional(),
     description: labelText(0, 2000).nullable().optional(),
     classification: z.enum(FIELD_CLASSIFICATIONS).optional(),
     addValues: z.array(PicklistValue).min(1).max(CUSTOM_FIELD_LIMITS.picklistValues).optional(),
     relabelValues: z.array(PicklistValue).min(1).max(CUSTOM_FIELD_LIMITS.picklistValues).optional(),
   })
-  .strict()
   .refine((body) => Object.keys(body).length > 0, {
     message: 'an update must change something',
     path: [],
@@ -130,7 +123,11 @@ export function createConfig(
         return problem('config', 'invalid_config');
       }
       const values = config.values;
-      if (!Array.isArray(values) || values.length < 1 || values.length > CUSTOM_FIELD_LIMITS.picklistValues) {
+      if (
+        !Array.isArray(values) ||
+        values.length < 1 ||
+        values.length > CUSTOM_FIELD_LIMITS.picklistValues
+      ) {
         return problem('config.values', 'invalid_config');
       }
       const parsed = z.array(PicklistValue).safeParse(values);
@@ -164,7 +161,9 @@ export function createConfig(
 }
 
 /** A picklist's stored values, as `{ value, label }` (a malformed config reads as none). */
-export function picklistValuesOf(definition: CustomFieldDefinition): { value: string; label: string }[] {
+export function picklistValuesOf(
+  definition: CustomFieldDefinition,
+): { value: string; label: string }[] {
   const parsed = z.array(PicklistValue).safeParse(definition.config['values']);
   return parsed.success ? parsed.data : [];
 }
@@ -183,8 +182,12 @@ export type ValuesPlan =
  * `duplicate_value` at `addValues`; past 500 values, `limit_reached` (the
  * caller answers 409). Values are appended in order and never removed.
  */
-export function planValues(definition: CustomFieldDefinition, body: UpdateCustomFieldBody): ValuesPlan {
-  if (body.addValues === undefined && body.relabelValues === undefined) return { kind: 'unchanged' };
+export function planValues(
+  definition: CustomFieldDefinition,
+  body: UpdateCustomFieldBody,
+): ValuesPlan {
+  if (body.addValues === undefined && body.relabelValues === undefined)
+    return { kind: 'unchanged' };
   if (definition.type !== 'picklist') {
     return { kind: 'invalid', details: [{ path: 'addValues', code: 'not_a_picklist' }] };
   }
@@ -239,7 +242,9 @@ function configWire(definition: CustomFieldDefinition): Record<string, unknown> 
   return {};
 }
 
-export function toCustomFieldDefinitionWire(definition: CustomFieldDefinition): CustomFieldDefinitionWire {
+export function toCustomFieldDefinitionWire(
+  definition: CustomFieldDefinition,
+): CustomFieldDefinitionWire {
   return {
     id: definition.id,
     objectApiName: definition.objectApiName,

@@ -457,7 +457,7 @@ function describeIssues(error) {
 }
 
 /**
- * @template {z.ZodTypeAny} S
+ * @template {z.ZodType} S
  * @param {string} processName
  * @param {S} schema
  * @param {EnvSource} source

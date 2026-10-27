@@ -66,10 +66,7 @@ describe('admin error envelope', () => {
   });
 
   it('names an unexpected scope key at its own path, not the root', () => {
-    const parsed = z
-      .object({ name: z.string() })
-      .strict()
-      .safeParse({ name: 'x', programmeId: 'p' });
+    const parsed = z.strictObject({ name: z.string() }).safeParse({ name: 'x', programmeId: 'p' });
     if (parsed.success) throw new Error('expected a parse failure');
     expect(validationFailedFrom(parsed.error).getResponse()).toMatchObject({
       details: [{ path: 'programmeId', code: 'unrecognized_keys' }],
@@ -112,7 +109,7 @@ describe('admin error envelope', () => {
 });
 
 describe('admin input helpers', () => {
-  const Id = z.object({ id: z.string().uuid() });
+  const Id = z.object({ id: z.uuid() });
 
   it('answers a malformed id and a missing row with the same 404 body', () => {
     const malformed = (() => {
@@ -171,7 +168,7 @@ describe('the details cap (T-0113 security review)', () => {
 
   it('an unrecognized-keys issue over the cap is capped too', () => {
     const keys = Object.fromEntries(Array.from({ length: 80 }, (_, index) => [`k${index}`, 1]));
-    const result = z.object({}).strict().safeParse(keys);
+    const result = z.strictObject({}).safeParse(keys);
     if (result.success) throw new Error('expected a failure');
     const body = validationFailedFrom(result.error).getResponse() as { details: unknown[] };
     expect(body.details).toHaveLength(MAX_ERROR_DETAILS);

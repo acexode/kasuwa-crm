@@ -35,14 +35,12 @@ export const PREFERRED_CHANNELS = ['whatsapp', 'sms', 'voice', 'email'] as const
 export const CONSENT_STATES = ['unknown', 'opted_in', 'pending', 'withdrawn'] as const;
 export const PHONE_TYPES = ['mobile', 'work', 'home', 'other'] as const;
 
-export const ContactPhoneSchema = z
-  .object({
-    type: z.enum(PHONE_TYPES),
-    e164: z.string().regex(E164),
-  })
-  .strict();
+export const ContactPhoneSchema = z.strictObject({
+  type: z.enum(PHONE_TYPES),
+  e164: z.string().regex(E164),
+});
 
-export const ContactEmailSchema = z.string().max(254).email();
+export const ContactEmailSchema = z.email().max(254);
 
 /**
  * RFC 5646 langtag structure, the same expression as 0019's
@@ -79,8 +77,8 @@ export const CONTACT_WRITABLE_FIELDS = {
   companyName: text(1, 200).nullable().optional(),
   phones: z.array(ContactPhoneSchema).max(CONTACT_MAX_PHONES).optional(),
   emails: z.array(ContactEmailSchema).max(CONTACT_MAX_EMAILS).optional(),
-  accountId: z.string().uuid().nullable().optional(),
-  ownerUserId: z.string().uuid().nullable().optional(),
+  accountId: z.uuid().nullable().optional(),
+  ownerUserId: z.uuid().nullable().optional(),
   status: z.enum(CONTACT_STATUSES).optional(),
   tags: z.array(z.string().min(1).max(64)).max(50).optional(),
   preferredLanguage: z.string().max(35).regex(BCP47).nullable().optional(),
