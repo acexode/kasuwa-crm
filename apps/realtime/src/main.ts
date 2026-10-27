@@ -1,4 +1,4 @@
-import { loadWorkspaceEnv, realtimeServeEnv } from '@kasuwa/config';
+import { loadWorkspaceEnv, realtimeEnv } from '@kasuwa/config';
 import { createPool } from '@kasuwa/db';
 import { startGateway } from './gateway';
 
@@ -19,7 +19,7 @@ import { startGateway } from './gateway';
  */
 async function main(): Promise<void> {
   loadWorkspaceEnv();
-  const configuration = realtimeServeEnv();
+  const configuration = realtimeEnv();
   const pool = createPool({
     connectionString: configuration.DATABASE_URL,
     max: configuration.DATABASE_POOL_MAX,
@@ -36,6 +36,7 @@ async function main(): Promise<void> {
     redisUrl: configuration.REDIS_URL,
     port: configuration.REALTIME_PORT,
     revalidateSeconds: configuration.REALTIME_REVALIDATE_SECONDS,
+    maxConcurrentHandshakes: configuration.REALTIME_MAX_HANDSHAKES,
     allowedOrigin: configuration.REALTIME_ALLOWED_ORIGIN,
     insecureCookie: configuration.KASUWA_SESSION_COOKIE_INSECURE === '1',
   });

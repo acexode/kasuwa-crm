@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { z } from 'zod';
 import { EVENTS_CHANNEL, parseEvent } from './events';
 import { decideHandshake, NOT_AUTHENTICATED_BODY, type HandshakeConfig } from './handshake';
+import { InFlightLimiter } from './limiter';
 import { Hub, resolveSubscription, type HubClient } from './hub';
 import { keepsEveryProgramme, readLiveScope, type LiveScope } from './scope';
 
@@ -25,6 +26,8 @@ export interface GatewayOptions extends HandshakeConfig {
   readonly redisUrl: string;
   readonly port: number;
   readonly revalidateSeconds: number;
+  /** Most handshake lookups in flight at once; kept below the pool size so the sweep is never starved. */
+  readonly maxConcurrentHandshakes: number;
 }
 
 export interface Gateway {
@@ -115,6 +118,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const { pool } = options;
   const hub = new Hub();
   const connections = new Set<Connection>();
+  const handshakes = new InFlightLimiter(options.maxConcurrentHandshakes);
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
   const server: Server = createServer((_request, response) => {
@@ -182,13 +186,21 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
     socket.on('error', () => socket.destroy());
     void (async () => {
-      const decision = decideHandshake(request.headers, options);
+      const decision = decideHandshake(request.headers, options, request.url ?? '');
       if (decision.kind === 'refuse') {
         refuse(socket, decision.status, decision.body);
         return;
       }
-      const identity = await resolveSessionIdentity(pool, hashSessionToken(decision.token));
-      const scope = identity === null ? null : await readLiveScope(pool, identity);
+      const lookup = await handshakes.run(async () => {
+        const identity = await resolveSessionIdentity(pool, hashSessionToken(decision.token));
+        return identity === null ? null : readLiveScope(pool, identity);
+      });
+      if (lookup === null) {
+        // At the cap: shed the load without touching the database.
+        refuse(socket, 503, UNAVAILABLE_BODY);
+        return;
+      }
+      const scope = lookup.value;
       if (scope === null) {
         refuse(socket, 401, NOT_AUTHENTICATED_BODY);
         return;

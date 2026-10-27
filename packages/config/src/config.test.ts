@@ -6,7 +6,6 @@ import {
   migratorEnv,
   nodeEnv,
   realtimeEnv,
-  realtimeServeEnv,
   webEnv,
   workerEnv,
   type EnvSource,
@@ -28,6 +27,12 @@ const DEV: EnvSource = { NODE_ENV: 'development' };
 const WEB: EnvSource = {
   KASUWA_WEB_ORIGIN: 'http://localhost:3000',
   KASUWA_API_INTERNAL_URL: 'http://127.0.0.1:3001',
+};
+/** What realtimeEnv requires (T-0160): the app role URL and Redis. */
+const REALTIME_BASE: EnvSource = {
+  ...DEV,
+  DATABASE_URL,
+  REDIS_URL: 'redis://localhost:6379',
 };
 const API_BASE: EnvSource = { ...DEV, DATABASE_URL, DATABASE_AUTH_URL: AUTH_URL };
 
@@ -115,7 +120,7 @@ describe('api environment', () => {
         }),
       };
       const realtime: Record<string, unknown> = {
-        ...realtimeEnv({ DATABASE_AUTH_URL: AUTH_URL }),
+        ...realtimeEnv({ ...REALTIME_BASE, DATABASE_AUTH_URL: AUTH_URL }),
       };
       const migrator: Record<string, unknown> = {
         ...migratorEnv({ DATABASE_AUTH_URL: AUTH_URL }),
@@ -128,9 +133,9 @@ describe('api environment', () => {
 });
 
 describe('per-process schemas parse only what their process needs', () => {
-  it('realtime and migrator do not need a DATABASE_URL', () => {
-    expect(() => realtimeEnv({})).not.toThrow();
+  it('the migrator does not need a DATABASE_URL, and realtime no longer parses without one (T-0160)', () => {
     expect(() => migratorEnv({})).not.toThrow();
+    expect(() => realtimeEnv({})).toThrow();
   });
 
   it('the worker needs DATABASE_URL (T-0045) and never keeps the migrator URL', () => {
@@ -171,7 +176,7 @@ describe('per-process schemas parse only what their process needs', () => {
         REDIS_URL: 'redis://cache.example:6379',
       }).REDIS_URL,
     ).toBe('redis://cache.example:6379');
-    expect(realtimeEnv({ REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
+    expect(realtimeEnv({ ...REALTIME_BASE, REALTIME_PORT: '4002' }).REALTIME_PORT).toBe(4002);
     expect(migratorEnv({ DATABASE_MIGRATION_URL: MIGRATION_URL }).DATABASE_MIGRATION_URL).toBe(
       MIGRATION_URL,
     );
@@ -196,7 +201,7 @@ describe('per-process schemas parse only what their process needs', () => {
     it.each([
       ['apiEnv', () => apiEnv({ ...API_BASE, DATABASE_RELAY_URL: RELAY_URL })],
       ['apiEnv (empty)', () => apiEnv({ ...API_BASE, DATABASE_RELAY_URL: '' })],
-      ['realtimeEnv', () => realtimeEnv({ DATABASE_RELAY_URL: RELAY_URL })],
+      ['realtimeEnv', () => realtimeEnv({ ...REALTIME_BASE, DATABASE_RELAY_URL: RELAY_URL })],
       ['migratorEnv', () => migratorEnv({ DATABASE_RELAY_URL: RELAY_URL })],
       ['webEnv', () => webEnv({ DATABASE_RELAY_URL: RELAY_URL })],
       ['webBuildEnv', () => webBuildEnv({ DATABASE_RELAY_URL: RELAY_URL })],
@@ -360,7 +365,11 @@ describe('stub auth guard', () => {
   });
 
   it('refuses at parse time in every process schema, explicit or defaulted', () => {
-    const server: EnvSource = { ...API_BASE, NODE_ENV: 'production' };
+    const server: EnvSource = {
+      ...API_BASE,
+      REDIS_URL: 'redis://localhost:6379',
+      NODE_ENV: 'production',
+    };
     for (const parse of [apiEnv, workerEnv, realtimeEnv, migratorEnv, webEnv]) {
       // The worker also requires its relay URL (T-0098), which the others refuse.
       const env =
@@ -393,24 +402,23 @@ describe('stub auth guard', () => {
 });
 
 describe('realtime environment (T-0160)', () => {
-  const SERVE: EnvSource = { ...DEV, DATABASE_URL, REDIS_URL: 'redis://localhost:6379' };
+  const SERVE = REALTIME_BASE;
 
-  it('keeps realtimeEnv parseable without a database, for the guards that share it', () => {
-    expect(() => realtimeEnv({})).not.toThrow();
-  });
-
-  it('realtimeServeEnv needs the app role URL and Redis, and names the missing one', () => {
-    expect(() => realtimeServeEnv({ ...DEV, REDIS_URL: SERVE.REDIS_URL })).toThrow(/DATABASE_URL/);
-    expect(() => realtimeServeEnv({ ...DEV, DATABASE_URL })).toThrow(/REDIS_URL/);
-    const env = realtimeServeEnv(SERVE);
+  it('realtimeEnv needs the app role URL and Redis, and names the missing one', () => {
+    expect(() => realtimeEnv({ ...DEV, REDIS_URL: SERVE.REDIS_URL })).toThrow(/DATABASE_URL/);
+    expect(() => realtimeEnv({ ...DEV, DATABASE_URL })).toThrow(/REDIS_URL/);
+    const env = realtimeEnv(SERVE);
     expect(env.REALTIME_REVALIDATE_SECONDS).toBe(30);
     expect(env.REALTIME_ALLOWED_ORIGIN).toBeUndefined();
+    expect(env.REALTIME_MAX_HANDSHAKES).toBe(3);
+    expect(realtimeEnv({ ...SERVE, REALTIME_MAX_HANDSHAKES: '8' }).REALTIME_MAX_HANDSHAKES).toBe(8);
+    expect(() => realtimeEnv({ ...SERVE, REALTIME_MAX_HANDSHAKES: '0' })).toThrow();
   });
 
   it('refuses an unset NODE_ENV, and never echoes the URL', () => {
     let message = '(it did not throw)';
     try {
-      realtimeServeEnv({ DATABASE_URL, REDIS_URL: 'redis://localhost:6379' });
+      realtimeEnv({ DATABASE_URL, REDIS_URL: 'redis://localhost:6379' });
     } catch (error) {
       message = (error as Error).message;
     }
@@ -419,29 +427,29 @@ describe('realtime environment (T-0160)', () => {
   });
 
   it('takes the allowed origin and the revalidation interval, and bounds them', () => {
-    const env = realtimeServeEnv({
+    const env = realtimeEnv({
       ...SERVE,
       REALTIME_ALLOWED_ORIGIN: 'https://app.kasuwa.test',
       REALTIME_REVALIDATE_SECONDS: '5',
     });
     expect(env.REALTIME_ALLOWED_ORIGIN).toBe('https://app.kasuwa.test');
     expect(env.REALTIME_REVALIDATE_SECONDS).toBe(5);
-    expect(() => realtimeServeEnv({ ...SERVE, REALTIME_REVALIDATE_SECONDS: '0' })).toThrow();
+    expect(() => realtimeEnv({ ...SERVE, REALTIME_REVALIDATE_SECONDS: '0' })).toThrow();
     expect(() =>
-      realtimeServeEnv({ ...SERVE, REALTIME_ALLOWED_ORIGIN: 'https://x.test/path' }),
+      realtimeEnv({ ...SERVE, REALTIME_ALLOWED_ORIGIN: 'https://x.test/path' }),
     ).toThrow();
   });
 
   it('refuses the relaxed cookie flag outside development and test, and the migrator and relay URLs always', () => {
     expect(() =>
-      realtimeServeEnv({
+      realtimeEnv({
         ...SERVE,
         NODE_ENV: 'production',
         KASUWA_AUTH_MODE: 'jwt',
         KASUWA_SESSION_COOKIE_INSECURE: '1',
       }),
     ).toThrow(/KASUWA_SESSION_COOKIE_INSECURE/);
-    expect(() => realtimeServeEnv({ ...SERVE, DATABASE_RELAY_URL: RELAY_URL })).toThrow(
+    expect(() => realtimeEnv({ ...SERVE, DATABASE_RELAY_URL: RELAY_URL })).toThrow(
       /DATABASE_RELAY_URL/,
     );
   });

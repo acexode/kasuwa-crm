@@ -244,14 +244,12 @@ const RealtimeSchema = z.object({
   // `app.resolve_session` and reads scope in a tenant transaction (T-0160,
   // ADR-0020): no `kasuwa_auth`, no migrator, no relay URL. Required, so a
   // gateway that could not authenticate anyone refuses to boot instead of
-  // refusing every socket: that is `realtimeServeEnv`, which the process
-  // calls. The base schema keeps both optional, because other processes' guards
-  // and tests parse `realtimeEnv` without a database (T-0160).
-  DATABASE_URL: z.string().url().optional(),
+  // refusing every socket (T-0160).
+  DATABASE_URL: z.string().url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(50).default(5),
 
   // The event seam (ADR-0020): Redis pub/sub, ids only.
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: z.string().url(),
 
   // The one web origin a BROWSER may connect from, exactly as it sends `Origin`
   // (scheme, host and port, lowercase, no path). Optional: without it a cookie
@@ -261,6 +259,11 @@ const RealtimeSchema = z.object({
   // How often a live socket's session and scope are re-read. "Fixed at connect"
   // must not mean a revoked user keeps receiving.
   REALTIME_REVALIDATE_SECONDS: z.coerce.number().int().min(1).max(300).default(30),
+
+  // Handshake lookups allowed in flight at once. Each runs on the small pool, so
+  // the default stays under DATABASE_POOL_MAX's default (5) and leaves the
+  // revalidation sweep a connection; beyond it a handshake gets 503.
+  REALTIME_MAX_HANDSHAKES: z.coerce.number().int().min(1).max(50).default(3),
 
   // The relaxed cookie name, development and test only (assertSessionCookieIsSafe).
   KASUWA_SESSION_COOKIE_INSECURE: z.string().optional(),

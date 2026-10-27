@@ -43,8 +43,8 @@ export {
 export type { AuthMode, KmsProvider, NodeEnvName } from './guards.mjs';
 // apiEnv and workerEnv come from ./server-env, which adds the database
 // credential guard (T-0117, D-L94) to the schemas in ./schemas.mjs.
-export { migratorEnv, nodeEnv, realtimeEnv, webEnv } from './schemas.mjs';
-export { apiEnv, realtimeServeEnv, workerEnv } from './server-env';
+export { migratorEnv, nodeEnv, webEnv } from './schemas.mjs';
+export { apiEnv, realtimeEnv, workerEnv } from './server-env';
 export {
   assertExplicitNodeEnv,
   assertMigrationTargetIsSafe,
