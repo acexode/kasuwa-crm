@@ -18,8 +18,10 @@ import { formatChallengeId } from './challenge-id';
  * transaction the wrong pool fails here, by name, rather than as a sign-in
  * outage three suites away.
  *
- * Two reads deliberately stay on the app pool (see the AuthService class
- * comment): sign-in's phase one, and sign-out's `app.resolve_session`.
+ * One read deliberately stays on the app pool (see the AuthService class
+ * comment): sign-out's `app.resolve_session`. Sign-in's phase one moved to the
+ * auth pool in T-0157, because it reads `user_credential`, which `kasuwa_app`
+ * can no longer read (migration 0046).
  *
  * The database and hashing are stubbed: this is about which pool, not about SQL.
  */
@@ -83,14 +85,14 @@ function pools(): { kind: string; pool: string }[] {
   }));
 }
 
-describe('AuthService: writes on the auth pool, two reads on the app pool (T-0049)', () => {
+describe('AuthService: every auth transaction on the auth pool, one read on the app pool (T-0049, T-0157)', () => {
   beforeEach(() => {
     opened.calls = [];
     crypto.dummyPasswordHash.mockReset().mockResolvedValue('$argon2id$dummy');
     crypto.verifyPassword.mockReset().mockResolvedValue(false);
   });
 
-  it('sign-in reads on the app pool, then records the outcome on the auth pool', async () => {
+  it('sign-in reads on the auth pool too, because the credential is a secret the app pool cannot read, then records the outcome there', async () => {
     await expect(
       service().signIn({
         tenantSlug: 'no-such-workspace',
@@ -99,7 +101,7 @@ describe('AuthService: writes on the auth pool, two reads on the app pool (T-004
       }),
     ).rejects.toThrow();
     expect(pools()).toEqual([
-      { kind: 'transaction', pool: 'app' },
+      { kind: 'transaction', pool: 'auth' },
       { kind: 'transaction', pool: 'auth' },
     ]);
   });

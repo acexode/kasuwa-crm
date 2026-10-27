@@ -97,11 +97,14 @@ import { asUser, withAuthDatabase } from '../support/api';
  *
  * HOW THE POOL IS STARVED, without reaching into the app: the migrator takes
  * ACCESS EXCLUSIVE on `user` and `user_programme`, which every tenant
- * transaction reads first. Two ordinary requests then each take a pooled
- * connection and block on the lock, holding it. The suite WAITS ON STATE — two
+ * transaction reads first. Since T-0157 sign-in runs on its own `kasuwa_auth`
+ * pool, so BOTH pools are starved (restated by the lead with T-0157, as T-0075
+ * foresaw): two ordinary requests take the app pool's connections and two
+ * real-workspace sign-ins take the auth pool's, each blocking on the lock (sign-in
+ * reads `user`) and holding its connection. The suite WAITS ON STATE — four
  * backends with an ungranted lock on those tables in `pg_locks` — and never on
- * a timer. Every further request has to wait for a connection, and the
- * connection timeout fires.
+ * a timer. Every further request has to wait for a connection on whichever pool
+ * it uses, and that pool's connection timeout fires.
  *
  * Four requests are made during the starvation: a stub-identity read, a
  * bearer-session read (the guard's `app.resolve_session` call, which today
@@ -740,10 +743,9 @@ describe('acceptance: auth-table retention (T-0045 part 1)', () => {
             // since T-0049 (D-P16), kasuwa_app holds no DELETE here (42501).
             await query('SAVEPOINT probe');
             try {
-              const deleted = await query(
-                `DELETE FROM ${table} WHERE tenant_id = $1 RETURNING 1`,
-                [TENANT_B],
-              );
+              const deleted = await query(`DELETE FROM ${table} WHERE tenant_id = $1 RETURNING 1`, [
+                TENANT_B,
+              ]);
               expect(deleted.length, `tenant A can delete tenant B's ${table}`).toBe(0);
             } catch (error) {
               expect((error as { code?: string }).code, `${table}: ${String(error)}`).toBe('42501');
@@ -889,6 +891,9 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
       databaseUrl: inject('databaseUrl'),
       poolMax: POOL_MAX,
       poolConnectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+      // The holders and probes are six sign-ins from one client: the
+      // per-client limits are not what this part measures.
+      authPolicy: { signInPerMinutePerClient: 0, signInInFlightPerClient: 0 },
     });
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule.forRoot(options)],
@@ -923,13 +928,23 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
       await locker.query('BEGIN');
       await locker.query('LOCK TABLE "user", user_programme IN ACCESS EXCLUSIVE MODE');
 
-      // Each holder takes a pooled connection and blocks on the lock with it.
-      holders = Array.from({ length: POOL_MAX }, () =>
-        request(url)
-          .get(CONTACTS)
-          .set(asUser(TENANT_A, USER_A_AGENT_1))
-          .then((response) => response),
-      );
+      // Each holder takes a pooled connection and blocks on the lock with it:
+      // reads hold the app pool, real-workspace sign-ins (which read "user")
+      // hold the auth pool (T-0157). Both pools are then empty.
+      holders = [
+        ...Array.from({ length: POOL_MAX }, () =>
+          request(url)
+            .get(CONTACTS)
+            .set(asUser(TENANT_A, USER_A_AGENT_1))
+            .then((response) => response),
+        ),
+        ...Array.from({ length: POOL_MAX }, () =>
+          request(url)
+            .post(SIGN_IN)
+            .send({ tenantSlug: WORKSPACE, email: SIGN_IN_EMAIL, password: SIGN_IN_PASSWORD })
+            .then((response) => response),
+        ),
+      ];
       await vi.waitFor(
         async () => {
           const waiting = await observer.query<{ n: string }>(
@@ -940,7 +955,7 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
               WHERE NOT granted
                 AND relation IN ('public."user"'::regclass, 'public.user_programme'::regclass)`,
           );
-          expect(Number(waiting.rows[0]?.n)).toBeGreaterThanOrEqual(POOL_MAX);
+          expect(Number(waiting.rows[0]?.n)).toBeGreaterThanOrEqual(2 * POOL_MAX);
         },
         { timeout: 10_000, interval: 20 },
       );
@@ -956,13 +971,11 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
         ),
         answer(
           'sign-in, no such workspace',
-          request(url)
-            .post(SIGN_IN)
-            .send({
-              tenantSlug: NO_SUCH_WORKSPACE,
-              email: SIGN_IN_EMAIL,
-              password: SIGN_IN_PASSWORD,
-            }),
+          request(url).post(SIGN_IN).send({
+            tenantSlug: NO_SUCH_WORKSPACE,
+            email: SIGN_IN_EMAIL,
+            password: SIGN_IN_PASSWORD,
+          }),
         ),
       ]);
 
@@ -1022,7 +1035,12 @@ describe('acceptance: pool exhaustion is answered 503 (T-0045 part 2)', () => {
 
     // The holders were waiting on the lock, not broken by it.
     const held = await Promise.all(holders);
-    expect(held.map((response) => response.status)).toEqual(Array(POOL_MAX).fill(200));
+    expect(held.slice(0, POOL_MAX).map((response) => response.status)).toEqual(
+      Array(POOL_MAX).fill(200),
+    );
+    for (const response of held.slice(POOL_MAX)) {
+      expect(response.status, 'a sign-in holder broke instead of waiting').toBeLessThan(500);
+    }
 
     // And the pool recovers: nothing was poisoned by the timeouts.
     const after = await request(url).get(CONTACTS).set(asUser(TENANT_A, USER_A_AGENT_1));
