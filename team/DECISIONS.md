@@ -4727,3 +4727,26 @@ T-0198 (#240) moved every package to zod 4.6.7 and retired GHSA-mrhx-c7xc-m3w5. 
   the fallback if legacy imported ids ever fail.
 - **Rule:** a new browser module imports `zod/mini`. A schema shared with the browser must not pull classic zod
   into the client graph.
+
+### D-L210 — Catalogue writes need `catalogue.write`; the schema binds an entry to its book and product (lead, 2026-10-27)
+
+T-0164 (#243) landed the S1 product catalogue. Its acceptance suite arrived inside the build PR, so the lead
+reviewed it as a contract and amended it before approving.
+
+- **Who may write.** P21 names catalogue and price management as finance/admin. A new programme action,
+  `catalogue.write`, is held by the admin set only (and so by every action list that grants all programme
+  actions). Agents, team leads and programme managers read the catalogue; a write without it is one 403
+  `not_permitted`, after scope (out of scope is still a 404 first).
+- **The schema holds the rules.** `price_book` has `UNIQUE (tenant_id, programme_id, id, currency)` and
+  `product_variant` has `UNIQUE (tenant_id, programme_id, product_id, id)`; `price_book_entry` references both, so
+  an entry in another currency than its book, or with another product's variant, is a foreign-key error
+  whatever the code does. `amount_minor` is capped at 18 digits in the API and the schema.
+- **Grants.** `kasuwa_app` has SELECT and INSERT and UPDATE on mutable columns only; no DELETE, and never
+  `id`, `tenant_id` or `programme_id`. Repository lookups by id also filter on the session's programmes.
+- **Routes are not flag-gated** (`crm_products` hides the screens; the API is permission-gated), as with
+  activities and notifications.
+- **undici 5.29.0** advisories GHSA-2m5v-pch6-74hx, GHSA-9fm3-97px-rjf6 and GHSA-qrxm-fqhp-jwvm (published
+  2026-10-27) are test-only (testcontainers, local Docker socket) and accepted to 2027-01-31; they clear with
+  the testcontainers upgrade.
+- **Process, for every slice from here:** the acceptance suite is its own `lead/T-xxxx-acceptance` PR, approved
+  before the build PR opens. A suite written with its build is reviewed as if it were not.
