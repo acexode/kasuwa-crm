@@ -42,8 +42,9 @@ import { asUser, createApi } from '../support/api';
  *
  *   R1. Tables `quote` and `quote_line` land in migration 0048, are in
  *       TENANT_SCOPED_TABLES, and carry programme-scoped RLS (enabled and
- *       forced). `kasuwa_app` has SELECT and INSERT, no DELETE, and no UPDATE
- *       of id / tenant_id / programme_id (same grant shape as D-L210).
+ *       forced). `kasuwa_app` has SELECT and INSERT; `quote` has no DELETE;
+ *       `quote_line` may DELETE (draft line replace); no UPDATE of id /
+ *       tenant_id / programme_id (D-L210 shape, plus line replace).
  *   R2. Status values: `draft` | `sent` | `accepted` | `rejected` |
  *       `expired` | `cancelled`. Create always starts as `draft`.
  *   R3. Gated transitions (only these succeed; anything else is 400
@@ -205,8 +206,8 @@ describe('acceptance: quotes (T-0165)', () => {
       }
     });
 
-    it('refuses DELETE and UPDATE of id/tenant/programme for kasuwa_app (R1)', async () => {
-      const { rows } = await observer.query<{
+    it('refuses UPDATE of id/tenant/programme; quote has no DELETE; quote_line may (R1)', async () => {
+      const { rows: colRows } = await observer.query<{
         table_name: string;
         privilege_type: string;
         column_name: string | null;
@@ -216,20 +217,25 @@ describe('acceptance: quotes (T-0165)', () => {
           WHERE grantee = 'kasuwa_app'
             AND table_schema = 'public'
             AND table_name = ANY($1::text[])
-            AND privilege_type IN ('DELETE', 'UPDATE')
-            AND (column_name IS NULL OR column_name IN ('id', 'tenant_id', 'programme_id'))`,
+            AND privilege_type = 'UPDATE'
+            AND column_name IN ('id', 'tenant_id', 'programme_id')`,
         [[...QUOTE_TABLES]],
       );
-      // DELETE is table-level (column_name null). UPDATE of identity columns must be absent.
-      expect(rows.filter((r) => r.privilege_type === 'DELETE')).toEqual([]);
-      expect(
-        rows.filter(
-          (r) =>
-            r.privilege_type === 'UPDATE' &&
-            r.column_name !== null &&
-            ['id', 'tenant_id', 'programme_id'].includes(r.column_name),
-        ),
-      ).toEqual([]);
+      expect(colRows).toEqual([]);
+
+      const { rows: tableRows } = await observer.query<{
+        table_name: string;
+        privilege_type: string;
+      }>(
+        `SELECT table_name, privilege_type
+           FROM information_schema.role_table_grants
+          WHERE grantee = 'kasuwa_app'
+            AND table_schema = 'public'
+            AND table_name = ANY($1::text[])
+            AND privilege_type = 'DELETE'`,
+        [[...QUOTE_TABLES]],
+      );
+      expect(tableRows.map((r) => r.table_name).sort()).toEqual(['quote_line']);
     });
   });
 

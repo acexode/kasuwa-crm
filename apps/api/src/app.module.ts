@@ -55,6 +55,7 @@ import {
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './commerce/catalogue.controller';
+import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
 import { SearchController } from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
@@ -114,11 +115,13 @@ export const SCRIPTING_CONTROLLERS = [
   ContactScriptsController,
 ];
 
-/** Product catalogue (commerce.openapi.yaml, T-0164). */
+/** Product catalogue and quotes (commerce.openapi.yaml, T-0164 / T-0165). */
 export const COMMERCE_CONTROLLERS = [
   CatalogueProgrammeController,
   CatalogueProductController,
   CataloguePriceBookController,
+  QuotesProgrammeController,
+  QuotesController,
 ];
 
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */

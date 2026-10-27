@@ -52,3 +52,5 @@ export * from './notification/notification.repository';
 export * from './home/home-layout.repository';
 export * from './commerce/catalogue.types';
 export * from './commerce/catalogue.repository';
+export * from './commerce/quotes.types';
+export * from './commerce/quotes.repository';

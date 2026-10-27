@@ -152,6 +152,12 @@ export const PROGRAMME_ACTIONS = [
    * Reads of the catalogue stay open to every member.
    */
   'catalogue.write',
+  /**
+   * T-0165: create, update and change status of quotes in the record's
+   * programme. Held by `admin` and the tenant-admin flag only; no other set
+   * holds it. Reads of quotes stay open to every member.
+   */
+  'quotes.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];

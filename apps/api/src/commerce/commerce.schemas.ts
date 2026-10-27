@@ -38,3 +38,34 @@ export const UpsertPriceBookEntryBody = z.strictObject({
   amountMinor: AmountMinorSchema,
   currency: CommerceCurrencySchema,
 });
+
+export const QuoteIdParam = z.object({ quoteId: z.uuid() });
+
+export const QuoteLineBody = z.strictObject({
+  productId: z.uuid(),
+  variantId: z.uuid().optional(),
+  quantity: z.number().int().min(1).max(999999),
+  unitAmountMinor: AmountMinorSchema,
+  discountBps: z.number().int().min(0).max(10000).optional(),
+});
+
+export const CreateQuoteBody = z.strictObject({
+  currency: CommerceCurrencySchema,
+  dealId: z.uuid().nullable().optional(),
+  contactId: z.uuid().nullable().optional(),
+  discountBps: z.number().int().min(0).max(10000).optional(),
+  validUntil: z.string().datetime().nullable().optional(),
+  lines: z.array(QuoteLineBody).min(1).max(200),
+});
+
+export const UpdateQuoteBody = z.strictObject({
+  dealId: z.uuid().nullable().optional(),
+  contactId: z.uuid().nullable().optional(),
+  discountBps: z.number().int().min(0).max(10000).optional(),
+  validUntil: z.string().datetime().nullable().optional(),
+  lines: z.array(QuoteLineBody).min(1).max(200).optional(),
+});
+
+export const SetQuoteStatusBody = z.strictObject({
+  status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled']),
+});
