@@ -19,7 +19,7 @@ operations):
 | `/onboarding` | `P01/5.2`–`5.5`, `P01/6` | First-admin login. **Never** behind the flag (T-0018). Step state is client-side until T-0018 gives it a server home |
 | `/admin` | `P02/A`, `A1` | Admin home and the settings menu |
 | `/admin/programmes` | `P02/B`, `B1` | Programmes list and its first-run empty state |
-| `/admin/programmes/[id]` | `P02/B2`–`B9` | Tabs via `?tab=overview\|agents\|sla\|dispositions\|scripts\|retention\|portal`, plus the archive dialog |
+| `/admin/programmes/[programmeId]` | `P02/B2`–`B9` | Tabs via `?tab=overview\|agents\|sla\|dispositions\|scripts\|retention\|portal`, plus the archive dialog |
 | `/admin/roles` | `P02/C`–`C3` | Role hierarchy. Dragging is the shortcut; the "Reports to" picker is the control |
 | `/admin/field-security` | `P02/D`–`D2` | Two axes and no programme selector (D-P9) |
 | `/admin/audit` | `P02/E`–`E2` | The audit log and its export |

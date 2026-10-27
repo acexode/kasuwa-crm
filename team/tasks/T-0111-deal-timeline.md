@@ -1,6 +1,6 @@
 # T-0111 — Deal timeline: activities linked to a deal (P06)
 
-**status** `done` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L85,
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L85,
 D-L72, D-L81, D-P18, D-L65, D-L76 · **migration** 0037
 
 ## Goal

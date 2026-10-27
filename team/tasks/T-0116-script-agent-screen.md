@@ -1,6 +1,6 @@
 # T-0116 — Agent script screen, manual mode (P10)
 
-**status** `done` (suite to be written) · **owner** Agent 11 · **priority** P2 · **decisions** D-L88, D-L93, D-L104,
+**status** `done` · **owner** Agent 11 · **priority** P2 · **decisions** D-L88, D-L93, D-L104,
 D-L107, D-P31, D-L97, D-L102
 
 ## Goal

@@ -1,6 +1,6 @@
 # T-0121 — Every API answer carries the error envelope and `no-store`
 
-**status** `done` (suite to be written) · **owner** Agent 1 · **priority** P2 · **decisions** D-L90, D-L96, D-L97
+**status** `done` · **owner** Agent 1 · **priority** P2 · **decisions** D-L90, D-L96, D-L97
 
 ## Goal
 No answer the API gives, however malformed the request, escapes the shared Error envelope or `Cache-Control: no-store`.

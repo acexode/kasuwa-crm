@@ -1,6 +1,6 @@
 # T-0089 — Custom-field storage and API (migration)
 
-**status** `done` (waits on T-0088) · **owner** Agent 2 · **priority** P1 · **decisions** ADR-0016, D-L128,
+**status** `done` · **owner** Agent 2 · **priority** P1 · **decisions** ADR-0016, D-L128,
 D-P33, D-L65, D-L72, D-L88
 
 ## Goal

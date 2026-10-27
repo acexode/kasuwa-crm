@@ -1,6 +1,6 @@
 # T-0122 — Destructive dev tools need an explicit environment (D-L103)
 
-**status** `done` (suite to be written) · **owner** Agent 1 · **priority** P1 · **decisions** D-L103, D-L95, D-L94
+**status** `done` · **owner** Agent 1 · **priority** P1 · **decisions** D-L103, D-L95, D-L94
 
 ## Goal
 `db:reset` drops every table. With `NODE_ENV` unset and a loopback URL (`kubectl port-forward`, cloud-sql-proxy) it

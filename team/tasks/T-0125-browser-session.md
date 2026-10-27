@@ -1,6 +1,6 @@
 # T-0125 — The web app keeps a session after sign-in (ADR first)
 
-**status** `done` (ADR to be written; suite to be written) · **owner** Agent 1 · **priority** P0 · **decisions**
+**status** `done` · **owner** Agent 1 · **priority** P0 · **decisions**
 D-L147, ADR-0007, ADR-0010, D-L05, CLAUDE.md section 6
 
 ## Goal

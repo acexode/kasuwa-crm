@@ -1,6 +1,6 @@
 # T-0108 — Deals API and the gated move (P06)
 
-**status** `done` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113,
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113,
 D-L115, D-L120, D-L121, D-L67, D-L102, D-L84
 
 ## Goal

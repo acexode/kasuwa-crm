@@ -1,6 +1,6 @@
 # T-0083 — Activities screen: my tasks, the calendar, meetings, snooze and reschedule (P07)
 
-**status** `done` (suite to be written; can start before T-0082 merges, against mocks) · **owner** Agent 11 ·
+**status** `done` · **owner** Agent 11 ·
 **priority** P1 · **decisions** D-L105, D-L107, D-P18, D-P21, D-P22, D-L97, D-L102
 
 ## Goal

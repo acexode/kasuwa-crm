@@ -15,7 +15,7 @@ node tools/design-intake.mjs --apply  # files them under docs/design/<prompt>/
 Filed designs live at `docs/design/<prompt>/<export file>`, for example
 `docs/design/P28/Kasuwa Data Management.html`. There are no version folders. A
 re-export of the same filename replaces the old file (intake prints
-`replaces …`), and git holds the history. Fourteen prompts already use this
+`replaces …`), and git holds the history. Thirteen prompts already use this
 layout; P01 keeps its legacy `docs/design/P01/v1.0/` and is not moved. The design
 system is `docs/design/v1.1/`, which is not prompt-scoped.
 

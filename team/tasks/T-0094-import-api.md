@@ -1,6 +1,6 @@
 # T-0094 — Import API and job, run as the initiating user (migration)
 
-**status** `done` (waits on T-0092 and T-0093; suite to be written) · **owner** Agent 3 · **priority** P1 ·
+**status** `done` · **owner** Agent 3 · **priority** P1 ·
 **decisions** ADR-0017, D-L128 (ADR-0017 Q4–Q7; ADR-0018 Q2), D-P28, D-P12, D-P14, D-P33, D-L65, D-L67, D-L83 ·
 **migration** 0041 (projected)
 

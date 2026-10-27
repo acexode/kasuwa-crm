@@ -1,6 +1,6 @@
 # T-0093 — Import, duplicates and merge contract (P28)
 
-**status** `done` (suite to be written; no task dependency) · **owner** Agent 3 · **priority** P1 · **decisions**
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions**
 ADR-0017, D-L128 (ADR-0017 Q4, Q6, Q7), D-P12, D-P27, D-P28, D-P14, D-P17, D-L84, D-L97, D-L23
 
 ## Goal

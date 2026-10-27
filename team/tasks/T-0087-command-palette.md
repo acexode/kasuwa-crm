@@ -1,6 +1,6 @@
 # T-0087 — Global search and the command palette (P27)
 
-**status** `done` (suite to be written; after T-0085) · **owner** Agent 11 · **priority** P1 · **decisions**
+**status** `done` · **owner** Agent 11 · **priority** P1 · **decisions**
 ADR-0014, D-L128, D-P13, D-L87
 
 ## Goal

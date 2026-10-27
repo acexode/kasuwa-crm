@@ -1,6 +1,6 @@
 # T-0091 — Custom values on the record screens
 
-**status** `done` (waits on T-0089) · **owner** Agent 11 · **priority** P2 · **decisions** ADR-0016, D-L128
+**status** `done` · **owner** Agent 11 · **priority** P2 · **decisions** ADR-0016, D-L128
 
 ## Goal
 Show and edit custom values on the contact, lead, account and deal record screens and the activity forms, behind the

@@ -103,7 +103,7 @@ What the plan and the lead's rulings say (`docs/phase3/PLAN.md` section 4, D-L20
 
 - **Build in the main checkout**, `C:\dev\Outsource\kasuwa`. Create no other worktrees: about 10 GB of disk is free.
   Between tasks, switch branches in place; commit or stash first.
-- **One verification worktree**: the lead's detached, short-path `C:\kwerify`. Full runs, `next build` and e2e
+- **One verification worktree**: the lead's detached, short-path `C:\kw\verify`. Full runs, `next build` and e2e
   verification happen there, not in the main checkout. Never run two `next build`s, or a `next dev` plus an e2e build, in
   one checkout: they share `apps/web/.next`.
 - **`git config core.longpaths true`** is set and approved. The main checkout's path is long enough to need it.
@@ -111,7 +111,7 @@ What the plan and the lead's rulings say (`docs/phase3/PLAN.md` section 4, D-L20
   suite that starts the e2e harness, goes through `tools/e2e-locked.sh` (T-0152). Do not start or stop Docker for the
   user.
 - **Bounded parallelism:** vitest `--maxWorkers=2`, nx `--parallel=2`. At most two heavy jobs at once, which in practice is
-  the main checkout plus `C:\kwerify`.
+  the main checkout plus `C:\kw\verify`.
 - **The PR gate is the fast gate (D-L207).** Every PR runs lint, typecheck, unit, integration and the whole `isolation`
   project, and these are blocking. UI acceptance (`pnpm test:ui-acceptance`) and the full `pnpm test:e2e` run in the
   full gate: nightly on main (01:00 UTC), on demand (`gh workflow run CI --ref <branch>`), and on the Windows runner

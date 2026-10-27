@@ -1,6 +1,6 @@
 # T-0092 — Object storage adapter and `stored_object` (ADR-0017; migration, new dependencies)
 
-**status** `done` (suite to be written; no task dependency) · **owner** Agent 3 · **priority** P1 · **decisions**
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions**
 ADR-0017, D-L128 (ADR-0017 Q1–Q3), D-P30 item 1, D-L21, D-L94, D-L65, D-L23 · **migration** 0040 (projected; the lead
 assigns the number at merge)
 
