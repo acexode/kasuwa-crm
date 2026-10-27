@@ -28,8 +28,6 @@ CREATE TABLE tax_profile (
   CONSTRAINT tax_profile_name_check CHECK (char_length(name) BETWEEN 1 AND 200)
 );
 
-CREATE INDEX tax_profile_programme_idx ON tax_profile (tenant_id, programme_id);
-
 CREATE TABLE price_book (
   id           uuid        PRIMARY KEY,
   tenant_id    uuid        NOT NULL,
@@ -50,8 +48,6 @@ CREATE TABLE price_book (
   CONSTRAINT price_book_currency_check CHECK (currency IN ('NGN', 'GHS', 'KES', 'ZAR')),
   CONSTRAINT price_book_name_check CHECK (char_length(name) BETWEEN 1 AND 200)
 );
-
-CREATE INDEX price_book_programme_idx ON price_book (tenant_id, programme_id);
 
 CREATE TABLE product (
   id              uuid        PRIMARY KEY,
@@ -84,8 +80,6 @@ CREATE TABLE product (
 CREATE UNIQUE INDEX product_sku_key
   ON product (tenant_id, programme_id, sku)
   WHERE sku IS NOT NULL;
-CREATE INDEX product_programme_idx ON product (tenant_id, programme_id);
-
 CREATE TABLE product_variant (
   id           uuid        PRIMARY KEY,
   tenant_id    uuid        NOT NULL,

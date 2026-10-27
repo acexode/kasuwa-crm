@@ -20,6 +20,9 @@ import {
   SEED_PASSWORD,
   SEED_PERMISSION_SETS,
   SEED_PRICE_BOOKS,
+  SEED_PRICE_BOOK_ENTRIES,
+  SEED_PRODUCTS,
+  SEED_PRODUCT_VARIANTS,
   SEED_SCRIPTS,
   SEED_TAX_PROFILES,
   SEED_TENANTS,
@@ -353,6 +356,57 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       );
     }
 
+    for (const product of SEED_PRODUCTS) {
+      await client.query(
+        `INSERT INTO product
+           (id, tenant_id, programme_id, name, sku, tax_profile_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          product.id,
+          product.tenantId,
+          product.programmeId,
+          product.name,
+          product.sku,
+          product.taxProfileId,
+        ],
+      );
+    }
+
+    for (const variant of SEED_PRODUCT_VARIANTS) {
+      await client.query(
+        `INSERT INTO product_variant
+           (id, tenant_id, programme_id, product_id, name, sku)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          variant.id,
+          variant.tenantId,
+          variant.programmeId,
+          variant.productId,
+          variant.name,
+          variant.sku,
+        ],
+      );
+    }
+
+    for (const entry of SEED_PRICE_BOOK_ENTRIES) {
+      await client.query(
+        `INSERT INTO price_book_entry
+           (id, tenant_id, programme_id, price_book_id, product_id, variant_id,
+            amount_minor, currency)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::bigint, $8)`,
+        [
+          entry.id,
+          entry.tenantId,
+          entry.programmeId,
+          entry.priceBookId,
+          entry.productId,
+          entry.variantId,
+          entry.amountMinor,
+          entry.currency,
+        ],
+      );
+    }
+
     for (const script of SEED_SCRIPTS) {
       await client.query(
         `INSERT INTO script
@@ -394,7 +448,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
         `${SEED_CONTACTS.length} contacts, ${SEED_ACCOUNTS.length} accounts, ` +
         `${SEED_ACTIVITIES.length} activities, ${SEED_DEALS.length} deals, ` +
         `${SEED_SCRIPTS.length} scripts, ${SEED_TAX_PROFILES.length} tax profiles, ` +
-        `${SEED_PRICE_BOOKS.length} price books`,
+        `${SEED_PRICE_BOOKS.length} price books, ${SEED_PRODUCTS.length} products`,
     );
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
