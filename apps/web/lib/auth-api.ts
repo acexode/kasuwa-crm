@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 
 /**
@@ -43,10 +43,10 @@ export const ApiError = z.object({
   error: z.string(),
   code: AuthErrorCode,
   message: z.string(),
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
-  attemptsRemaining: z.number().nullable().optional(),
-  retryAt: z.string().optional(),
-  timeZone: z.string().optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
+  attemptsRemaining: z.optional(z.nullable(z.number())),
+  retryAt: z.optional(z.string()),
+  timeZone: z.optional(z.string()),
 });
 export type ApiError = z.infer<typeof ApiError>;
 
@@ -61,12 +61,12 @@ export const MfaChallengeStarted = z.object({
     z.object({
       type: MfaMethodType,
       available: z.boolean(),
-      deliveryHint: z.string().nullable(),
+      deliveryHint: z.nullable(z.string()),
     }),
   ),
   enrolmentRequired: z.boolean(),
   expiresAt: z.string(),
-  resendAvailableAt: z.string().nullable(),
+  resendAvailableAt: z.nullable(z.string()),
 });
 export type MfaChallengeStarted = z.infer<typeof MfaChallengeStarted>;
 
@@ -146,7 +146,7 @@ export const NETWORK_FAILURE: ScreenError = { code: NETWORK_ERROR_CODE };
 export async function post<T>(
   path: string,
   body: unknown,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   signal?: AbortSignal,
 ): Promise<Result<T>> {
   let response: Response;

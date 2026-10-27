@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { requestRecords, type RecordsResult } from './records-request';
 
 /**

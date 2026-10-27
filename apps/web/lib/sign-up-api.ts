@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { post, type Result } from './auth-api';
 
 /**
@@ -40,8 +40,8 @@ export interface SignUpInput {
 
 export const VerificationStarted = z.object({
   verificationId: z.string(),
-  emailHint: z.string().nullable().optional(),
-  phoneHint: z.string().nullable().optional(),
+  emailHint: z.optional(z.nullable(z.string())),
+  phoneHint: z.optional(z.nullable(z.string())),
   expiresAt: z.string(),
   resendAvailableAt: z.string(),
 });

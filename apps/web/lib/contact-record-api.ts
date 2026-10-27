@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import {
   CONTACTS_PATH,
   Contact,
@@ -50,7 +50,7 @@ export type Person = z.infer<typeof Person>;
  * longer a member of the contact's programme. The record prints the
  * translated `records.owner.former`, never the id.
  */
-export const ContactOwner = z.object({ id: z.string(), displayName: z.string().nullable() });
+export const ContactOwner = z.object({ id: z.string(), displayName: z.nullable(z.string()) });
 export type ContactOwner = z.infer<typeof ContactOwner>;
 
 const AccountSummary = z.object({ id: z.string(), name: z.string() });
@@ -61,11 +61,11 @@ export type AccountSummary = z.infer<typeof AccountSummary>;
  * properties the record prints by name (T-0043, T-0061). Both are omitted
  * with their id when field security withholds it, and `null` when the id is.
  */
-export const ContactRecord = Contact.extend({
+export const ContactRecord = z.extend(Contact, {
   // Free text; withheld like any field (T-0076). Shown, not yet offered in the edit sheet.
-  companyName: z.string().nullable().optional(),
-  owner: ContactOwner.nullable().optional(),
-  account: AccountSummary.nullable().optional(),
+  companyName: z.optional(z.nullable(z.string())),
+  owner: z.optional(z.nullable(ContactOwner)),
+  account: z.optional(z.nullable(AccountSummary)),
 });
 export type ContactRecord = z.infer<typeof ContactRecord>;
 
@@ -92,23 +92,23 @@ export type ChangeValue = z.infer<typeof ChangeValue>;
 const ItemBase = {
   id: z.string(),
   occurredAt: z.string(),
-  actor: Person.nullable(),
+  actor: z.nullable(Person),
 };
 
 const FieldChangedItem = z.object({
   ...ItemBase,
   type: z.literal('field_changed'),
   field: z.string(),
-  redacted: z.literal(true).optional(),
-  before: ChangeValue.optional(),
-  after: ChangeValue.optional(),
+  redacted: z.optional(z.literal(true)),
+  before: z.optional(ChangeValue),
+  after: z.optional(ChangeValue),
 });
 
 const ConsentChangedItem = z.object({
   ...ItemBase,
   type: z.literal('consent_changed'),
-  before: ConsentState.optional(),
-  after: ConsentState.optional(),
+  before: z.optional(ConsentState),
+  after: z.optional(ConsentState),
 });
 
 /** One schema on both timelines (T-0061, T-0080); `version` is what updateActivity takes back. */
@@ -117,16 +117,16 @@ export const ActivityItem = z.object({
   type: z.literal('activity'),
   activityId: z.string(),
   activityType: ActivityKind,
-  subject: z.string().nullable().optional(),
-  body: z.string().nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
+  subject: z.optional(z.nullable(z.string())),
+  body: z.optional(z.nullable(z.string())),
+  dueAt: z.optional(z.nullable(z.string())),
+  completedAt: z.optional(z.nullable(z.string())),
   // A meeting's times (T-0082); null on any other type, omitted when withheld.
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
+  startsAt: z.optional(z.nullable(z.string())),
+  endsAt: z.optional(z.nullable(z.string())),
   // Required by the contract since T-0080. Optional here until the contact
   // record completes a task by it (T-0119); the account record requires it.
-  version: z.number().int().optional(),
+  version: z.optional(z.int()),
 });
 
 export const TimelineItem = z.discriminatedUnion('type', [FieldChangedItem, ConsentChangedItem, ActivityItem]);
@@ -137,7 +137,7 @@ export type ActivityTimelineItem = z.infer<typeof ActivityItem>;
 
 export const TimelinePage = z.object({
   data: z.array(TimelineItem),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type TimelinePage = z.infer<typeof TimelinePage>;
 
@@ -148,13 +148,13 @@ export type TimelinePage = z.infer<typeof TimelinePage>;
 export const Activity = z.object({
   id: z.string(),
   type: ActivityKind,
-  version: z.number().int(),
-  subject: z.string().nullable().optional(),
-  body: z.string().nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
+  version: z.int(),
+  subject: z.optional(z.nullable(z.string())),
+  body: z.optional(z.nullable(z.string())),
+  dueAt: z.optional(z.nullable(z.string())),
+  completedAt: z.optional(z.nullable(z.string())),
+  startsAt: z.optional(z.nullable(z.string())),
+  endsAt: z.optional(z.nullable(z.string())),
   withheldFields: z.array(z.string()),
 });
 export type Activity = z.infer<typeof Activity>;
@@ -196,7 +196,7 @@ export type MyProgrammes = z.infer<typeof MyProgrammes>;
 
 const ApiError = z.object({
   code: RecordsErrorCode,
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
 });
 
 const NETWORK_FAILURE: RecordsError = { code: NETWORK_ERROR_CODE };
@@ -205,7 +205,7 @@ const ACTIVITIES_PATH = '/api/v1/activities';
 
 async function call<T>(
   path: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   init: { method?: 'GET' | 'POST' | 'PATCH'; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<RecordsResult<T>> {
   let response: Response;

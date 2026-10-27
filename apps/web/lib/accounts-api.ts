@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { identifierShaped } from './identifier-shaped';
 import { appendCustomFilters, type CustomFilters } from './custom-values-filters';
 import { Phone, requestRecords, type RecordsResult } from './records-api';
@@ -43,18 +43,18 @@ export const Account = z.object({
   id: z.string(),
   programmeId: z.string(),
   name: z.string(),
-  version: z.number().int(),
-  ownerUserId: z.string().nullable().optional(),
-  owner: AccountOwner.nullable().optional(),
-  industry: z.string().nullable().optional(),
-  tier: AccountTier.nullable().optional(),
-  tags: z.array(z.string()).optional(),
-  phones: z.array(Phone).optional(),
-  state: z.string().nullable().optional(),
-  lga: z.string().nullable().optional(),
-  parentAccountId: z.string().nullable().optional(),
+  version: z.int(),
+  ownerUserId: z.optional(z.nullable(z.string())),
+  owner: z.optional(z.nullable(AccountOwner)),
+  industry: z.optional(z.nullable(z.string())),
+  tier: z.optional(z.nullable(AccountTier)),
+  tags: z.optional(z.array(z.string())),
+  phones: z.optional(z.array(Phone)),
+  state: z.optional(z.nullable(z.string())),
+  lga: z.optional(z.nullable(z.string())),
+  parentAccountId: z.optional(z.nullable(z.string())),
   /** Custom-field values (T-0091): withheld keys are absent and listed in `withheldFields` as `custom.<key>`. */
-  custom: z.record(z.string(), z.unknown()).optional(),
+  custom: z.optional(z.record(z.string(), z.unknown())),
   createdAt: z.string(),
   updatedAt: z.string(),
   withheldFields: z.array(z.string()),
@@ -63,7 +63,7 @@ export type Account = z.infer<typeof Account>;
 
 export const AccountPage = z.object({
   data: z.array(Account),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type AccountPage = z.infer<typeof AccountPage>;
 

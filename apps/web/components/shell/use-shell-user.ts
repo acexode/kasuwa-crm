@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from '../../lib/api-fetch';
 
 /**

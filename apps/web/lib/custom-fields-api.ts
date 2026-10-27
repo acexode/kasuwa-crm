@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { ApiError, NETWORK_FAILURE, type Result } from './admin-api';
 import { apiFetch } from './api-fetch';
 
@@ -58,32 +58,27 @@ export const CustomFieldDefinition = z
     objectApiName: CustomFieldObject,
     apiName: z.string(),
     label: z.string(),
-    description: z.string().nullable(),
+    description: z.nullable(z.string()),
     type: CustomFieldType,
     classification: Classification,
     config: FieldConfig,
-    retiredAt: z.string().nullable(),
+    retiredAt: z.nullable(z.string()),
     createdAt: z.string(),
     updatedAt: z.string(),
-  })
-  // The config belongs to the type: a picklist carries values, a currency its code, every other type nothing.
-  .refine(
-    (field) =>
+  }).check(z.refine((field) =>
       field.type === 'picklist'
         ? 'values' in field.config
         : field.type === 'currency'
           ? 'currencyCode' in field.config
-          : Object.keys(field.config).length === 0,
-    { message: 'config does not fit the type' },
-  );
+          : Object.keys(field.config).length === 0, { message: 'config does not fit the type' }));
 export type CustomFieldDefinition = z.infer<typeof CustomFieldDefinition>;
 
 /** The limits arrive as data so a screen never hard-codes them (D-L141). */
 const CustomFieldLimits = z.object({
-  fieldsPerObject: z.number().int().positive(),
+  fieldsPerObject: z.int().check(z.positive()),
   /** Definitions per object, retired fields included: retiring never frees one. */
-  definitionsPerObject: z.number().int().positive(),
-  picklistValues: z.number().int().positive(),
+  definitionsPerObject: z.int().check(z.positive()),
+  picklistValues: z.int().check(z.positive()),
 });
 export type CustomFieldLimits = z.infer<typeof CustomFieldLimits>;
 
@@ -106,7 +101,7 @@ export type CustomFieldList = z.infer<typeof CustomFieldList>;
 async function call<T>(
   method: string,
   path: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodMiniType<T>,
   init: { body?: unknown; signal?: AbortSignal } = {},
 ): Promise<Result<T>> {
   let response: Response;

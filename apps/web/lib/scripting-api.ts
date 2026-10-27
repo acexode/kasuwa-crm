@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import {
   ScriptGraph,
   ScriptLocale,
@@ -36,22 +36,22 @@ export const ScriptSummary = z.object({
   sourceLocale: ScriptLocale,
   translatedLocales: z.array(ScriptLocale),
   hasUnpublishedChanges: z.boolean(),
-  latestVersion: VersionSummary.nullable(),
+  latestVersion: z.nullable(VersionSummary),
   updatedAt: z.string(),
 });
 export type ScriptSummary = z.infer<typeof ScriptSummary>;
 
-const ScriptPage = z.object({ data: z.array(ScriptSummary), nextCursor: z.string().nullable() });
+const ScriptPage = z.object({ data: z.array(ScriptSummary), nextCursor: z.nullable(z.string()) });
 export type ScriptPage = z.infer<typeof ScriptPage>;
 
-export const Script = ScriptSummary.extend({
+export const Script = z.extend(ScriptSummary, {
   draft: z.object({ graph: ScriptGraph, translations: Translations }),
-  revision: z.number().int(),
+  revision: z.int(),
   createdAt: z.string(),
 });
 export type Script = z.infer<typeof Script>;
 
-const VersionPage = z.object({ data: z.array(VersionSummary), nextCursor: z.string().nullable() });
+const VersionPage = z.object({ data: z.array(VersionSummary), nextCursor: z.nullable(z.string()) });
 export type VersionPage = z.infer<typeof VersionPage>;
 
 const Programmes = z.object({ data: z.array(z.object({ id: z.string(), name: z.string() })) });

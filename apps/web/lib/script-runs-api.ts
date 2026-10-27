@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { ScriptLocale, ScriptVersion, StaffRef, VersionSummary } from './script-graph';
 import { cursorQuery, scriptingRequest, segment, type ScriptingResult } from './scripting-http';
 
@@ -29,7 +29,7 @@ export const RunnableScript = z.object({
 });
 export type RunnableScript = z.infer<typeof RunnableScript>;
 
-const RunnablePage = z.object({ data: z.array(RunnableScript), nextCursor: z.string().nullable() });
+const RunnablePage = z.object({ data: z.array(RunnableScript), nextCursor: z.nullable(z.string()) });
 export type RunnablePage = z.infer<typeof RunnablePage>;
 
 /**
@@ -37,10 +37,10 @@ export type RunnablePage = z.infer<typeof RunnablePage>;
  * the answer fails to parse and the run reads as unavailable, rather than
  * reaching `BigInt` in a render.
  */
-const Money = z.object({ amountMinor: z.string().regex(/^-?\d+$/), currency: z.string() });
+const Money = z.object({ amountMinor: z.string().check(z.regex(/^-?\d+$/)), currency: z.string() });
 export type Money = z.infer<typeof Money>;
 
-export const AnswerValue = z.union([z.string(), z.number().int(), Money, z.null()]);
+export const AnswerValue = z.union([z.string(), z.int(), Money, z.null()]);
 export type AnswerValue = z.infer<typeof AnswerValue>;
 
 const NodeAnswer = z.discriminatedUnion('type', [
@@ -62,22 +62,22 @@ export const ScriptRun = z.object({
   contactId: z.string(),
   scriptId: z.string(),
   versionId: z.string(),
-  versionNumber: z.number().int(),
+  versionNumber: z.int(),
   latestVersion: VersionSummary,
   status: RunStatus,
-  outcome: z.enum(['completed', 'interrupted', 'superseded']).nullable(),
+  outcome: z.nullable(z.enum(['completed', 'interrupted', 'superseded'])),
   unacknowledgedComplianceNodeIds: z.array(z.string()),
-  endedAtNodeId: z.string().nullable(),
-  stopReason: z.enum(STOP_REASONS).nullable(),
-  currentNodeId: z.string().nullable(),
-  path: z.array(z.object({ nodeId: z.string(), enteredAt: z.string(), branchOutcome: z.boolean().nullable().optional() })),
+  endedAtNodeId: z.nullable(z.string()),
+  stopReason: z.nullable(z.enum(STOP_REASONS)),
+  currentNodeId: z.nullable(z.string()),
+  path: z.array(z.object({ nodeId: z.string(), enteredAt: z.string(), branchOutcome: z.optional(z.nullable(z.boolean())) })),
   acknowledgements: z.array(z.object({ nodeId: z.string(), locale: ScriptLocale, acknowledgedAt: z.string() })),
   answers: z.record(z.string(), NodeAnswer),
   startedBy: StaffRef,
-  completedAt: z.string().nullable(),
-  dispositionId: z.string().nullable(),
-  followUpTaskId: z.string().nullable(),
-  revision: z.number().int(),
+  completedAt: z.nullable(z.string()),
+  dispositionId: z.nullable(z.string()),
+  followUpTaskId: z.nullable(z.string()),
+  revision: z.int(),
 });
 export type ScriptRun = z.infer<typeof ScriptRun>;
 
@@ -88,11 +88,11 @@ export const RunDisposition = z.object({
   category: z.string(),
   noteRequired: z.boolean(),
   followUpRequired: z.boolean(),
-  position: z.number().int(),
+  position: z.int(),
 });
 export type RunDisposition = z.infer<typeof RunDisposition>;
 
-const DispositionPage = z.object({ data: z.array(RunDisposition), nextCursor: z.string().nullable() });
+const DispositionPage = z.object({ data: z.array(RunDisposition), nextCursor: z.nullable(z.string()) });
 export type DispositionPage = z.infer<typeof DispositionPage>;
 
 /**
@@ -105,7 +105,7 @@ export type DispositionPage = z.infer<typeof DispositionPage>;
  * in `withheldFields`) when a name part is withheld (D-L68, T-0124): the
  * screen then draws the stand-in, never a part of the name.
  */
-export const RunContact = z.looseObject({ id: z.string(), displayName: z.string().optional(), withheldFields: z.array(z.string()) });
+export const RunContact = z.looseObject({ id: z.string(), displayName: z.optional(z.string()), withheldFields: z.array(z.string()) });
 export type RunContact = z.infer<typeof RunContact>;
 
 const Me = z.object({ id: z.string(), displayName: z.string() });

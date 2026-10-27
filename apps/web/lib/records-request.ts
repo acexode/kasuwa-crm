@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import { apiFetch } from './api-fetch';
 
 /**
@@ -46,9 +46,9 @@ const ApiError = z.object({
   statusCode: z.number(),
   code: z.union([RecordsErrorCode, ImportErrorCode, DuplicatesErrorCode]),
   message: z.string(),
-  details: z.array(z.object({ path: z.string(), code: z.string() })).optional(),
+  details: z.optional(z.array(z.object({ path: z.string(), code: z.string() }))),
   /** On a 429: the earliest time a retry can succeed (the search throttle, T-0085). */
-  retryAt: z.string().optional(),
+  retryAt: z.optional(z.string()),
 });
 
 /** The request never arrived, or the answer was not the contract's. */
@@ -87,7 +87,7 @@ const NETWORK_FAILURE: RecordsError = { code: NETWORK_ERROR_CODE };
  */
 export async function requestRecords<T>(
   path: string,
-  schema: z.ZodType<T, unknown>,
+  schema: z.ZodMiniType<T, unknown>,
   init: { readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; readonly body?: unknown; readonly signal?: AbortSignal } = {
     method: 'GET',
   },

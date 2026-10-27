@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 import {
   Deal,
   dealPath,
@@ -31,12 +31,12 @@ const ME_PATH = '/api/v1/auth/me';
 export const DealCheck = z.object({
   requirementId: z.string(),
   checkedAt: z.string(),
-  checkedBy: z.object({ id: z.string(), displayName: z.string().nullable() }),
+  checkedBy: z.object({ id: z.string(), displayName: z.nullable(z.string()) }),
 });
 export type DealCheck = z.infer<typeof DealCheck>;
 
 /** The Deal as the detail reads it: the board's shape with each check's checker and time. */
-export const DealDetail = Deal.extend({ checks: z.array(DealCheck) });
+export const DealDetail = z.extend(Deal, { checks: z.array(DealCheck) });
 export type DealDetail = z.infer<typeof DealDetail>;
 
 export function getDealDetail(id: string): Promise<PipelineResult<DealDetail>> {
@@ -95,7 +95,7 @@ const DealFieldChangedItem = z.object({
   id: z.string(),
   type: z.literal('field_changed'),
   occurredAt: z.string(),
-  actor: TimelineActor.nullable(),
+  actor: z.nullable(TimelineActor),
   field: z.enum(DEAL_TIMELINE_FIELDS),
   redacted: z.literal(true),
 });
@@ -106,16 +106,16 @@ const DealActivityItem = z.object({
   id: z.string(),
   type: z.literal('activity'),
   occurredAt: z.string(),
-  actor: TimelineActor.nullable(),
+  actor: z.nullable(TimelineActor),
   activityId: z.string(),
   activityType: z.enum(DEAL_ACTIVITY_KINDS),
-  subject: z.string().nullable().optional(),
-  body: z.string().nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
-  version: z.number().int().optional(),
+  subject: z.optional(z.nullable(z.string())),
+  body: z.optional(z.nullable(z.string())),
+  dueAt: z.optional(z.nullable(z.string())),
+  completedAt: z.optional(z.nullable(z.string())),
+  startsAt: z.optional(z.nullable(z.string())),
+  endsAt: z.optional(z.nullable(z.string())),
+  version: z.optional(z.int()),
 });
 
 export const DealTimelineItem = z.discriminatedUnion('type', [
@@ -126,7 +126,7 @@ export type DealTimelineItem = z.infer<typeof DealTimelineItem>;
 
 export const DealTimelinePage = z.object({
   data: z.array(DealTimelineItem),
-  nextCursor: z.string().nullable(),
+  nextCursor: z.nullable(z.string()),
 });
 export type DealTimelinePage = z.infer<typeof DealTimelinePage>;
 
@@ -147,13 +147,13 @@ export function listDealTimeline(
 export const DealActivity = z.object({
   id: z.string(),
   type: z.enum(DEAL_ACTIVITY_KINDS),
-  version: z.number().int(),
-  subject: z.string().nullable().optional(),
-  body: z.string().nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  completedAt: z.string().nullable().optional(),
-  startsAt: z.string().nullable().optional(),
-  endsAt: z.string().nullable().optional(),
+  version: z.int(),
+  subject: z.optional(z.nullable(z.string())),
+  body: z.optional(z.nullable(z.string())),
+  dueAt: z.optional(z.nullable(z.string())),
+  completedAt: z.optional(z.nullable(z.string())),
+  startsAt: z.optional(z.nullable(z.string())),
+  endsAt: z.optional(z.nullable(z.string())),
   withheldFields: z.array(z.string()),
 });
 export type DealActivity = z.infer<typeof DealActivity>;

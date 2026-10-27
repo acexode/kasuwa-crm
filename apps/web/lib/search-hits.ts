@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 /**
  * The hits `searchRecords` and `lookupRecords` answer with
@@ -17,18 +17,18 @@ export type LeadHitStatus = (typeof LEAD_HIT_STATUSES)[number];
 
 const PersonHit = z.object({
   id: z.string(),
-  programmeId: z.string().optional(),
-  status: z.enum(LEAD_HIT_STATUSES).optional().catch(undefined),
-  displayName: z.string().optional(),
-  givenNames: z.string().nullable().optional(),
-  familyName: z.string().nullable().optional(),
-  companyName: z.string().nullable().optional(),
+  programmeId: z.optional(z.string()),
+  status: z.catch(z.optional(z.enum(LEAD_HIT_STATUSES)), undefined),
+  displayName: z.optional(z.string()),
+  givenNames: z.optional(z.nullable(z.string())),
+  familyName: z.optional(z.nullable(z.string())),
+  companyName: z.optional(z.nullable(z.string())),
   withheldFields: z.array(z.string()),
 });
 
 const NamedHit = z.object({
   id: z.string(),
-  programmeId: z.string().optional(),
+  programmeId: z.optional(z.string()),
   name: z.string(),
 });
 
