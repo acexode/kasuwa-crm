@@ -99,21 +99,18 @@ import type {
  * TWO POOLS, AND WHICH ONE IS WHICH (T-0049, D-P16, ADR-0013). Every
  * transaction that WRITES an auth table (the five identity tables and
  * `auth_rate_limit`) runs on `authPool`, which logs in as `kasuwa_auth`, the
- * only role holding those writes since migration 0024. `appPool`
- * (`kasuwa_app`) is used for exactly two reads:
+ * only role holding those writes since migration 0024. Since T-0157 it also
+ * runs every read of a SECRET: sign-in's phase one joins `user_credential`, and
+ * migration 0046 took `kasuwa_app`'s SELECT on credential hashes and MFA
+ * secrets away, so the app pool cannot read them at all. `appPool`
+ * (`kasuwa_app`) is used for exactly one read:
  *
- *   * sign-in's phase one (the lock read and the account lookup), which
- *     writes nothing. On the app pool it shares the fate of every other
- *     request: when that pool is exhausted, BOTH sign-in branches answer the
- *     one 503, and neither can block on a lock behind a starved cell while
- *     the other answers 401 (T-0045's no-oracle rule). See `signIn`.
  *   * `app.resolve_session` in sign-out, the SECURITY DEFINER read that is
  *     granted to `kasuwa_app` only; the auth role is not given a second door
  *     around RLS for the sake of one revoke.
  *
- * Writing any of the six tables through `appPool` fails with 42501 by design;
- * `readAuthLock` on it is a read (it presents a key and SELECTs). Reading
- * through `authPool` works, but keep it to transactions that also write.
+ * Writing any of the six tables through `appPool` fails with 42501 by design,
+ * and so does reading a secret column from it.
  */
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -169,11 +166,14 @@ export class AuthService implements OnModuleInit {
     const rateKey = hashRateLimitKey('signin', input.tenantSlug, input.email);
 
     // --- phase one: read, then let the connection go ----------------------
-    // On the APP pool: it writes nothing, and it must fail (503) together
-    // with every other request when that pool is exhausted, for a real
-    // workspace and a fake one alike. See the class comment.
+    // On the AUTH pool (T-0157): the account lookup joins `user_credential`, a
+    // secret `kasuwa_app` can no longer read (migration 0046). It writes
+    // nothing here. A real workspace and a fake one take exactly the same
+    // path, so an exhausted auth pool is the same 503 for both and no branch
+    // can block on a lock while the other answers 401 (T-0045's no-oracle
+    // rule).
     const prepared = await withAuthTransaction(
-      this.appPool,
+      this.authPool,
       { tenantSlug: input.tenantSlug },
       async (tx) => ({
         locked: await this.activeLock(tx, rateKey, this.signInLimits()),
