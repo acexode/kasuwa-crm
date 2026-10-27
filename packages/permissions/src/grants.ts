@@ -24,7 +24,7 @@ import {
 
 const UserRow = z.object({ is_tenant_admin: z.boolean() });
 const MembershipRow = z.object({
-  programme_id: z.string().uuid(),
+  programme_id: z.uuid(),
   key: z.string().nullable(),
 });
 

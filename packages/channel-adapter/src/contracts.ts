@@ -14,8 +14,8 @@ import { z } from 'zod';
  */
 
 export const TenantScope = z.object({
-  tenantId: z.string().uuid(),
-  programmeId: z.string().uuid(),
+  tenantId: z.uuid(),
+  programmeId: z.uuid(),
 });
 export type TenantScope = z.infer<typeof TenantScope>;
 
@@ -47,7 +47,7 @@ export const E164 = z.string().regex(/^\+[1-9]\d{7,14}$/);
  * address rule refuses whitespace, so a CR/LF header-injection payload cannot
  * pass as an address. Never logged (CLAUDE.md 6.1).
  */
-export const EmailAddress = z.string().max(320).email();
+export const EmailAddress = z.email().max(320);
 
 /** WhatsApp's free-form ceiling; SMS concatenation and an email body sit under it. */
 const MessageBody = z.string().min(1).max(4096);

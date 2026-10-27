@@ -141,15 +141,15 @@ const Row = z.object({
   grants: z.array(
     z.object({
       field: z.string(),
-      set: z.string().uuid(),
+      set: z.uuid(),
       locked: z.boolean(),
       level: fieldAccessLevelSchema,
     }),
   ),
   memberships: z.array(
     z.object({
-      programme: z.string().uuid(),
-      set: z.string().uuid().nullable(),
+      programme: z.uuid(),
+      set: z.uuid().nullable(),
       locked: z.boolean(),
     }),
   ),
