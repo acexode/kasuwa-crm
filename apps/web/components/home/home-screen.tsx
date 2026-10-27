@@ -50,6 +50,7 @@ import {
   type WidgetType,
 } from './home-model';
 import { browserLayoutStore } from './layout-store';
+import { serverLayoutStore } from './server-layout-store';
 import { useHomeData, type HomeData } from './use-home-data';
 import { WidgetCard, WidgetEmpty, WidgetError, WidgetSkeleton, type WidgetEditProps } from './widget-card';
 
@@ -92,6 +93,8 @@ export interface HomeFlags {
   readonly kpis: boolean;
   readonly fx: boolean;
   readonly calendar: boolean;
+  /** `home_layout_server`: the layout is kept per user on the server (T-0159). */
+  readonly layoutServer: boolean;
 }
 
 const RANGE_LABEL: Readonly<Record<Range, { long: MessageId; short: MessageId; sub: MessageId }>> = {
@@ -145,6 +148,7 @@ export function HomeScreen({
     }),
     [live, flags],
   );
+  const store = flags.layoutServer ? serverLayoutStore : browserLayoutStore;
   const data = useHomeData({ agendaLive: sources.activities, dealsLive: sources.deals });
   const userId = data.me?.id ?? null;
 
@@ -161,26 +165,26 @@ export function HomeScreen({
   useEffect(() => {
     if (userId === null) return undefined;
     let current = true;
-    void browserLayoutStore.load(userId, role).then((saved) => {
+    void store.load(userId, role).then((saved) => {
       if (current && saved !== null) setLayout(drawable(saved, sources));
     });
     return () => {
       current = false;
     };
-  }, [userId, role, sources]);
+  }, [userId, role, sources, store]);
 
   const commit = useCallback(
     (next: Layout) => {
       setLayout(next);
-      if (userId !== null) void browserLayoutStore.save(userId, role, next);
+      if (userId !== null) void store.save(userId, role, next);
     },
-    [userId, role],
+    [userId, role, store],
   );
 
   const reset = useCallback(() => {
     setLayout(defaultLayout(role, sources));
-    if (userId !== null) void browserLayoutStore.clear(userId, role);
-  }, [role, sources, userId]);
+    if (userId !== null) void store.clear(userId, role);
+  }, [role, sources, userId, store]);
 
   const startResize = useCallback(
     (type: WidgetType, span: Span) => (event: ReactPointerEvent<HTMLElement>) => {
@@ -206,14 +210,14 @@ export function HomeScreen({
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         setLayout((current) => {
-          if (userId !== null) void browserLayoutStore.save(userId, role, current);
+          if (userId !== null) void store.save(userId, role, current);
           return current;
         });
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [role, userId],
+    [role, userId, store],
   );
 
   const now = data.now;

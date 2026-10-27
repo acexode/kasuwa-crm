@@ -89,6 +89,17 @@ const wantsNotificationsWeb =
   !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => grepCanSelect(pattern, '@p26-notifications')));
 
 /**
+ * THE HOME WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0159).
+ *
+ * Only the `@p03-home` journey uses it (the Home layout kept per user on the
+ * server, in a real browser session), so it starts for a run with no grep at
+ * all or a grep that can select that tag, and for no other. A spec that needs
+ * it reads `webHomeUrl`, which is empty when it was not started.
+ */
+const wantsHomeWeb =
+  !wantsOverBudget && (patterns.length === 0 || patterns.some((pattern) => grepCanSelect(pattern, '@p03-home')));
+
+/**
  * THE SESSION WEB PROCESS IS STARTED ONLY WHEN IT CAN BE USED (T-0125).
  *
  * A Next process costs this machine about a gigabyte (CLAUDE.md section 3).
@@ -818,6 +829,43 @@ function startNotificationsWeb(apiUrl, port) {
   return child;
 }
 
+/**
+ * THE SIXTH WEB SERVER — HOME, WITH ITS LAYOUT ON THE SERVER (T-0159, D-L196).
+ *
+ * `crm_home` is on no other e2e process, and `home_layout_server` needs a real
+ * session: the layout is the SESSION user's, so a stub identity would prove
+ * nothing about whose it is. So this is the same production build under `next
+ * start` with NODE_ENV=test (both flags are not production-ready), in `jwt`
+ * mode like the session process, with the flags Home needs to draw its two real
+ * widgets (`crm_activities` for the agenda, `crm_pipeline` for deals) and the
+ * records flag the CRM shell stands on. Its spec injects no identity header.
+ * Published as `webHomeUrl`; nothing measures bytes here. Started only for a
+ * run that can select `@p03-home` (see `wantsHomeWeb`).
+ */
+function startHomeWeb(apiUrl, port) {
+  const child = spawnGroup('pnpm', ['exec', 'next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
+    cwd: WEB_DIR,
+    shell: process.platform === 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      KASUWA_AUTH_MODE: 'jwt',
+      NEXT_PUBLIC_API_URL: apiUrl,
+      NEXT_TELEMETRY_DISABLED: '1',
+      KASUWA_FEATURE_FLAGS_ON: 'crm_records,crm_activities,crm_pipeline,crm_home,home_layout_server',
+      ...NO_DATABASE_URLS,
+      ...sessionLayerEnv(apiUrl, port),
+    },
+  });
+  pipeTo(child, 'web:home');
+  cleanups.push(async () => {
+    await killTree(child);
+    await waitForPortClosed(port);
+  });
+  return child;
+}
+
 function runPlaywright() {
   const args = [
     'exec',
@@ -939,6 +987,7 @@ async function main() {
   let webRecordsUrl = '';
   let webSessionUrl = '';
   let webNotificationsUrl = '';
+  let webHomeUrl = '';
 
   if (!wantsOverBudget) {
     // The API's port is chosen first because the web build needs it (see
@@ -983,6 +1032,11 @@ async function main() {
       webNotificationsUrl = `http://127.0.0.1:${notificationsPort}`;
       startNotificationsWeb(apiUrl, notificationsPort);
     }
+    if (wantsHomeWeb) {
+      const homePort = await freePort();
+      webHomeUrl = `http://127.0.0.1:${homePort}`;
+      startHomeWeb(apiUrl, homePort);
+    }
     // The production server is ready when it answers; the dev server also
     // compiles its first route on that request, which keeps the compile out of
     // a spec's navigation.
@@ -992,6 +1046,7 @@ async function main() {
       waitForHttp(webRecordsUrl, 'the crm_records, crm_accounts, crm_record_view, crm_leads, crm_activities, crm_scripts, crm_pipeline, crm_search, crm_custom_fields, crm_import and crm_duplicates web app'),
       ...(wantsSessionWeb ? [waitForHttp(webSessionUrl, 'the session (jwt, crm_records) web app')] : []),
       ...(wantsNotificationsWeb ? [waitForHttp(webNotificationsUrl, 'the records flags plus crm_notifications web app')] : []),
+      ...(wantsHomeWeb ? [waitForHttp(webHomeUrl, 'the Home (jwt, crm_home + home_layout_server) web app')] : []),
     ]);
     restoreNextEnv(nextEnv);
     log(`web (next start, production build) on ${webUrl}`);
@@ -1004,6 +1059,9 @@ async function main() {
     }
     if (wantsNotificationsWeb) {
       log(`web (next start, production build, NODE_ENV=test, the records flags + crm_notifications on) on ${webNotificationsUrl}`);
+    }
+    if (wantsHomeWeb) {
+      log(`web (next start, production build, NODE_ENV=test, jwt, crm_home + home_layout_server on) on ${webHomeUrl}`);
     }
   }
 
@@ -1043,6 +1101,8 @@ async function main() {
         webDuplicatesUrl: webRecordsUrl,
         // T-0101: empty unless this run's grep can select @p26-notifications.
         webNotificationsUrl,
+        // T-0159: empty unless this run's grep can select @p03-home.
+        webHomeUrl,
         apiUrl,
         fixturesUrl,
       },
