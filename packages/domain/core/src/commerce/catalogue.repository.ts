@@ -119,12 +119,12 @@ export async function findProductById(tx: TenantTx, productId: string): Promise<
     `SELECT ${PRODUCT_COLUMNS}
        FROM product
       WHERE tenant_id = $1::uuid
-        AND id = $2::uuid`,
-    [tx.session.tenantId, productId],
+        AND id = $2::uuid
+        AND programme_id = ANY($3::uuid[])`,
+    [tx.session.tenantId, productId, tx.session.programmeIds],
   );
   const row = rows[0];
   if (row === undefined) return null;
-  assertInScope(tx, row.programme_id);
   const variants = await loadVariants(tx, row.programme_id, [row.id]);
   return toProduct(row, variants.get(row.id) ?? []);
 }
@@ -162,14 +162,7 @@ export async function createProduct(
          (id, tenant_id, programme_id, product_id, name, sku)
        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
        RETURNING id, name, sku`,
-      [
-        variantId,
-        tx.session.tenantId,
-        programmeId,
-        productId,
-        variant.name,
-        variant.sku ?? null,
-      ],
+      [variantId, tx.session.tenantId, programmeId, productId, variant.name, variant.sku ?? null],
     );
     const v = inserted.at(0);
     if (v !== undefined) variants.push(toVariant(v));
@@ -315,12 +308,12 @@ export async function findPriceBookById(
     `SELECT id, programme_id, name, currency
        FROM price_book
       WHERE tenant_id = $1::uuid
-        AND id = $2::uuid`,
-    [tx.session.tenantId, priceBookId],
+        AND id = $2::uuid
+        AND programme_id = ANY($3::uuid[])`,
+    [tx.session.tenantId, priceBookId, tx.session.programmeIds],
   );
   const row = rows[0];
   if (row === undefined) return null;
-  assertInScope(tx, row.programme_id);
   return row;
 }
 

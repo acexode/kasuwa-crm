@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 export const CommerceCurrencySchema = z.enum(COMMERCE_CURRENCIES);
 
-export const AmountMinorSchema = z.string().regex(/^\d+$/);
+export const AmountMinorSchema = z.string().regex(/^\d{1,18}$/);
 
 export const ProgrammeIdParam = z.object({ programmeId: z.uuid() });
 

@@ -3,6 +3,8 @@ import {
   CatalogueCurrencyMismatchError,
   CatalogueProgrammeOutOfScopeError,
   createProduct,
+  findPriceBookById,
+  findProductById,
   listPriceBooks,
   listProducts,
   listTaxProfiles,
@@ -13,7 +15,13 @@ import {
   type Product,
   type TaxProfile,
 } from '@kasuwa/domain-core';
-import { notFound, validationFailed, validationFailedFrom } from '../admin/common/admin-errors';
+import { canProgramme, loadGrants } from '@kasuwa/permissions';
+import {
+  notFound,
+  notPermitted,
+  validationFailed,
+  validationFailedFrom,
+} from '../admin/common/admin-errors';
 import {
   CreateProductBody,
   ProgrammeIdParam,
@@ -140,8 +148,13 @@ export async function listProductsFor(
   }
 }
 
-export async function createProductFor(tx: TenantTx, params: unknown, body: unknown): Promise<ProductWire> {
-  const programmeId = programmeFromPath(tx, params);
+export async function createProductFor(
+  tx: TenantTx,
+  params: unknown,
+  body: unknown,
+): Promise<ProductWire> {
+  const programmeId = programmeFromPath(tx, params); // 404
+  if (!canProgramme(await loadGrants(tx), 'catalogue.write', programmeId)) throw notPermitted(); // 403
   const parsed = CreateProductBody.safeParse(body);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   try {
@@ -158,6 +171,12 @@ export async function updateProductFor(
   body: unknown,
 ): Promise<ProductWire> {
   const { productId } = ProductIdParam.parse(params);
+  // Scope first: a product outside the caller's programmes is a 404, before any permission check.
+  const current = await findProductById(tx, productId);
+  if (current === null) throw notFound();
+  if (!canProgramme(await loadGrants(tx), 'catalogue.write', current.programmeId)) {
+    throw notPermitted(); // 403
+  }
   const parsed = UpdateProductBody.safeParse(body);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   try {
@@ -201,6 +220,11 @@ export async function upsertPriceBookEntryFor(
   body: unknown,
 ): Promise<PriceBookEntryWire> {
   const { priceBookId } = PriceBookIdParam.parse(params);
+  const book = await findPriceBookById(tx, priceBookId);
+  if (book === null) throw notFound();
+  if (!canProgramme(await loadGrants(tx), 'catalogue.write', book.programme_id)) {
+    throw notPermitted(); // 403
+  }
   const parsed = UpsertPriceBookEntryBody.safeParse(body);
   if (!parsed.success) throw validationFailedFrom(parsed.error);
   try {

@@ -39,6 +39,8 @@ CREATE TABLE price_book (
 
   CONSTRAINT price_book_tenant_programme_id_key UNIQUE (tenant_id, programme_id, id),
   CONSTRAINT price_book_tenant_programme_currency_key UNIQUE (tenant_id, programme_id, currency),
+  -- The target of price_book_entry's 4-column FK: an entry's currency is its book's.
+  CONSTRAINT price_book_tenant_programme_id_currency_key UNIQUE (tenant_id, programme_id, id, currency),
   CONSTRAINT price_book_tenant_fk
     FOREIGN KEY (tenant_id)
     REFERENCES tenant (id) ON DELETE CASCADE ON UPDATE RESTRICT,
@@ -91,6 +93,8 @@ CREATE TABLE product_variant (
   updated_at   timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT product_variant_tenant_programme_id_key UNIQUE (tenant_id, programme_id, id),
+  -- The target of price_book_entry's variant FK: a variant OF THAT PRODUCT.
+  CONSTRAINT product_variant_tenant_programme_product_id_key UNIQUE (tenant_id, programme_id, product_id, id),
   CONSTRAINT product_variant_tenant_fk
     FOREIGN KEY (tenant_id)
     REFERENCES tenant (id) ON DELETE CASCADE ON UPDATE RESTRICT,
@@ -123,16 +127,20 @@ CREATE TABLE price_book_entry (
   CONSTRAINT price_book_entry_programme_same_tenant_fk
     FOREIGN KEY (tenant_id, programme_id)
     REFERENCES programme (tenant_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT price_book_entry_price_book_same_programme_fk
-    FOREIGN KEY (tenant_id, programme_id, price_book_id)
-    REFERENCES price_book (tenant_id, programme_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
+  -- Book and currency together: an entry in another currency than its book is refused.
+  CONSTRAINT price_book_entry_price_book_currency_fk
+    FOREIGN KEY (tenant_id, programme_id, price_book_id, currency)
+    REFERENCES price_book (tenant_id, programme_id, id, currency) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT price_book_entry_product_same_programme_fk
     FOREIGN KEY (tenant_id, programme_id, product_id)
     REFERENCES product (tenant_id, programme_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT price_book_entry_variant_same_programme_fk
-    FOREIGN KEY (tenant_id, programme_id, variant_id)
-    REFERENCES product_variant (tenant_id, programme_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT price_book_entry_amount_minor_check CHECK (amount_minor >= 0),
+  -- MATCH SIMPLE (the default): a NULL variant_id skips this check, as intended;
+  -- a variant, when given, must belong to product_id.
+  CONSTRAINT price_book_entry_variant_of_product_fk
+    FOREIGN KEY (tenant_id, programme_id, product_id, variant_id)
+    REFERENCES product_variant (tenant_id, programme_id, product_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
+  -- 0 to 18 nines, as deal (0036, D-L121): never past bigint.
+  CONSTRAINT price_book_entry_amount_minor_check CHECK (amount_minor BETWEEN 0 AND 999999999999999999),
   CONSTRAINT price_book_entry_currency_check CHECK (currency IN ('NGN', 'GHS', 'KES', 'ZAR'))
 );
 
@@ -187,9 +195,17 @@ CREATE POLICY price_book_entry_isolation ON price_book_entry FOR ALL TO kasuwa_a
 
 REVOKE ALL ON tax_profile, price_book, product, product_variant, price_book_entry
   FROM PUBLIC, kasuwa_app, kasuwa_auth, kasuwa_sweeper, kasuwa_relay, kasuwa_test_admin;
-GRANT SELECT, INSERT, UPDATE, DELETE
+-- kasuwa_app: no DELETE, and UPDATE only on mutable columns, never id,
+-- tenant_id, programme_id or the parent keys (0036's pattern).
+GRANT SELECT, INSERT
   ON tax_profile, price_book, product, product_variant, price_book_entry
   TO kasuwa_app;
+GRANT UPDATE (name, rate_bps, updated_at) ON tax_profile TO kasuwa_app;
+GRANT UPDATE (name, updated_at) ON price_book TO kasuwa_app;
+GRANT UPDATE (name, description, sku, status, tax_profile_id, version, updated_at)
+  ON product TO kasuwa_app;
+GRANT UPDATE (name, sku, updated_at) ON product_variant TO kasuwa_app;
+GRANT UPDATE (amount_minor, currency, updated_at) ON price_book_entry TO kasuwa_app;
 GRANT SELECT, INSERT, UPDATE, DELETE
   ON tax_profile, price_book, product, product_variant, price_book_entry
   TO kasuwa_test_admin;
@@ -222,24 +238,33 @@ CREATE TRIGGER price_book_entry_touch_updated_at
 DO $$
 DECLARE
   app_role constant pg_catalog.oid := 'kasuwa_app'::pg_catalog.regrole;
-  tbl constant text := 'tax_profile';
-  rel constant pg_catalog.oid := ('public.' || tbl)::pg_catalog.regclass;
+  tbl text;
+  rel pg_catalog.oid;
 BEGIN
-  IF NOT (SELECT c.relrowsecurity AND c.relforcerowsecurity
-            FROM pg_catalog.pg_class c WHERE c.oid = rel) THEN
-    RAISE EXCEPTION '0047: % RLS is not enabled and forced', tbl;
-  END IF;
-  IF pg_catalog.pg_get_userbyid((SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = rel))
-     <> 'kasuwa_migrator' THEN
-    RAISE EXCEPTION '0047: % is not owned by kasuwa_migrator', tbl;
-  END IF;
-
-  IF NOT (pg_catalog.has_table_privilege(app_role, rel, 'SELECT')
-          AND pg_catalog.has_table_privilege(app_role, rel, 'INSERT')
-          AND pg_catalog.has_table_privilege(app_role, rel, 'UPDATE')
-          AND pg_catalog.has_table_privilege(app_role, rel, 'DELETE')) THEN
-    RAISE EXCEPTION '0047: kasuwa_app lacks DML on %', tbl;
-  END IF;
+  FOREACH tbl IN ARRAY ARRAY['tax_profile', 'price_book', 'product', 'product_variant',
+                             'price_book_entry'] LOOP
+    rel := ('public.' || tbl)::pg_catalog.regclass;
+    IF NOT (SELECT c.relrowsecurity AND c.relforcerowsecurity
+              FROM pg_catalog.pg_class c WHERE c.oid = rel) THEN
+      RAISE EXCEPTION '0047: % RLS is not enabled and forced', tbl;
+    END IF;
+    IF pg_catalog.pg_get_userbyid((SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = rel))
+       <> 'kasuwa_migrator' THEN
+      RAISE EXCEPTION '0047: % is not owned by kasuwa_migrator', tbl;
+    END IF;
+    IF NOT (pg_catalog.has_table_privilege(app_role, rel, 'SELECT')
+            AND pg_catalog.has_table_privilege(app_role, rel, 'INSERT')) THEN
+      RAISE EXCEPTION '0047: kasuwa_app lacks SELECT or INSERT on %', tbl;
+    END IF;
+    IF pg_catalog.has_table_privilege(app_role, rel, 'DELETE') THEN
+      RAISE EXCEPTION '0047: kasuwa_app must not hold DELETE on %', tbl;
+    END IF;
+    IF pg_catalog.has_column_privilege(app_role, rel, 'id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(app_role, rel, 'tenant_id', 'UPDATE')
+       OR pg_catalog.has_column_privilege(app_role, rel, 'programme_id', 'UPDATE') THEN
+      RAISE EXCEPTION '0047: kasuwa_app must not UPDATE id, tenant_id or programme_id of %', tbl;
+    END IF;
+  END LOOP;
 
   IF (SELECT pg_catalog.count(*) FROM pg_catalog.pg_proc p
        WHERE p.prosecdef
