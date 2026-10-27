@@ -107,9 +107,9 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  * re-pins it, the builder does not.
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
-  [SPEC]: '78d4fb0f55738d8dd68e2ccf62c87d7844e0d8528d5f955d8678ac4b4847b4f4',
+  [SPEC]: 'ceb4e2f1d3d565c07bbaf9b04b0594f04f8b1e23a8a9815d536a5cad5c040867',
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and the custom filters.
-  [MOCK]: '6da2ee53f6620bfd025cae52037130eb6546b101d2b0b6bf6461c87c8826ca04',
+  [MOCK]: 'a074672bbf6c680ecb602e3bdc7d2ceda2f3ba429fa0dc359d95ca34bdc1a9dd',
 };
 
 /**
