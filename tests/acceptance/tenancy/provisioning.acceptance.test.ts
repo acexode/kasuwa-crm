@@ -173,6 +173,15 @@ async function loadProvisioning(): Promise<ProvisioningModule> {
 /** The column that names a row's tenant: `tenant` is keyed by its own id. */
 const tenantColumn = (table: string) => (table === 'tenant' ? 'id' : 'tenant_id');
 
+/**
+ * Whether the app role may read `table` by its tenant column at all. A table it
+ * cannot read (T-0157 revokes `user_credential` from `kasuwa_app` entirely) leaks
+ * nothing to it, which is stronger than RLS, so the leak walk skips it rather
+ * than counting rows the role is not allowed to count.
+ */
+const APP_CAN_READ =
+  "SELECT has_column_privilege(current_user, 'public.' || quote_ident($1), $2, 'SELECT') AS ok";
+
 describe('acceptance: sales-led tenant provisioning (T-0015)', () => {
   let app: INestApplication;
   let appPool: Pool;
@@ -451,6 +460,8 @@ describe('acceptance: sales-led tenant provisioning (T-0015)', () => {
         async (query) => {
           const found: string[] = [];
           for (const table of TENANT_SCOPED_TABLES) {
+            const readable = await query<{ ok: boolean }>(APP_CAN_READ, [table, tenantColumn(table)]);
+            if (readable[0]?.ok !== true) continue;
             const rows = await query<{ n: number }>(
               `SELECT count(*)::int AS n FROM "${table}" WHERE ${tenantColumn(table)} = $1`,
               [primary.tenantId],
@@ -478,6 +489,8 @@ describe('acceptance: sales-led tenant provisioning (T-0015)', () => {
       async (query) => {
         const found: string[] = [];
         for (const table of TENANT_SCOPED_TABLES) {
+          const readable = await query<{ ok: boolean }>(APP_CAN_READ, [table, tenantColumn(table)]);
+          if (readable[0]?.ok !== true) continue;
           const rows = await query<{ n: number }>(
             `SELECT count(*)::int AS n FROM "${table}" WHERE ${tenantColumn(table)} = ANY($1::uuid[])`,
             [seededTenantIds],
