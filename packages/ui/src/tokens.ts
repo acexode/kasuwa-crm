@@ -471,6 +471,12 @@ export const CONTROL_SHADOW = {
  *                       the 64px it sits below and an 8px margin (T-0137)
  *   commandPalette     660  P27's command palette (T-0138); at most the
  *                       viewport less 110px, and less 150px from 1280 up
+ *   searchDropdown     600  P27's top-bar search dropdown (T-0161); 680 from
+ *                       1280 up (searchDropdownWide), at most the viewport
+ *                       less 120px wide (searchDropdownMaxWidth) and 640 tall
+ *                       (760 from 1280 up), never taller than the viewport
+ *                       less 80px
+ *   searchScopeMenu    340  the dropdown's programme-scope menu (T-0161)
  *
  * They join the spacing scale like SHELL: `max-w-overlay-drawer`,
  * `h-overlay-table-footer`.
@@ -495,6 +501,12 @@ export const OVERLAY = {
   commandPalette: '660px',
   commandPaletteMaxHeight: 'calc(100vh - 110px)',
   commandPaletteMaxHeightWide: 'calc(100vh - 150px)',
+  searchDropdown: '600px',
+  searchDropdownWide: '680px',
+  searchDropdownMaxWidth: 'calc(100vw - 120px)',
+  searchDropdownMaxHeight: 'min(640px, calc(100vh - 80px))',
+  searchDropdownMaxHeightWide: 'min(760px, calc(100vh - 80px))',
+  searchScopeMenu: '340px',
   /**
    * P18's field editor (T-0142): docked beside the field table at 480 from
    * 1280 up, and an overlay drawer at 460 below it (the export's `panelW`).

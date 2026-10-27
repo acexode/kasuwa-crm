@@ -53,6 +53,17 @@ import { useResource } from './use-resource';
  * wants the channels group, not an empty one.
  * ---------------------------------------------------------------------------
  *
+ * WHEN A SCREEN DOCKS AN EDITOR (T-0161). P18's field editor docks beside the
+ * table from 1280 up, and a 272px menu beside a 480px editor left the table
+ * the export's columns did not fit in. A screen marks the editor with
+ * `data-editor-docked`; the shell, which cannot be told by a prop from a
+ * descendant without a context every admin route would ship, sees it with CSS
+ * `:has()`, and while it is there the menu is the drawer it already is below
+ * 1280: hidden, with the menu button back in the bar, and over the content when
+ * opened. Close the editor and the sidebar returns. A browser without `:has()`
+ * keeps the sidebar, as before. The full class names are written out so
+ * Tailwind sees each one.
+ *
  * The residency pill never scrolls away because data residency is a
  * contractual promise in this market and the design puts it in the top bar for
  * that reason, not for decoration.
@@ -270,7 +281,7 @@ export function AdminShell({
     badges.data?.badges.find((badge) => badge.settingId === settingId) ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-text">
+    <div className="group/shell flex min-h-screen flex-col bg-bg text-text">
       <header className="sticky top-0 z-30 flex h-shell-header shrink-0 items-center gap-1 border-b border-border bg-surface px-2 sm:gap-3 sm:px-4">
         {nav ? (
           <button
@@ -280,7 +291,7 @@ export function AdminShell({
             aria-expanded={drawerOpen}
             data-testid="nav-toggle"
             onClick={() => setDrawerOpen((open) => !open)}
-            className={`flex size-control-base shrink-0 items-center justify-center rounded-md text-text is-hover:bg-surface-sunken xl:hidden ${SHELL_FOCUS}`}
+            className={`flex size-control-base shrink-0 items-center justify-center rounded-md text-text is-hover:bg-surface-sunken xl:hidden xl:group-has-[[data-editor-docked]]/shell:flex ${SHELL_FOCUS}`}
           >
             <Icon name="menu" size={24} />
           </button>
@@ -357,7 +368,7 @@ export function AdminShell({
             type="button"
             aria-label={t.t('admin.shell.menu.close')}
             onClick={() => setDrawerOpen(false)}
-            className="fixed inset-x-0 bottom-0 top-shell-header z-20 bg-scrim xl:hidden"
+            className="fixed inset-x-0 bottom-0 top-shell-header z-20 bg-scrim xl:hidden xl:group-has-[[data-editor-docked]]/shell:block"
           />
         ) : null}
 
@@ -368,7 +379,11 @@ export function AdminShell({
             data-open={drawerOpen ? 'true' : 'false'}
             className={`${
               drawerOpen ? 'flex' : 'hidden'
-            } fixed bottom-0 start-0 top-shell-header z-30 w-shell-admin-nav shrink-0 flex-col border-e border-border bg-surface shadow-3 xl:static xl:z-0 xl:flex xl:shadow-none`}
+            } fixed bottom-0 start-0 top-shell-header z-30 w-shell-admin-nav shrink-0 flex-col border-e border-border bg-surface shadow-3 xl:static xl:z-0 xl:flex xl:shadow-none ${
+              drawerOpen
+                ? 'xl:group-has-[[data-editor-docked]]/shell:fixed xl:group-has-[[data-editor-docked]]/shell:z-30 xl:group-has-[[data-editor-docked]]/shell:shadow-3'
+                : 'xl:group-has-[[data-editor-docked]]/shell:hidden'
+            }`}
           >
             <div className="flex max-h-full flex-col gap-0.5 overflow-y-auto px-2.5 pb-8 pt-3 xl:sticky xl:top-shell-header xl:max-h-shell-below-header">
               <div className="relative mb-2">

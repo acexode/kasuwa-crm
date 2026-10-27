@@ -157,7 +157,7 @@ export default function SearchDropdown({ t, text, live, listboxId, keysRef, onAc
   return (
     <div
       data-testid="search-dropdown"
-      className="absolute start-0 top-12 z-40 flex max-h-[min(640px,calc(100vh-80px))] w-[600px] max-w-[calc(100vw-120px)] flex-col rounded-lg border border-border bg-surface text-text shadow-3 min-[1280px]:max-h-[min(760px,calc(100vh-80px))] min-[1280px]:w-[680px]"
+      className="absolute start-0 top-12 z-40 flex max-h-overlay-search-dropdown-max-height w-overlay-search-dropdown max-w-overlay-search-dropdown-max-width flex-col rounded-lg border border-border bg-surface text-text shadow-3 xl:max-h-overlay-search-dropdown-max-height-wide xl:w-overlay-search-dropdown-wide"
     >
       {typed ? (
         <div className="relative z-10 flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2.5">
@@ -521,7 +521,7 @@ export function ScopeMenu({ t, onClose }: { t: Translator; onClose: () => void }
           onClose();
         }
       }}
-      className="absolute start-0 top-12 z-40 flex w-[340px] max-w-[calc(100vw-120px)] flex-col rounded-lg border border-border bg-surface p-1.5 text-text shadow-3"
+      className="absolute start-0 top-12 z-40 flex w-overlay-search-scope-menu max-w-overlay-search-dropdown-max-width flex-col rounded-lg border border-border bg-surface p-1.5 text-text shadow-3"
     >
       <span className={`px-2.5 pb-1.5 pt-2 ${SECTION_LABEL}`}>{t.t('search.scope.menu')}</span>
       {(list ?? []).map((programme) => (

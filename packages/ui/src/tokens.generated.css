@@ -294,6 +294,12 @@
   --k-overlay-command-palette: 660px;
   --k-overlay-command-palette-max-height: calc(100vh - 110px);
   --k-overlay-command-palette-max-height-wide: calc(100vh - 150px);
+  --k-overlay-search-dropdown: 600px;
+  --k-overlay-search-dropdown-wide: 680px;
+  --k-overlay-search-dropdown-max-width: calc(100vw - 120px);
+  --k-overlay-search-dropdown-max-height: min(640px, calc(100vh - 80px));
+  --k-overlay-search-dropdown-max-height-wide: min(760px, calc(100vh - 80px));
+  --k-overlay-search-scope-menu: 340px;
   --k-overlay-studio-panel: 480px;
   --k-overlay-studio-panel-tablet: 460px;
   --k-radius-sheet: 20px;
