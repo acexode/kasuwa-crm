@@ -149,15 +149,15 @@ export const NodeTranslation = z.object({
   title: z.string().optional(),
   text: z.string().optional(),
   hint: z.string().optional(),
-  choices: z.record(z.string()).optional(),
-  fields: z.record(z.string()).optional(),
+  choices: z.record(z.string(), z.string()).optional(),
+  fields: z.record(z.string(), z.string()).optional(),
 });
 export type NodeTranslation = z.infer<typeof NodeTranslation>;
 
-export const TranslationTexts = z.record(NodeTranslation);
+export const TranslationTexts = z.record(z.string(), NodeTranslation);
 export type TranslationTexts = z.infer<typeof TranslationTexts>;
 
-export const Translations = z.record(TranslationTexts);
+export const Translations = z.record(z.string(), TranslationTexts);
 export type Translations = z.infer<typeof Translations>;
 
 export const StaffRef = z.object({ id: z.string(), displayName: z.string() });

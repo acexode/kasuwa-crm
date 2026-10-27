@@ -73,7 +73,7 @@ export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT';
 
 export async function scriptingRequest<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T, unknown>,
   init: { readonly method?: Method; readonly body?: unknown; readonly signal?: AbortSignal } = {},
 ): Promise<ScriptingResult<T>> {
   let response: Response;

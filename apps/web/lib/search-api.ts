@@ -43,7 +43,7 @@ export {
 } from './search-hits';
 
 const RawAnswer = z.object({
-  groups: z.array(z.object({ type: z.string(), hits: z.array(z.unknown()) }).passthrough()),
+  groups: z.array(z.looseObject({ type: z.string(), hits: z.array(z.unknown()) })),
 });
 
 /**

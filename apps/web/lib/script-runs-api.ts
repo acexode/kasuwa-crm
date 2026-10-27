@@ -45,7 +45,7 @@ export type AnswerValue = z.infer<typeof AnswerValue>;
 
 const NodeAnswer = z.discriminatedUnion('type', [
   z.object({ type: z.literal('question'), choiceKey: z.string(), answeredAt: z.string() }),
-  z.object({ type: z.literal('form'), values: z.record(AnswerValue), updatedAt: z.string() }),
+  z.object({ type: z.literal('form'), values: z.record(z.string(), AnswerValue), updatedAt: z.string() }),
 ]);
 export type NodeAnswer = z.infer<typeof NodeAnswer>;
 
@@ -72,7 +72,7 @@ export const ScriptRun = z.object({
   currentNodeId: z.string().nullable(),
   path: z.array(z.object({ nodeId: z.string(), enteredAt: z.string(), branchOutcome: z.boolean().nullable().optional() })),
   acknowledgements: z.array(z.object({ nodeId: z.string(), locale: ScriptLocale, acknowledgedAt: z.string() })),
-  answers: z.record(NodeAnswer),
+  answers: z.record(z.string(), NodeAnswer),
   startedBy: StaffRef,
   completedAt: z.string().nullable(),
   dispositionId: z.string().nullable(),
@@ -105,7 +105,7 @@ export type DispositionPage = z.infer<typeof DispositionPage>;
  * in `withheldFields`) when a name part is withheld (D-L68, T-0124): the
  * screen then draws the stand-in, never a part of the name.
  */
-export const RunContact = z.object({ id: z.string(), displayName: z.string().optional(), withheldFields: z.array(z.string()) }).passthrough();
+export const RunContact = z.looseObject({ id: z.string(), displayName: z.string().optional(), withheldFields: z.array(z.string()) });
 export type RunContact = z.infer<typeof RunContact>;
 
 const Me = z.object({ id: z.string(), displayName: z.string() });

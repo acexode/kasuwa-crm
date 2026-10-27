@@ -47,9 +47,9 @@ export type PicklistValue = z.infer<typeof PicklistValue>;
 
 /** `values` for a picklist, `currencyCode` for a currency, `{}` for the rest. Each closed: a config with anything else is not one. */
 const FieldConfig = z.union([
-  z.object({ values: z.array(PicklistValue) }).strict(),
-  z.object({ currencyCode: z.string() }).strict(),
-  z.object({}).strict(),
+  z.strictObject({ values: z.array(PicklistValue) }),
+  z.strictObject({ currencyCode: z.string() }),
+  z.strictObject({}),
 ]);
 
 export const CustomFieldDefinition = z

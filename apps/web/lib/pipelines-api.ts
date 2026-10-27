@@ -196,7 +196,7 @@ const NETWORK_FAILURE: PipelineError = { status: 0, code: NETWORK, details: [] }
  */
 export async function pipelineRequest<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T, unknown>,
   body?: unknown,
   method?: 'POST' | 'PATCH',
 ): Promise<PipelineResult<T>> {

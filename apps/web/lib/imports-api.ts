@@ -92,7 +92,7 @@ export function isPartUrl(value: string, page?: { readonly origin: string; reado
 
 const UploadPart = z.object({
   partNumber: z.number().int().positive(),
-  url: z.string().url().refine((value) => isPartUrl(value, typeof window === 'undefined' ? undefined : window.location), { message: 'part_url' }),
+  url: z.url().refine((value) => isPartUrl(value, typeof window === 'undefined' ? undefined : window.location), { message: 'part_url' }),
   sizeBytes: z.number().int().positive(),
 });
 export type UploadPart = z.infer<typeof UploadPart>;

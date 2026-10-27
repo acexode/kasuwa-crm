@@ -75,17 +75,17 @@ export interface NotificationQuery {
 }
 
 const RawItem = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   kind: z.string(),
   objectType: z.string(),
   objectId: z.string(),
   actor: z.object({ displayName: z.string().nullable() }),
   objectDisplayName: z.string().nullable(),
-  createdAt: z.string().datetime(),
-  readAt: z.string().datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  readAt: z.iso.datetime().nullable(),
 });
 
-const Head = z.object({ id: z.string().uuid() });
+const Head = z.object({ id: z.uuid() });
 
 /** The `code`s these operations answer with (the shared envelope's), a copy of the records client's so this module imports no value from it (D-L182). */
 const Envelope = z.object({
@@ -102,7 +102,7 @@ const NETWORK_FAILURE: RecordsResult<never> = { ok: false, error: { code: 'netwo
  */
 async function request<T>(
   path: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T, unknown>,
   init: { readonly method: 'GET' | 'POST' | 'PATCH'; readonly body?: unknown; readonly signal?: AbortSignal },
 ): Promise<RecordsResult<T>> {
   let response: Response;
@@ -143,8 +143,8 @@ const CountAnswer = z.object({
 });
 
 const UpdateAnswer = z.object({
-  id: z.string().uuid(),
-  readAt: z.string().datetime().nullable(),
+  id: z.uuid(),
+  readAt: z.iso.datetime().nullable(),
 });
 
 export function isKind(value: string): value is NotificationKind {

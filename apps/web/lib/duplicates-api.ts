@@ -33,8 +33,8 @@ export const MATCH_ON = ['phone', 'email'] as const;
 export const MatchOn = z.enum(MATCH_ON);
 export type MatchOn = z.infer<typeof MatchOn>;
 
-const Id = z.string().uuid();
-const Instant = z.string().datetime();
+const Id = z.uuid();
+const Instant = z.iso.datetime();
 
 const DuplicateContact = z.object({
   id: Id,
