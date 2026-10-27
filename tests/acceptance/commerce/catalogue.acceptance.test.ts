@@ -55,6 +55,16 @@ import { asUser, createApi } from '../support/api';
  *      an unreachable programme are refused (400 or 404).
  *   7. no-store on every answer; one 401 without credentials.
  *
+ *   Lead amendments (D-L210), before any build was approved:
+ *   8. Writes need `catalogue.write` (the admin set). An agent reads the
+ *      catalogue and is refused every write with one 403 `not_permitted`.
+ *   9. A price entry stays inside its book: a product of another programme or
+ *      another product's variant is a 404; a currency other than the book's, an
+ *      amount past bigint and more than 50 variants are 400s.
+ *  10. The schema holds the same: no DELETE and no UPDATE of tenant, programme
+ *      or id for the app role, and the foreign keys refuse a currency or variant
+ *      mismatch whatever the code does.
+ *
  * Out of scope: quotes, approvals, send, payments, P21 screens.
  */
 
@@ -189,7 +199,7 @@ describe('acceptance: product catalogue (T-0164)', () => {
     });
 
     it('creates, lists, updates a product and upserts a price-book entry', async () => {
-      const agent = as(TENANT_A, USER_A_AGENT_1);
+      const agent = as(TENANT_A, USER_A_SUPERVISOR); // writes need catalogue.write (D-L210): the admin set
       const taxes = await request(server()).get(TAX_PROFILES(PROGRAMME_A1)).set(agent);
       const taxProfileId = taxes.body.data[0].id as string;
       const books = await request(server()).get(PRICE_BOOKS(PROGRAMME_A1)).set(agent);
@@ -235,15 +245,12 @@ describe('acceptance: product catalogue (T-0164)', () => {
       expect(updated.body.name).toBe('Collections retainer (NGN)');
       expect(updated.body.description).toBeNull();
 
-      const priced = await request(server())
-        .put(PRICE_ENTRY(ngnBook!.id))
-        .set(agent)
-        .send({
-          productId,
-          variantId,
-          amountMinor: '25000000',
-          currency: 'NGN',
-        });
+      const priced = await request(server()).put(PRICE_ENTRY(ngnBook!.id)).set(agent).send({
+        productId,
+        variantId,
+        amountMinor: '25000000',
+        currency: 'NGN',
+      });
       expect(priced.status).toBe(200);
       expect(priced.body).toMatchObject({
         priceBookId: ngnBook!.id,
@@ -269,7 +276,7 @@ describe('acceptance: product catalogue (T-0164)', () => {
     it('hides a product from another programme, another tenant, and a user with no programme', async () => {
       const created = await request(server())
         .post(PRODUCTS(PROGRAMME_A1))
-        .set(as(TENANT_A, USER_A_AGENT_1))
+        .set(as(TENANT_A, USER_A_SUPERVISOR))
         .send({ name: 'Scoped only', sku: 'SCOPED-1' });
       expect(created.status).toBe(201);
       const productId = created.body.id as string;
@@ -328,10 +335,9 @@ describe('acceptance: product catalogue (T-0164)', () => {
           appPool,
           { tenantId: TENANT_A, userId: USER_A_AGENT_2 },
           async (tx) => {
-            const rows = await tx.query<{ id: string }>(
-              'SELECT id FROM product WHERE id = $1',
-              [productId],
-            );
+            const rows = await tx.query<{ id: string }>('SELECT id FROM product WHERE id = $1', [
+              productId,
+            ]);
             return rows;
           },
         );
@@ -344,7 +350,7 @@ describe('acceptance: product catalogue (T-0164)', () => {
 
   describe('4. validation and auth', () => {
     it('refuses a float amount, an unknown currency, a stray key, and no credentials', async () => {
-      const agent = as(TENANT_A, USER_A_AGENT_1);
+      const agent = as(TENANT_A, USER_A_SUPERVISOR);
       const books = await request(server()).get(PRICE_BOOKS(PROGRAMME_A1)).set(agent);
       const ngnBook = (books.body.data as Array<{ id: string; currency: string }>).find(
         (b) => b.currency === 'NGN',
@@ -378,6 +384,214 @@ describe('acceptance: product catalogue (T-0164)', () => {
 
       const anon = await request(server()).get(PRODUCTS(PROGRAMME_A1));
       expect(anon.status).toBe(401);
+    });
+  });
+  // =========================================================================
+  // Lead amendments (D-L210). The suite arrived in the build PR; these hold what
+  // its first draft left to the implementation alone.
+  // =========================================================================
+
+  /** An NGN book of `programmeId`, read as `who`. */
+  async function ngnBook(who: Record<string, string>, programmeId: string): Promise<string> {
+    const books = await request(server()).get(PRICE_BOOKS(programmeId)).set(who);
+    const book = (books.body.data as Array<{ id: string; currency: string }>).find(
+      (b) => b.currency === 'NGN',
+    );
+    if (book === undefined) throw new Error(`fixture: ${programmeId} has no NGN price book`);
+    return book.id;
+  }
+
+  async function product(
+    who: Record<string, string>,
+    programmeId: string,
+    body: Record<string, unknown>,
+  ): Promise<{ id: string; variants: Array<{ id: string }> }> {
+    const created = await request(server()).post(PRODUCTS(programmeId)).set(who).send(body);
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    return created.body as { id: string; variants: Array<{ id: string }> };
+  }
+
+  describe('5. who may write (D-L210: catalogue.write, the admin set)', () => {
+    it('an agent reads the catalogue but cannot create, edit or price it: one 403', async () => {
+      const admin = as(TENANT_A, USER_A_SUPERVISOR);
+      const agent = as(TENANT_A, USER_A_AGENT_1);
+      const existing = await product(admin, PROGRAMME_A1, { name: 'Admin made', sku: 'ADM-1' });
+      const book = await ngnBook(agent, PROGRAMME_A1);
+
+      const reads = await Promise.all([
+        request(server()).get(PRODUCTS(PROGRAMME_A1)).set(agent),
+        request(server()).get(PRICE_BOOKS(PROGRAMME_A1)).set(agent),
+        request(server()).get(TAX_PROFILES(PROGRAMME_A1)).set(agent),
+      ]);
+      for (const read of reads) expect(read.status).toBe(200);
+
+      const writes = await Promise.all([
+        request(server())
+          .post(PRODUCTS(PROGRAMME_A1))
+          .set(agent)
+          .send({ name: 'Agent made', sku: 'AG-1' }),
+        request(server()).patch(PRODUCT(existing.id)).set(agent).send({ name: 'renamed' }),
+        request(server())
+          .put(PRICE_ENTRY(book))
+          .set(agent)
+          .send({ productId: existing.id, amountMinor: '100', currency: 'NGN' }),
+      ]);
+      for (const write of writes) {
+        expect(write.status).toBe(403);
+        expect(write.body).toMatchObject({ code: 'not_permitted' });
+      }
+      const after = await request(server()).get(PRODUCTS(PROGRAMME_A1)).set(agent);
+      const names = (after.body.data as Array<{ name: string }>).map((row) => row.name);
+      expect(names, 'a refused write changed the catalogue').not.toContain('Agent made');
+      expect(names).not.toContain('renamed');
+    });
+  });
+
+  describe('6. references and money stay inside one book and one programme', () => {
+    it('a product of another programme, or another product’s variant, is not priced: 404', async () => {
+      const admin = as(TENANT_A, USER_A_SUPERVISOR); // admin in A1 and A2
+      const a1Book = await ngnBook(admin, PROGRAMME_A1);
+      const fromA2 = await product(admin, PROGRAMME_A2, { name: 'A2 only', sku: 'A2-1' });
+      const one = await product(admin, PROGRAMME_A1, {
+        name: 'One',
+        sku: 'ONE',
+        variants: [{ name: 'V1' }],
+      });
+      const two = await product(admin, PROGRAMME_A1, {
+        name: 'Two',
+        sku: 'TWO',
+        variants: [{ name: 'V2' }],
+      });
+
+      const crossProgramme = await request(server())
+        .put(PRICE_ENTRY(a1Book))
+        .set(admin)
+        .send({ productId: fromA2.id, amountMinor: '100', currency: 'NGN' });
+      expect(crossProgramme.status).toBe(404);
+      expect(crossProgramme.body).toMatchObject({ code: 'not_found' });
+
+      const foreignVariant = await request(server())
+        .put(PRICE_ENTRY(a1Book))
+        .set(admin)
+        .send({
+          productId: one.id,
+          variantId: two.variants[0]?.id,
+          amountMinor: '100',
+          currency: 'NGN',
+        });
+      expect(foreignVariant.status).toBe(404);
+      expect(foreignVariant.body).toMatchObject({ code: 'not_found' });
+    });
+
+    it('an entry in another currency than its book, an amount beyond bigint, and too many variants are 400', async () => {
+      const admin = as(TENANT_A, USER_A_SUPERVISOR);
+      const book = await ngnBook(admin, PROGRAMME_A1);
+      const item = await product(admin, PROGRAMME_A1, { name: 'Money', sku: 'MON-1' });
+
+      const mismatch = await request(server())
+        .put(PRICE_ENTRY(book))
+        .set(admin)
+        .send({ productId: item.id, amountMinor: '100', currency: 'GHS' });
+      expect(mismatch.status).toBe(400);
+      expect(mismatch.body).toMatchObject({ code: 'validation_failed' });
+
+      const huge = await request(server())
+        .put(PRICE_ENTRY(book))
+        .set(admin)
+        .send({ productId: item.id, amountMinor: '1'.repeat(20), currency: 'NGN' });
+      expect(huge.status, 'an amount past bigint must be a 400, never a 500').toBe(400);
+      expect(huge.body).toMatchObject({ code: 'validation_failed' });
+
+      const crowded = await request(server())
+        .post(PRODUCTS(PROGRAMME_A1))
+        .set(admin)
+        .send({
+          name: 'Crowded',
+          variants: Array.from({ length: 51 }, (_, n) => ({ name: `V${String(n)}` })),
+        });
+      expect(crowded.status).toBe(400);
+      expect(crowded.body).toMatchObject({ code: 'validation_failed' });
+    });
+  });
+
+  describe('7. the database holds it too, whatever the code does', () => {
+    it('the app role may not delete catalogue rows, nor move them between programmes or tenants', async () => {
+      for (const table of CATALOGUE_TABLES) {
+        const { rows } = await observer.query<{
+          del: boolean;
+          tenant: boolean;
+          programme: boolean;
+          id: boolean;
+        }>(
+          `SELECT has_table_privilege('kasuwa_app', $1, 'DELETE') AS del,
+                  has_column_privilege('kasuwa_app', $1, 'tenant_id', 'UPDATE') AS tenant,
+                  has_column_privilege('kasuwa_app', $1, 'programme_id', 'UPDATE') AS programme,
+                  has_column_privilege('kasuwa_app', $1, 'id', 'UPDATE') AS id`,
+          [`public.${table}`],
+        );
+        expect(rows[0], table).toEqual({ del: false, tenant: false, programme: false, id: false });
+      }
+    });
+
+    it('an entry whose currency differs from its book, or whose variant is another product’s, is refused by the schema', async () => {
+      const admin = as(TENANT_A, USER_A_SUPERVISOR);
+      const book = await ngnBook(admin, PROGRAMME_A1);
+      const one = await product(admin, PROGRAMME_A1, {
+        name: 'DB one',
+        variants: [{ name: 'D1' }],
+      });
+      const two = await product(admin, PROGRAMME_A1, {
+        name: 'DB two',
+        variants: [{ name: 'D2' }],
+      });
+      const appPool = createPool({ connectionString: inject('databaseUrl'), max: 1 });
+      const insert = async (values: {
+        productId: string;
+        variantId: string | null;
+        currency: string;
+      }) => {
+        try {
+          await withTenantTransaction(
+            appPool,
+            { tenantId: TENANT_A, userId: USER_A_SUPERVISOR },
+            async (tx) => {
+              await tx.query(
+                `INSERT INTO price_book_entry
+                 (id, tenant_id, programme_id, price_book_id, product_id, variant_id, amount_minor, currency)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 100, $6)`,
+                [TENANT_A, PROGRAMME_A1, book, values.productId, values.variantId, values.currency],
+              );
+            },
+          );
+          return 'accepted';
+        } catch (error) {
+          return String((error as { code?: unknown }).code);
+        }
+      };
+      try {
+        expect(
+          await insert({ productId: one.id, variantId: null, currency: 'GHS' }),
+          'GHS entry in an NGN book',
+        ).toBe('23503');
+        expect(
+          await insert({
+            productId: one.id,
+            variantId: two.variants[0]?.id ?? null,
+            currency: 'NGN',
+          }),
+          'another product’s variant',
+        ).toBe('23503');
+        expect(
+          await insert({
+            productId: one.id,
+            variantId: one.variants[0]?.id ?? null,
+            currency: 'NGN',
+          }),
+          'control',
+        ).toBe('accepted');
+      } finally {
+        await appPool.end();
+      }
     });
   });
 });
