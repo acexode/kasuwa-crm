@@ -107,7 +107,7 @@ CREATE TABLE product_variant (
   CONSTRAINT product_variant_name_check CHECK (char_length(name) BETWEEN 1 AND 200)
 );
 
-CREATE INDEX product_variant_product_idx ON product_variant (tenant_id, programme_id, product_id);
+-- No separate (tenant_id, programme_id, product_id) index: the variant-of-product key below leads with it.
 
 CREATE TABLE price_book_entry (
   id            uuid        PRIMARY KEY,

@@ -1805,7 +1805,12 @@ export const productVariant = pgTable(
       table.programmeId,
       table.id,
     ),
-    index('product_variant_product_idx').on(table.tenantId, table.programmeId, table.productId),
+    uniqueIndex('product_variant_tenant_programme_product_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.productId,
+      table.id,
+    ),
   ],
 );
 
