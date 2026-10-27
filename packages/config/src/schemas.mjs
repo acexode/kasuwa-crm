@@ -166,7 +166,7 @@ const ApiSchema = z.object({
 
   // kasuwa_app: no BYPASSRLS, no DDL. The API's only connection. The migrator
   // URL is deliberately NOT here: no app process may hold it (D-L07, D-L54).
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(10),
 
   // kasuwa_auth: no BYPASSRLS, a member of no role. The ONLY role that may
@@ -175,13 +175,13 @@ const ApiSchema = z.object({
   // sign-in can be recorded, so the API refuses to boot rather than 42501 on
   // the first one. API only - the worker's sweep runs as kasuwa_app entering
   // kasuwa_sweeper (D-L66) and needs none; the web process refuses it below.
-  DATABASE_AUTH_URL: z.string().url(),
+  DATABASE_AUTH_URL: z.url(),
 
   API_PORT: z.coerce.number().int().positive().default(3001),
 
   // Where the import API enqueues its BullMQ jobs (T-0094). Optional: without
   // it the import writes answer 503 and every other route is unaffected.
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: z.url().optional(),
 
   // NO LOCALE SETTINGS HERE. `@kasuwa/i18n` owns which languages exist and
   // which are offered, and it DERIVES the offered set from catalogue
@@ -204,7 +204,7 @@ const ApiSchema = z.object({
 const WorkerSchema = z.object({
   ...baseShape,
   // BullMQ's connection.
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+  REDIS_URL: z.url().default('redis://localhost:6379'),
 
   // kasuwa_app: no BYPASSRLS, no DDL - the same role and the same rule as the
   // API (D-L07, D-L54). Required since T-0045, whose auth-table prune is the
@@ -213,7 +213,7 @@ const WorkerSchema = z.object({
   // enters the NOBYPASSRLS `kasuwa_sweeper` role (D-L66), and no app process
   // may hold the BYPASSRLS connection. Zod strips an unknown key, so a stray
   // DATABASE_MIGRATION_URL in the environment never reaches the worker.
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(200).default(2),
 
   // kasuwa_relay: no BYPASSRLS, a member of no role (ADR-0018, T-0098). The
@@ -222,7 +222,7 @@ const WorkerSchema = z.object({
   // process alone: every other schema refuses it by presence
   // (RELAY_FORBIDDEN below). Required: without it no event is ever
   // published. The worker checks at boot that it logs in as kasuwa_relay.
-  DATABASE_RELAY_URL: z.string().url(),
+  DATABASE_RELAY_URL: z.url(),
 
   // GUARDS: the worker holds a database connection now, so it runs the
   // key-provider guard as `apiEnv` does (the rule this comment used to state
@@ -245,11 +245,11 @@ const RealtimeSchema = z.object({
   // ADR-0020): no `kasuwa_auth`, no migrator, no relay URL. Required, so a
   // gateway that could not authenticate anyone refuses to boot instead of
   // refusing every socket (T-0160).
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().max(50).default(5),
 
   // The event seam (ADR-0020): Redis pub/sub, ids only.
-  REDIS_URL: z.string().url(),
+  REDIS_URL: z.url(),
 
   // The one web origin a BROWSER may connect from, exactly as it sends `Origin`
   // (scheme, host and port, lowercase, no path). Optional: without it a cookie
@@ -277,7 +277,7 @@ const MigratorSchema = z.object({
   // kasuwa_migrator (BYPASSRLS). For operator commands only (D-L07, D-L54).
   // Optional here so that each command can say, in its own words, why it
   // needs it.
-  DATABASE_MIGRATION_URL: z.string().url().optional(),
+  DATABASE_MIGRATION_URL: z.url().optional(),
 });
 /** @typedef {z.infer<typeof MigratorSchema>} MigratorEnv */
 
@@ -299,20 +299,20 @@ function refineOrigin(value, context) {
   try {
     url = new URL(value);
   } catch {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must be an absolute http(s) URL' });
+    context.addIssue({ code: 'custom', message: 'must be an absolute http(s) URL' });
     return;
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must be http: or https:' });
+    context.addIssue({ code: 'custom', message: 'must be http: or https:' });
     return;
   }
   if (url.username !== '' || url.password !== '') {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: 'must not carry credentials' });
+    context.addIssue({ code: 'custom', message: 'must not carry credentials' });
     return;
   }
   if (value !== url.origin) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'must be a bare origin (scheme://host[:port], lowercase, no path, query or trailing slash)',
     });
   }
@@ -361,7 +361,7 @@ const WebSchema = z.object({
   // setting the web process may hold, because a CSP `connect-src` must name it
   // (ADR-0019's build, T-0096). Never the internal S3_ENDPOINT and never the
   // keys: both are in WEB_FORBIDDEN below.
-  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
+  S3_PUBLIC_ENDPOINT: z.url().optional(),
 });
 /** @typedef {z.infer<typeof WebSchema>} WebEnv */
 
@@ -449,8 +449,8 @@ function describeIssues(error) {
   return error.issues.map((issue) => {
     const path = issue.path.join('.') || '(root)';
     const message =
-      issue.code === 'invalid_enum_value'
-        ? `must be one of ${issue.options.map((option) => `'${String(option)}'`).join(' | ')}`
+      issue.code === 'invalid_value'
+        ? `must be one of ${issue.values.map((option) => `'${String(option)}'`).join(' | ')}`
         : issue.message;
     return `  ${path}: ${message}`;
   });
