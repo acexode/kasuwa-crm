@@ -101,6 +101,7 @@ const DEMO_FLAGS = [
   'search_filters',
   // T-0132: P03 Home, and its widgets with no module behind them yet (D-L194).
   'crm_home',
+  'home_layout_server',
   'whatsapp_inbox',
   'quota',
   'approvals',
