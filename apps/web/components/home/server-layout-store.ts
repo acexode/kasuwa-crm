@@ -23,6 +23,9 @@ export function createServerLayoutStore(): HomeLayoutStore {
   let readSucceeded = false;
 
   async function read() {
+    // Every read decides afresh: a success for an earlier load (or person) never
+    // licenses a write after this one fails.
+    readSucceeded = false;
     const result = await getHomeLayout();
     if (result.ok) {
       readSucceeded = true;
