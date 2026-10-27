@@ -1,21 +1,63 @@
 # `tests/e2e` — the end-to-end harness
 
-Playwright against the real stack: the API, the web app, and a Postgres
-container seeded from `packages/db/src/fixtures.ts` — the same two tenants,
-four programmes and twelve contacts the isolation suite asserts against. There
-is no mock server. An e2e suite that mocks the API tests the mock.
+Playwright against a real web app, a real API and a Postgres container seeded
+from `packages/db/src/fixtures.ts` — the same two tenants, four programmes and
+twelve contacts the isolation suite asserts against. Two kinds of spec run on
+that stack:
+
+- **Real-stack journeys** (`tenancy.spec.ts`, `bff-session.spec.ts`) talk to the
+  API through the web app and assert what the database decides.
+- **Screen specs** (most of `p01-…` to `p28-…`; `p02-live.spec.ts` is the live-API exception) serve the API from a **contract mock**:
+  `support/*-mock.ts` answers the screen's calls in the browser through
+  `page.route`, built from `docs/api/*.openapi.yaml`. A mock tests the screen
+  against the contract, never the API, so a screen spec proves nothing about the
+  server. The real-stack journeys do.
+
+## Running it: always through the lock
 
 ```bash
-pnpm test:e2e                            # the suite
-pnpm test:e2e -- --grep @harness         # just the harness self-tests
-pnpm test:e2e -- --grep @over-budget     # MUST exit non-zero (see below)
-pnpm test:e2e -- --headed                # watch it
+tools/e2e-locked.sh                          # the whole suite (nightly and slice closes only)
+tools/e2e-locked.sh --grep @harness          # just the harness self-tests
+tools/e2e-locked.sh --grep @byte-budget      # the sign-in byte budget
+tools/e2e-locked.sh --grep @over-budget      # MUST exit non-zero (see below)
+tools/e2e-locked.sh --headed                 # watch it
 ```
 
-Docker must be running: `pnpm test:e2e` starts its own Postgres through
-Testcontainers. Nothing uses the dev stack's ports, and nothing uses 3000/3001
-— every server binds a free port and `scripts/run-e2e.mjs` writes the URLs to
+`tools/e2e-locked.sh` runs `pnpm test:e2e -- <your arguments>` from the repo root,
+and only when it holds the machine-wide lock. Two e2e runs at once crashed Docker
+Desktop about eight times, so a second run waits for the first instead of
+starting. Do not call `pnpm test:e2e` directly.
+
+- The lock is a directory (`mkdir` is atomic) holding `owner.pid`, at
+  `${KASUWA_E2E_LOCK_DIR:-${TMPDIR:-/tmp}/kasuwa-e2e.lock}`. It is outside the
+  checkout, so every worktree meets the same lock.
+- `KASUWA_E2E_LOCK_DIR` moves it; `KASUWA_E2E_LOCK_TIMEOUT` is how many seconds to
+  wait for it (default 3600).
+- A lock is stale only when its owner pid is dead, never because it is old. The
+  script takes a stale lock over. It never removes a live one, and you should not
+  remove one by hand.
+- Exit codes: **3** Docker is not running (the script does not start it), **4** the
+  wait timed out and the owner pid is in the message. Any other status is the e2e
+  command's own.
+
+Docker must be running: the run starts its own Postgres through Testcontainers.
+Nothing uses the dev stack's ports, and nothing uses 3000/3001 — every server
+binds a free port and `scripts/run-e2e.mjs` writes the URLs to
 `.artifacts/stack.json` for the specs to read.
+
+### Suites that start the harness themselves
+
+Some acceptance suites run Playwright through `scripts/run-e2e.mjs` from inside
+vitest: `records-ui`, `admin-ui`, `scripting-ui`, `session/` and
+`auth-ui/p01-auth-screens`. They start Docker, a build and the servers. To run
+only their static checks and skip the harness, filter by name:
+
+```bash
+pnpm exec vitest run tests/acceptance/records-ui/accounts-screen.acceptance.test.ts -t "<test name>"
+```
+
+Per task, run only the file and the tags your task names. Those suites are not
+part of the per-PR gate; they run nightly, on demand and before a slice closes.
 
 ## How to add a journey
 
@@ -36,21 +78,22 @@ Testcontainers. Nothing uses the dev stack's ports, and nothing uses 3000/3001
    A second fixture set drifts from the first within a month, and then this
    suite is asserting against tenants the isolation suite has never heard of.
 
-4. Authenticate by asserting an identity, not a scope:
+4. Authenticate the way a browser does. The web app runs in production mode
+   with real sign-in, and ADR-0019 put a same-origin BFF in front of the API: the
+   browser holds only an HttpOnly `__Host-kasuwa_session` cookie, and the BFF
+   forwards it to the API as a bearer token. Stub identity headers
+   (`x-kasuwa-tenant-id`, `x-kasuwa-user-id`, ADR-0007) are not how a journey
+   signs in any more, and the API refuses them outside stub mode. For a real
+   session use `support/bff-session.ts` (it signs in, with MFA, through the BFF).
+   What a caller may reach comes from `user_programme`, inside the database. A
+   request that names its own scope is the security bug the tenancy suite exists
+   to catch — see `tenancy.spec.ts`.
 
-   ```ts
-   const context = await browser.newContext({
-     extraHTTPHeaders: {
-       'x-kasuwa-tenant-id': TENANT_A,
-       'x-kasuwa-user-id': USER_A_AGENT_1,
-     },
-   });
-   ```
-
-   These are the stub auth headers (ADR-0007). They say *who* the caller is.
-   What they may reach comes from `user_programme`, inside the database. If you
-   ever find yourself wanting a header that widens scope, that is the security
-   bug the tenancy suite exists to catch — see `tenancy.spec.ts`.
+   **Every contract mock must answer `GET /api/v1/auth/me`.** The screens learn who
+   the caller is from it (the activities mock, for one, takes the owner of every
+   activity from it), so a mock that does not answer it leaves the screen without
+   an identity. Copy the answer from `support/auth-mock.generated.ts` rather than
+   writing a second one.
 
 5. **Never `waitForTimeout`.** Wait on state: a locator, a response, a load
    state, `expect.poll`. An acceptance test greps this directory for
@@ -64,10 +107,7 @@ latency**. That commitment survives thirty screens only if each screen fails on
 a number.
 
 ```ts
-import {
-  assertWithinByteBudget,
-  measurePageLoad,
-} from './support/metrics';
+import { assertWithinByteBudget, measurePageLoad } from './support/metrics';
 
 test('the contact list stays inside its budget', async ({ page }) => {
   const metrics = await measurePageLoad(page, `${webUrl}/contacts`, 'low-bandwidth');
@@ -80,10 +120,10 @@ test('the contact list stays inside its budget', async ({ page }) => {
 `measurePageLoad` returns `{ fcpMs, transferredBytes }`, both measured through
 the Chrome DevTools Protocol. The profiles are in `support/metrics.ts`:
 
-| Profile | Latency | Throughput |
-|---|---|---|
-| `default` | none | unthrottled |
-| `low-bandwidth` | 300 ms | 256 kbps |
+| Profile         | Latency | Throughput  |
+| --------------- | ------- | ----------- |
+| `default`       | none    | unthrottled |
+| `low-bandwidth` | 300 ms  | 256 kbps    |
 
 Pick the budget from what the screen actually needs, not from what it currently
 costs. If a screen cannot meet the profile, that is a finding about the screen
@@ -127,12 +167,12 @@ move it into the main project.
 
 Everything a failed run produced lands in `.artifacts/` (git-ignored):
 
-| Path | What |
-|---|---|
-| `harness-metrics.json` | `{ "<profile>": { fcpMs, transferredBytes } }` |
-| `critical-path.json` | the `@byte-budget` measurement: every request, counted or not |
-| `stack.json` | the URLs this run's servers bound to |
-| `test-results/` | traces and screenshots, retained on failure |
-| `report/` | the HTML report |
+| Path                   | What                                                          |
+| ---------------------- | ------------------------------------------------------------- |
+| `harness-metrics.json` | `{ "<profile>": { fcpMs, transferredBytes } }`                |
+| `critical-path.json`   | the `@byte-budget` measurement: every request, counted or not |
+| `stack.json`           | the URLs this run's servers bound to                          |
+| `test-results/`        | traces and screenshots, retained on failure                   |
+| `report/`              | the HTML report                                               |
 
 CI uploads the whole directory when the job fails, and only then.
