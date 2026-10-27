@@ -33,7 +33,7 @@ user_id = app.current_user_id()`, identical `WITH CHECK`. Grants: SELECT, INSERT
 
 Committed and failing. Do not edit them.
 
-- `tests/acceptance/records-ui/p03-home-layout.acceptance.test.ts`
+- `tests/acceptance/records/home-layout.acceptance.test.ts`
 - e2e tag, through `tools/e2e-locked.sh`: `@p03-home` (new).
 
 ## Non-goals
