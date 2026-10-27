@@ -133,7 +133,7 @@ const CONTRACT = 'docs/api/records.openapi.yaml';
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // T-0124 (lead re-pin): @p05-account-mock replays a cursor under sort=createdAt, not the removed -displayName.
-  [SPEC]: 'd6c7e45e13041d40c497c7fb2989326f44886ce4ee2c34db9bdc4407509b67f2',
+  [SPEC]: 'f6c1618a6418acf81183c21fc7f14cdfdff90186251723b9c8f428e4d88ea0d7',
   // T-0082 (D-L97): the mock's activity items and bodies carry `startsAt` and `endsAt`.
   // T-0091 (lead re-pin): the mock answers listCustomFields (empty unless a journey sets custom fields) and merges `custom`.
   // T-0124 (lead re-pin, D-L183): listAccountContacts' default sort is read from the contract (-createdAt), not invented as displayName.
@@ -148,9 +148,8 @@ const PINNED_SHA256: Readonly<Record<string, string>> = {
  * (D-L187, D-L189) the Mac final check on 01e4401 measured /accounts/[id] at
  * 246,898 bytes, which no pin under 245,000 could cover. ACCOUNT_RECORD_BUDGET_BYTES
  * moved to 249,500, about 1.1% over, inside the 5% rule (259,243). The
- * spec's hash ignores the budget literal, so it is not re-pinned; the spec's
- * own comments still say 245,000 and are left as they are, because editing
- * them would change the pinned hash.
+ * spec's hash ignores the budget literal, so a budget change is not a
+ * re-pin. T-0162 updated the spec's stale 245,000 comments; the lead re-pinned.
  */
 const ACCOUNT_RECORD_BUDGET_CEILING = 290_000; // D-L203: T-0145 measured, after removing the weight it could (no visual change)
 
