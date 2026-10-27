@@ -1718,6 +1718,117 @@ export const homeLayout = pgTable(
   (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
 );
 
+/** Allowed commerce currencies (B6, migration 0047). */
+export const COMMERCE_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'] as const;
+export type CommerceCurrency = (typeof COMMERCE_CURRENCIES)[number];
+
+/** Programme-scoped tax rate for product pricing (T-0164). */
+export const taxProfile = pgTable(
+  'tax_profile',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    rateBps: integer('rate_bps').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tax_profile_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    index('tax_profile_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/** One price list per allowed currency in a programme (T-0164). */
+export const priceBook = pgTable(
+  'price_book',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    currency: text('currency', { enum: COMMERCE_CURRENCIES }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('price_book_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    uniqueIndex('price_book_tenant_programme_currency_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.currency,
+    ),
+    index('price_book_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/** A sellable product in a programme (T-0164). */
+export const product = pgTable(
+  'product',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    sku: text('sku'),
+    status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
+    taxProfileId: uuid('tax_profile_id'),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('product_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    uniqueIndex('product_sku_key').on(table.tenantId, table.programmeId, table.sku),
+    index('product_programme_idx').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/** A variant of a product (T-0164). */
+export const productVariant = pgTable(
+  'product_variant',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    name: text('name').notNull(),
+    sku: text('sku'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('product_variant_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('product_variant_product_idx').on(table.tenantId, table.programmeId, table.productId),
+  ],
+);
+
+/** A price for a product (and optional variant) in a price book (T-0164). */
+export const priceBookEntry = pgTable(
+  'price_book_entry',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    priceBookId: uuid('price_book_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    variantId: uuid('variant_id'),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: text('currency', { enum: COMMERCE_CURRENCIES }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('price_book_entry_price_book_idx').on(table.tenantId, table.programmeId, table.priceBookId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -1765,6 +1876,11 @@ export const TENANT_SCOPED_TABLES = [
   'outbox_event',
   'notification',
   'home_layout',
+  'product',
+  'product_variant',
+  'price_book',
+  'price_book_entry',
+  'tax_profile',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

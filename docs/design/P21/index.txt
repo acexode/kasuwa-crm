@@ -1,0 +1,27 @@
+01-product-catalogue-1440-light.png | 1440x1000 | Product catalogue | 1440 · Light
+02-product-catalogue-1440-dark.png | 1440x1000 | Product catalogue | 1440 · Dark
+03-price-books-tax-profiles-1440-light.png | 1440x1320 | Price books & tax profiles | 1440 · Light
+04-price-books-tax-profiles-1440-dark.png | 1440x860 | Price books & tax profiles | 1440 · Dark
+05-quote-builder-approval-pending-1440-light.png | 1440x1300 | Quote builder · approval pending | 1440 · Light
+06-quote-builder-approval-pending-1440-dark.png | 1440x1300 | Quote builder · approval pending | 1440 · Dark
+07-currency-mismatch-1440-light-currency-mismatch.png | 1440x1300 | Currency mismatch | 1440 · Light · currency mismatch
+08-currency-mismatch-360-light.png | 360x1100 | Currency mismatch | 360 · Light
+09-currency-mismatch-360-dark-currency-mismatch.png | 360x1100 | Currency mismatch | 360 · Dark · currency mismatch
+10-send-via-whatsapp-or-email-1440-light-send.png | 1440x1300 | Send via WhatsApp or email | 1440 · Light · send
+11-send-via-whatsapp-or-email-360-dark-send.png | 360x780 | Send via WhatsApp or email | 360 · Dark · send
+12-invoice-cleared-part-paid-1440-light-nrs-cleared-partial.png | 1440x1640 | Invoice · cleared, part-paid | 1440 · Light · NRS cleared · partial
+13-invoice-cleared-part-paid-1440-dark-nrs-cleared-partial.png | 1440x1640 | Invoice · cleared, part-paid | 1440 · Dark · NRS cleared · partial
+14-e-invoice-states-1440-light-nrs-draft-unpaid.png | 1440x1640 | E-invoice states | 1440 · Light · NRS draft · unpaid
+15-e-invoice-states-1440-light-nrs-submitted-unpaid.png | 1440x1640 | E-invoice states | 1440 · Light · NRS submitted · unpaid
+16-e-invoice-states-1440-dark-nrs-failed-unpaid.png | 1440x1640 | E-invoice states | 1440 · Dark · NRS failed · unpaid
+17-payment-link-expired-paid-in-full-1440-light-nrs-cleared-expired.png | 1440x1640 | Payment link expired · paid in full | 1440 · Light · NRS cleared · expired
+18-payment-link-expired-paid-in-full-1440-dark-nrs-cleared-paid.png | 1440x1640 | Payment link expired · paid in full | 1440 · Dark · NRS cleared · paid
+19-invoice-360-360-light-nrs-cleared-partial.png | 360x1500 | Invoice · 360 | 360 · Light · NRS cleared · partial
+20-invoice-360-360-dark-nrs-failed-unpaid.png | 360x1500 | Invoice · 360 | 360 · Dark · NRS failed · unpaid
+21-invoice-360-360-light-nrs-cleared-expired.png | 360x1500 | Invoice · 360 | 360 · Light · NRS cleared · expired
+22-payments-1440-light.png | 1440x1080 | Payments | 1440 · Light
+23-payments-1440-dark.png | 1440x1080 | Payments | 1440 · Dark
+24-refund-1440-light-refund.png | 1440x1080 | Refund | 1440 · Light · refund
+25-refund-360-dark-refund.png | 360x780 | Refund | 360 · Dark · refund
+26-payments-360-360-light.png | 360x780 | Payments · 360 | 360 · Light
+27-payments-360-360-dark.png | 360x780 | Payments · 360 | 360 · Dark
