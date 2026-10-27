@@ -41,6 +41,7 @@ import {
   ContactMergesController,
   DuplicatesController,
 } from './merges/merges.controller';
+import { HomeLayoutController } from './me/home-layout.controller';
 import { MeController } from './me/me.controller';
 import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
 import { NotificationsController } from './notifications/notifications.controller';
@@ -76,6 +77,7 @@ export const RECORDS_CONTROLLERS = [
   AccountsController,
   ActivitiesController,
   MeController,
+  HomeLayoutController,
   MyActivitiesController,
   PipelinesController,
   // The deals API (T-0108): listDeals and createDeal under a pipeline, and

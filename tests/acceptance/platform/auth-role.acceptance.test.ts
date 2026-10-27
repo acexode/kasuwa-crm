@@ -1051,7 +1051,8 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
           NODE_ENV: 'test',
           DATABASE_URL,
           DATABASE_AUTH_URL,
-          DATABASE_RELAY_URL: 'postgres://kasuwa_relay:not-a-secret@db.internal.example:5432/kasuwa',
+          DATABASE_RELAY_URL:
+            'postgres://kasuwa_relay:not-a-secret@db.internal.example:5432/kasuwa',
           REDIS_URL: 'redis://r:6379',
         }),
       };
@@ -1059,7 +1060,12 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
       expect(worker).not.toHaveProperty('DATABASE_AUTH_URL');
 
       const realtime: Record<string, unknown> = {
-        ...realtimeEnv({ ...AMBIENT, DATABASE_AUTH_URL }),
+        ...realtimeEnv({
+          ...AMBIENT,
+          DATABASE_URL,
+          REDIS_URL: 'redis://r:6379',
+          DATABASE_AUTH_URL,
+        }),
       };
       expect(realtime).not.toHaveProperty('DATABASE_AUTH_URL');
     });

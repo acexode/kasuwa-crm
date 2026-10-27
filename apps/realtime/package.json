@@ -12,9 +12,19 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kasuwa/auth-crypto": "workspace:*",
     "@kasuwa/config": "workspace:*",
-    "ws": "^8.18.0"
+    "@kasuwa/db": "workspace:*",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
   },
-  "devDependencies": { "@types/ws": "^8.5.13", "esbuild": "^0.25.12", "tsx": "^4.19.2" },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.25.12",
+    "tsx": "^4.19.2"
+  },
   "nx": { "tags": ["scope:app", "type:app"] }
 }

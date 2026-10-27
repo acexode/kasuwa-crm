@@ -1,6 +1,6 @@
 # T-0152 — Recreate the e2e lock, and fix the e2e README
 
-**id** T-0152 · **status** `assigned` · **owner** Cursor · **priority** P0 (first of Phase 3 S0) · **module** Repo (tests) ·
+**id** T-0152 · **status** `done` · **owner** Cursor · **priority** P0 (first of Phase 3 S0) · **module** Repo (tests) ·
 **PRD** Phase 3 plan S0 (`docs/phase3/PLAN.md`); brief section 7.2; D-L205 #5 · **deps** none · **budget** 2 sessions
 
 ## Goal

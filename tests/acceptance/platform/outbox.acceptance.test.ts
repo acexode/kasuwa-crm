@@ -2107,7 +2107,8 @@ describe('acceptance: the transactional outbox and kasuwa_relay (T-0098)', () =>
     it('apiEnv, realtimeEnv, migratorEnv, webEnv and webBuildEnv refuse it by presence, naming it, without echoing it', () => {
       const cases: [string, (source: Record<string, string>) => unknown, Record<string, string>][] = [
         ['apiEnv', apiEnv, { ...AMBIENT, NODE_ENV: 'development', DATABASE_URL, DATABASE_AUTH_URL }],
-        ['realtimeEnv', realtimeEnv, { ...AMBIENT, NODE_ENV: 'development' }],
+        // T-0160: realtimeEnv requires its database and Redis URLs.
+        ['realtimeEnv', realtimeEnv, { ...AMBIENT, NODE_ENV: 'development', DATABASE_URL, REDIS_URL: 'redis://r:6379' }],
         ['migratorEnv', migratorEnv, { ...AMBIENT, NODE_ENV: 'development' }],
         // T-0125 (D-L178): webEnv requires both session URLs.
         [

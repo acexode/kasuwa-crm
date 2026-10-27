@@ -197,8 +197,9 @@ const SCREEN = '[data-screen="P05/04"]';
 
 /**
  * The /accounts/[id] transferred-byte budget. The acceptance suite holds it at
- * or under 245,000 bytes and within 5% of what this run measures, so re-pin it
- * to the measurement once the screen exists. Why 245,000: see the budget test.
+ * or under its ceiling (ACCOUNT_RECORD_BUDGET_CEILING there) and within 5% of
+ * what this run measures, so re-pin it to the measurement when the weight
+ * changes. The first, provisional figure was 245,000: see the budget test.
  */
 const ACCOUNT_RECORD_BUDGET_BYTES = 289_000;
 
@@ -1635,7 +1636,11 @@ test('locale=en-XA renders every string as pseudo text, record data and times ex
 
 test.describe('/accounts/[id] on the wire', () => {
   /**
-   * WHY 245,000 BYTES, BEFORE THE SCREEN EXISTS
+   * WHY 245,000 BYTES, BEFORE THE SCREEN EXISTS (HISTORICAL)
+   *
+   * This was the FIRST pin. It has since moved: raised for the browser
+   * session's required cost (D-L190), then re-pinned from measured weights
+   * (D-L203, T-0145). The live figure is ACCOUNT_RECORD_BUDGET_BYTES above.
    *
    * The lead's provisional figure, the same ceiling T-0062 gave
    * /contacts/[id] on the same reasoning: the same shell, fonts and records

@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 270 rows; built 124, partial 11, mock-only 26, flagged-off 80, deferred 10, not-started 19.
+Totals: 274 rows; built 127, partial 11, mock-only 26, flagged-off 81, deferred 10, not-started 19.
 
 ## Modules
 
@@ -168,6 +168,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `convertContact` | POST /api/v1/contacts/{contactId}/convert — Convert a lead — qualify it and link an account, once | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listLeads` | GET /api/v1/leads — List leads — contacts at a lead stage | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listMyProgrammes` | GET /api/v1/me/programmes — The caller's programmes, with their display names | built | — | — | docs/api/records.openapi.yaml · T-0161 |
+| operation | `getHomeLayout` | GET /api/v1/me/home-layout — The caller's saved Home layout | built | — | — | docs/api/records.openapi.yaml |
+| operation | `putHomeLayout` | PUT /api/v1/me/home-layout — Save the caller's Home layout, replacing any earlier one | built | — | — | docs/api/records.openapi.yaml |
+| operation | `deleteHomeLayout` | DELETE /api/v1/me/home-layout — Delete the caller's saved Home layout (Reset) | built | — | — | docs/api/records.openapi.yaml |
 | operation | `listAccounts` | GET /api/v1/accounts — List accounts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml |
 | operation | `createAccount` | POST /api/v1/accounts — Create an account | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getAccountMap` | GET /api/v1/accounts/map — Accounts map view (not built) (contract only) | not-started | — | — | docs/api/records.openapi.yaml |
@@ -285,6 +288,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `ai_assistant` | The P27 palette Ask AI row, disabled until an assistant exists (T-0138, D-L194). | flagged-off | `ai_assistant` | — | packages/feature-flags/src/index.ts |
 | flag | `search_filters` | The P27 owner and date filters and the owner and updated columns, empty until search serves them (T-0138, D-L194). | flagged-off | `search_filters` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_home` | The P03 Home screen at /home, its nav entry, and Home as the signed-in landing (T-0132, D-L196). | flagged-off | `crm_home` | D-L196 | packages/feature-flags/src/index.ts |
+| flag | `home_layout_server` | The P03 Home layout is stored per user on the server instead of in the browser (T-0159, D-L196). | flagged-off | `home_layout_server` | D-L196 | packages/feature-flags/src/index.ts |
 | flag | `whatsapp_inbox` | The Home "WhatsApp awaiting reply" widget, in its not-connected state until channels exist (T-0132, D-L194). | flagged-off | `whatsapp_inbox` | — | packages/feature-flags/src/index.ts |
 | flag | `quota` | The Home quota, forecast and leaderboard widgets, in their empty state until quotas exist (T-0132, D-L194). | flagged-off | `quota` | — | packages/feature-flags/src/index.ts |
 | flag | `approvals` | The Home "Approvals" widget, in its caught-up state until approvals exist (T-0132, D-L194). | flagged-off | `approvals` | — | packages/feature-flags/src/index.ts |

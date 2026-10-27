@@ -1,6 +1,6 @@
 # T-0106 — Pipeline and deal tables, the default pipeline (P06)
 
-**status** `not-assigned` (suite to be written) · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113, D-L115,
+**status** `done` · **owner** Agent 3 · **priority** P1 · **decisions** D-L88, D-L113, D-L115,
 D-L76, D-L65 · **migration** 0036
 
 ## Goal
