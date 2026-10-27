@@ -1,0 +1,497 @@
+openapi: 3.1.0
+
+info:
+  title: Kasuwa Commerce API
+  version: 0.1.0-T-0164
+  description: |
+    Programme-scoped product catalogue (M05 P0, T-0164): products with variants,
+    price books in NGN/GHS/KES/ZAR only (B6), and tax profiles. Money is never a
+    float — `amountMinor` is a string of digits plus an ISO currency code.
+
+    Scope is resolved from the session. A programme the caller cannot reach, a
+    product in another programme, and a missing id all answer `404 not_found`
+    with one body. Every response is `Cache-Control: no-store`.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  schemas:
+    Error:
+      $ref: './admin.openapi.yaml#/components/schemas/Error'
+    Money:
+      type: object
+      additionalProperties: false
+      required: [amountMinor, currency]
+      properties:
+        amountMinor:
+          type: string
+          pattern: '^\\d+$'
+          description: Amount in minor units, never a float.
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+    ProductVariant:
+      type: object
+      additionalProperties: false
+      required: [id, name, sku]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+          nullable: true
+    Product:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - name
+        - description
+        - sku
+        - status
+        - taxProfileId
+        - version
+        - variants
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, archived]
+        taxProfileId:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVariant'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TaxProfile:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, rateBps]
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rateBps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+    PriceBookEntry:
+      type: object
+      additionalProperties: false
+      required: [id, priceBookId, productId, variantId, amountMinor, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        priceBookId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+          nullable: true
+        amountMinor:
+          type: string
+          pattern: '^\\d+$'
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+    PriceBook:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, currency, entries]
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceBookEntry'
+    CreateProductRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        sku:
+          type: string
+        taxProfileId:
+          type: string
+          format: uuid
+        variants:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [name]
+            properties:
+              name:
+                type: string
+              sku:
+                type: string
+    UpdateProductRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, archived]
+        taxProfileId:
+          type: string
+          format: uuid
+          nullable: true
+    UpsertPriceBookEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [productId, amountMinor, currency]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        variantId:
+          type: string
+          format: uuid
+        amountMinor:
+          type: string
+          pattern: '^\\d+$'
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/programmes/{programmeId}/products:
+    get:
+      operationId: listProducts
+      x-kasuwa-implemented: true
+      summary: List products in a programme
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Products in the programme
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createProduct
+      x-kasuwa-implemented: true
+      summary: Create a product
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/products/{productId}:
+    patch:
+      operationId: updateProduct
+      x-kasuwa-implemented: true
+      summary: Update a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+      responses:
+        '200':
+          description: Updated
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found or not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/programmes/{programmeId}/price-books:
+    get:
+      operationId: listPriceBooks
+      x-kasuwa-implemented: true
+      summary: List price books with entries
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Price books
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PriceBook'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/price-books/{priceBookId}/entries:
+    put:
+      operationId: upsertPriceBookEntry
+      x-kasuwa-implemented: true
+      summary: Upsert a price-book entry
+      parameters:
+        - name: priceBookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPriceBookEntryRequest'
+      responses:
+        '200':
+          description: Entry upserted
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceBookEntry'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Price book, product or variant not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/programmes/{programmeId}/tax-profiles:
+    get:
+      operationId: listTaxProfiles
+      x-kasuwa-implemented: true
+      summary: List tax profiles
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tax profiles
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaxProfile'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

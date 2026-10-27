@@ -270,6 +270,16 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0164 (M05 P0): the programme product catalogue API — products, price
+   * books and tax profiles. Off by default until P21 screens land (T-0171).
+   */
+  crm_products: {
+    description: 'The programme-scoped product catalogue: products, variants, price books and tax profiles (T-0164).',
+    defaultValue: false,
+    owner: 'T-0164',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the
