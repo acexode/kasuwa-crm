@@ -218,6 +218,7 @@ const RUNS_PATH = '/api/v1/script-runs';
 const CONTACTS_PATH = '/api/v1/contacts';
 const PROGRAMMES_PATH = '/api/v1/me/programmes';
 const ME_PATH = '/api/v1/auth/me';
+const CAPABILITIES_PATH = '/api/v1/me/capabilities';
 const ADMIN_PROGRAMMES_PATH = '/api/v1/admin/programmes';
 
 /** Every operation either screen may call: contract path, method and the contract it is in. */
@@ -242,6 +243,7 @@ const OP = {
   getContact: [`${CONTACTS_PATH}/{contactId}`, 'get', RECORDS],
   listMyProgrammes: [PROGRAMMES_PATH, 'get', RECORDS],
   getCurrentUser: [ME_PATH, 'get', AUTH],
+  getMyCapabilities: [CAPABILITIES_PATH, 'get', AUTH],
   listDispositions: [`${ADMIN_PROGRAMMES_PATH}/{programmeId}/dispositions`, 'get', ADMIN_DOC],
 } as const;
 
@@ -259,6 +261,7 @@ const BUILDER_OPS: readonly Operation[] = [
   'putScriptTranslation',
   'listMyProgrammes',
   'getCurrentUser',
+  'getMyCapabilities',
   'listDispositions',
 ];
 const AGENT_OPS: readonly Operation[] = [
@@ -274,6 +277,7 @@ const AGENT_OPS: readonly Operation[] = [
   'getContact',
   'listMyProgrammes',
   'getCurrentUser',
+  'getMyCapabilities',
 ];
 
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1195,6 +1199,12 @@ export interface ScriptingMockOptions {
    * record, whose own mock serves the record.
    */
   readonly fallbackOthers?: boolean;
+  /**
+   * What `getMyCapabilities` answers (T-0158). Default: the role's own (builder
+   * `admin` holds script.write in the first programme; every other role holds
+   * script.run alone). `unreadable` answers 500, so a screen draws its controls.
+   */
+  readonly capabilities?: { readonly tenant: { readonly admin: boolean; readonly can: readonly string[] }; readonly programmes: readonly { readonly id: string; readonly can: readonly string[] }[] } | 'unreadable';
   /** Hold every read until `release()`: the loading frame, without a clock. */
   readonly hold?: boolean;
   /** Abort every read, as a dropped connection does. */
@@ -2087,6 +2097,14 @@ export async function installScriptingMock(page: Page, options: ScriptingMockOpt
       const { operation, params } = found;
       calls.set(operation, [...(calls.get(operation) ?? []), url]);
       if (operation === 'getCurrentUser') return answer(route, operation, 200, clone(me));
+      if (operation === 'getMyCapabilities') {
+        if (options.capabilities === 'unreadable') return route.fulfill({ status: 500, contentType: 'application/json', headers: { 'cache-control': 'no-store' }, body: JSON.stringify({ statusCode: 500, error: 'Internal Server Error', code: 'internal_error', message: 'Internal error' }) });
+        const own = {
+          tenant: { admin: writer, can: [] as string[] },
+          programmes: [{ id: PROGRAMME_ONE.id, can: writer ? ['activity.write', 'script.run', 'script.write'] : ['script.run'] }],
+        };
+        return answer(route, operation, 200, clone(options.capabilities ?? own));
+      }
       if (operation === 'listMyProgrammes') {
         servedProgrammes.add(PROGRAMME_ONE.id);
         servedProgrammes.add(PROGRAMME_TWO.id);

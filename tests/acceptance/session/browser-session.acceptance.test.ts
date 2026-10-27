@@ -257,7 +257,7 @@ const E2E_RUN_TIMEOUT_MS = 2_400_000;
  */
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   [SPEC]: '2acee0f2cbc9035084d1643f895012054e7dd806c368cb48df44914a755d3871',
-  [SUPPORT]: '8f1a6b3f3291f345c74ac0ade11641011c9f8ea0369b47737c32b588b4faaba2',
+  [SUPPORT]: 'a88b58f1a73a42dba2a741788381352da357e6702485eddba324034cd6e2228a',
 };
 
 /** Every behaviour, by the tag a passing test must carry. */

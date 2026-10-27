@@ -1,6 +1,6 @@
 # T-0098 — Transactional outbox, `kasuwa_relay` and the relay (ADR-0018; migration, new role)
 
-**status** `not-assigned` (suite to be written; no task dependency) · **owner** Agent 1 · **priority** P1 · **decisions**
+**status** `done` · **owner** Agent 1 · **priority** P1 · **decisions**
 ADR-0018, D-L128 (ADR-0018 Q1–Q5), D-P30 item 2, D-P29, ADR-0012, ADR-0013, D-L66, D-L94, D-L65 · **migration** 0043
 (projected)
 

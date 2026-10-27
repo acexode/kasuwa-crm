@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { dirname, resolve } from 'node:path';
 import { brotliDecompressSync, gunzipSync, inflateSync } from 'node:zlib';
@@ -294,29 +294,87 @@ function readSteps(): Record<string, number> {
 }
 
 /**
+ * The step file is shared by every Playwright process that signs in (the
+ * `@p02-live` and `@bff-session` runs among them), and "read the last step,
+ * pick the next, write it back" is a read-modify-write: two processes that
+ * interleave it pick the same step, and the second code is a replay (T-0162).
+ * A lock directory (`mkdir` is atomic) makes the claim one step at a time; a
+ * lock older than LOCK_STALE_MS belongs to a process that died holding it and
+ * is taken over. The file itself is replaced by rename, so a reader never sees
+ * half of it.
+ */
+const TOTP_LOCK = `${TOTP_STATE}.lock`;
+const LOCK_STALE_MS = 10_000;
+
+function tryLock(): boolean {
+  mkdirSync(dirname(TOTP_LOCK), { recursive: true });
+  try {
+    mkdirSync(TOTP_LOCK);
+    return true;
+  } catch {
+    try {
+      if (Date.now() - statSync(TOTP_LOCK).mtimeMs > LOCK_STALE_MS) {
+        rmSync(TOTP_LOCK, { recursive: true, force: true });
+      }
+    } catch {
+      // The holder released it between the two calls: the next poll takes it.
+    }
+    return false;
+  }
+}
+
+/** One claim attempt: the step for `userId`, or undefined if none is free or the lock is held. */
+function tryClaimStep(userId: string): number | undefined {
+  if (!tryLock()) {
+    return undefined;
+  }
+  try {
+    const last = readSteps()[userId] ?? Number.NEGATIVE_INFINITY;
+    const step = Math.max(currentStep(), last + 1);
+    if (step > currentStep() + 1) {
+      return undefined;
+    }
+    const steps = readSteps();
+    steps[userId] = step;
+    const scratch = `${TOTP_STATE}.${process.pid}.tmp`;
+    writeFileSync(scratch, `${JSON.stringify(steps)}
+`, 'utf8');
+    renameSync(scratch, TOTP_STATE);
+    return step;
+  } finally {
+    rmSync(TOTP_LOCK, { recursive: true, force: true });
+  }
+}
+
+/**
  * A fresh, never-used code for `userId`: the current step, or the next one
  * (the API accepts one step either side). When both are used, it waits on the
- * clock's STATE (the step number), by polling, until one is free.
+ * clock's STATE (the step number), by polling, until one is free. The claim is
+ * atomic across processes (see TOTP_LOCK).
  */
 export async function nextTotp(userId: string): Promise<string> {
   const secret = seedSignIn(userId)?.totpSecret;
   if (secret === undefined) {
     throw new Error(`${userId} is not a seeded user with a TOTP secret`);
   }
-  const last = readSteps()[userId] ?? Number.NEGATIVE_INFINITY;
+  let claimed: number | undefined;
   await expect
-    .poll(() => Math.max(currentStep(), last + 1) <= currentStep() + 1, {
-      message: 'no unused TOTP step became available',
-      timeout: 65_000,
-      intervals: [500],
-    })
+    .poll(
+      () => {
+        claimed = tryClaimStep(userId);
+        return claimed !== undefined;
+      },
+      {
+        message: 'no unused TOTP step became available',
+        timeout: 65_000,
+        intervals: [25, 50, 100, 250, 500],
+      },
+    )
     .toBe(true);
-  const step = Math.max(currentStep(), last + 1);
-  const steps = readSteps();
-  steps[userId] = step;
-  mkdirSync(dirname(TOTP_STATE), { recursive: true });
-  writeFileSync(TOTP_STATE, `${JSON.stringify(steps)}\n`, 'utf8');
-  return totpAt(secret, step);
+  if (claimed === undefined) {
+    throw new Error('no unused TOTP step became available');
+  }
+  return totpAt(secret, claimed);
 }
 
 // ---------------------------------------------------------------------------

@@ -261,6 +261,33 @@ export function canProgramme(
 }
 
 /**
+ * What a session may DO, for the web to draw only the controls the API would
+ * not answer 403 to (T-0158, D-L84). Derived from `canTenant` and
+ * `canProgramme` themselves, so the list and the enforcement cannot drift.
+ *
+ * Only programmes in the session's resolved scope appear: a permission is never
+ * a scope (D-L06), and a programme the caller cannot reach is not named here
+ * either. Every list is sorted ascending and holds no duplicates.
+ */
+export interface Capabilities {
+  readonly tenant: { readonly admin: boolean; readonly can: string[] };
+  readonly programmes: ReadonlyArray<{ readonly id: string; readonly can: string[] }>;
+}
+
+export function listCapabilities(grants: Grants): Capabilities {
+  const tenantCan = TENANT_ACTIONS.filter((action) => canTenant(grants, action));
+  return {
+    tenant: { admin: grants.isTenantAdmin, can: [...new Set(tenantCan)].sort() },
+    programmes: [...new Set(grants.reachableProgrammeIds)].map((id) => ({
+      id,
+      can: [
+        ...new Set(PROGRAMME_ACTIONS.filter((action) => canProgramme(grants, action, id))),
+      ].sort(),
+    })),
+  };
+}
+
+/**
  * The updateContact properties `contact.claim_and_set_status` may carry
  * (D-P14), plus `version`, which is the concurrency token and writes nothing.
  * Wire names, as the request body spells them.

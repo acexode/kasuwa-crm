@@ -197,8 +197,9 @@ const SCREEN = '[data-screen="P05/04"]';
 
 /**
  * The /accounts/[id] transferred-byte budget. The acceptance suite holds it at
- * or under 245,000 bytes and within 5% of what this run measures, so re-pin it
- * to the measurement once the screen exists. Why 245,000: see the budget test.
+ * or under its ceiling (ACCOUNT_RECORD_BUDGET_CEILING there) and within 5% of
+ * what this run measures, so re-pin it to the measurement when the weight
+ * changes. The first, provisional figure was 245,000: see the budget test.
  */
 const ACCOUNT_RECORD_BUDGET_BYTES = 289_000;
 
@@ -1373,10 +1374,14 @@ test.describe('P05/04 — the account edit', () => {
   });
 });
 
-test.fixme('non-writers see no write controls @p05-account-writers', async () => {
-  // BLOCKED ON T-0079 (D-L84). No read tells the screen whether the caller
-  // holds `account.write` or `activity.write`. When one does, this opens
-  // ACCOUNT_FULL as `reader` and expects no edit, log or complete control.
+test('non-writers see no write controls, and the record still reads @p05-account-writers', async ({ page }) => {
+  // T-0158: getMyCapabilities says the caller holds neither `account.write` nor
+  // `activity.write` in the account's programme.
+  const mock = await openRecord(page, ACCOUNT_FULL.id, { capabilities: 'reader' });
+  await expect(page.getByTestId('record-details')).toBeVisible();
+  await expect(page.locator('[data-action="edit-account"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="log-activity"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
 });
 
 // ===========================================================================
@@ -1631,7 +1636,11 @@ test('locale=en-XA renders every string as pseudo text, record data and times ex
 
 test.describe('/accounts/[id] on the wire', () => {
   /**
-   * WHY 245,000 BYTES, BEFORE THE SCREEN EXISTS
+   * WHY 245,000 BYTES, BEFORE THE SCREEN EXISTS (HISTORICAL)
+   *
+   * This was the FIRST pin. It has since moved: raised for the browser
+   * session's required cost (D-L190), then re-pinned from measured weights
+   * (D-L203, T-0145). The live figure is ACCOUNT_RECORD_BUDGET_BYTES above.
    *
    * The lead's provisional figure, the same ceiling T-0062 gave
    * /contacts/[id] on the same reasoning: the same shell, fonts and records

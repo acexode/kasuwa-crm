@@ -1697,6 +1697,28 @@ export const notification = pgTable(
 );
 
 /**
+ * The P03 Home layout, one row per user (migration 0045, T-0159, D-L196).
+ * Widget types and widths only. Deliberately NO `programme_id`: a layout is the
+ * person's, not a programme's (a user with no programme still has a Home). RLS
+ * pins tenant AND user to the session; kasuwa_app may UPDATE role, items and
+ * updated_at only. `items` is at most 19 `{ type, span }` slots; the widget
+ * vocabulary is validated at the API boundary. The SQL is the source of truth.
+ */
+export const homeLayout = pgTable(
+  'home_layout',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    /** rep | manager | support | bpo | exec (CHECK). */
+    role: text('role').notNull(),
+    items: jsonb('items').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
+);
+
+/**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
  */
@@ -1742,6 +1764,7 @@ export const TENANT_SCOPED_TABLES = [
   'import_job',
   'outbox_event',
   'notification',
+  'home_layout',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

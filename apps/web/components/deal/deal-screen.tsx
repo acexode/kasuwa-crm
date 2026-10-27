@@ -52,6 +52,7 @@ import {
   type RequirementView,
 } from '../pipeline/pipeline-model';
 import { moveRefusalText } from '../pipeline/move-refusal';
+import { useProgrammeName } from './use-programme-name';
 import { AmountValue, Locked, Money, OwnerValue, daysSince } from '../pipeline/pipeline-parts';
 import { NO_MODULES, type DealModules } from '../pipeline/deal-modules';
 import { DealsBarActions } from '../pipeline/bar-actions';
@@ -227,6 +228,7 @@ function Ready({
   activityKeys: ReadOnlyStore;
   modules: DealModules;
 }) {
+  const programmeName = useProgrammeName(pipeline.programmeId);
   const [moving, setMoving] = useState(false);
   const [prompt, setPrompt] = useState<PromptState<DealDetail> | null>(null);
   const [editing, setEditing] = useState(false);
@@ -394,9 +396,10 @@ function Ready({
 
   const probability = stage === undefined ? null : formatPercent(locale, stage.probabilityBp);
   const pipelineHref = uuidHref('/pipelines', pipeline.id);
-  // The breadcrumb names the pipeline getPipeline served. The detail never lists pipelines (T-0110's mock: listPipelines is
-  // a board read), so a namesake is not qualified by programme here; the breadcrumb is one pipeline, never a choice.
-  const pipelineLabel = pipeline.name;
+  // The breadcrumb names the pipeline getPipeline served, and its programme once listMyProgrammes has said which one (T-0161,
+  // D-L204): the detail never lists pipelines, so it cannot tell whether a namesake exists and always qualifies. Without the
+  // programme's name (still loading, failed, or not one of the caller's own) it is the pipeline alone, never an id.
+  const pipelineLabel = programmeName === null ? pipeline.name : t.t('pipeline.select.qualified', { name: pipeline.name, programme: programmeName });
   const nowMs = Date.now();
   const moves = stageMoves(pipeline, deal);
   const unmetFor = (target: PipelineStage) => requirementViews(target, deal, deal.withheldFields).filter((view) => !view.met).length;

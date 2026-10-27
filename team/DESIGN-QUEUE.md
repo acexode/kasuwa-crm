@@ -19,19 +19,39 @@ before that answer risks drawing the wrong thing), then the rest.
 
 Drop an export into `docs/design/inbox/<Pnn>/`, then run
 `node tools/design-intake.mjs --apply`. Files already held are skipped by
-sha256, so re-exporting a whole project only versions what changed. The index
-board (the file with ` & ` in its name) is the manifest, and its screen ids are
-what task files cite.
+sha256, so re-exporting a whole project only files what changed.
 
-Filed designs live at `docs/design/<Pnn>/<version>/`. The design system itself
-is `docs/design/v1.1/` — it is not prompt-scoped.
+**Layout: flat (T-0155).** A filed export lives at `docs/design/<Pnn>/<export file>`; a
+re-export of the same name replaces it and git holds the history. P01 keeps its
+legacy `v1.0/` folder. The design system is `docs/design/v1.1/`, which is not
+prompt-scoped. Details in `docs/design/inbox/README.md`.
+
+**Manifest.** The screen ids that task files cite come from an `index.txt`
+(`node tools/design-parity.mjs design Pnn` writes it, for a bundled export) or,
+for the older form, the index board with ` & ` in its name.
 
 ## Received
 
-| Prompt | Screens | Version | Intake | Task |
-|---|---|---|---|---|
-| **P01** — Authentication & onboarding | 16 | `v1.0` | 2026-09-27 | [T-0007](tasks/T-0007-p01-auth-screens.md) |
-| — Design system & foundations (Prompt 0) | — | `v1.1` | 2026-09-27 | T-0003 (done) |
+Every export below is in `docs/design/` and was rebuilt against in the UI
+fidelity programme (D-L193 to D-L204).
+
+| Prompt | Export | Built |
+|---|---|---|
+| Design system & foundations (Prompt 0) | `v1.1/` | ✅ `packages/ui` |
+| **P01** Authentication & onboarding (16 screens) | `P01/v1.0/` | ✅ [T-0007](tasks/T-0007-p01-auth-screens.md); persistence and real OTP are Phase 3 |
+| **P02** Admin console | `Kasuwa Admin Console.html` | ✅ 22 screens; Channels and Compliance groups need a design |
+| **P03** Home dashboards | `Kasuwa Home Dashboards.html` | ✅ `/home`; layout moves to the server in T-0159 |
+| **P04** List views | `Kasuwa List Views.html` | ✅ |
+| **P05** Record views | `Kasuwa Record Views.html` | ✅ |
+| **P06** Deals pipeline | `Kasuwa Deals Pipeline.html` | ✅ |
+| **P07** Activities | `Kasuwa Activities.html` | ✅ |
+| **P08** Inbox | `Kasuwa Inbox.html` | Not built; S3 builds it. **A re-export is owed** (D-L205 B9) |
+| **P09** Voice | `Kasuwa Voice.html`, `Kasuwa Voice Screen.html` | Not planned: telephony is external (ADR-0003) |
+| **P10** Scripting | `Kasuwa Scripting.html` | ✅ builder and agent run |
+| **P18** Customisation studio | `Kasuwa Customisation Studio.html` | ✅ |
+| **P26** Notifications | `Kasuwa Notifications.html` | ✅ |
+| **P27** Search and command palette | `Kasuwa Search - Command.html` | ✅ |
+| **P28** Data management | `Kasuwa Data Management.html` | ✅ import and duplicates; export, migration and requests are disabled states |
 
 ### P01 screen manifest
 
@@ -56,21 +76,20 @@ Cite these ids in task files and commits.
 | `P01/5.5` | Invite team | Bulk emails with inline invalid-address error, or WhatsApp invite link. |
 | `P01/6` | Success & checklist | Done / in progress / to-do. Checklist persists on Home until finished. |
 
-## Next two needed
+## Needed next
 
-| Prompt | Screens | Backend it unblocks | Buildable from | Requested |
-|---|---|---|---|---|
-| **P02** — Tenant setup & admin console | Admin home, programmes, roles tree, FLS matrix, audit log | M1 tenancy + M2 permissions (Agent 1, after T-0001) | ~2026-10-06 | `DESIGN NEEDED` raised 2026-09-27 |
-| **P03** — Home dashboard (role-aware) | Agent / supervisor / sales / SME variants | M1–M3 | ~2026-10-13 | `DESIGN NEEDED` raised 2026-09-27 |
+The Phase 3 screen tasks are the only ones that wait for a design (D-L205). The
+APIs, domain code and adapters behind them are built first.
 
-### After those
-
-P04 (list views) and P05 (360° record view) follow directly from M3, which is
-Agent 3's first real task. Expect to request both within two weeks of P03.
+| Prompt | Screens | Task it unblocks | Requested |
+|---|---|---|---|
+| **P21** Quotes, invoicing, local payments | Founding pack Prompt 21 | T-0171 (S1) | `DESIGN NEEDED`, D-L205 B9 |
+| **P23** BPO client portal | Founding pack Prompt 23 | T-0184 (S2) | `DESIGN NEEDED`, D-L205 B9 |
+| **P02** Channels and Compliance groups | The two settings groups the P02 export lacks | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |
+| **P08** Inbox, re-export | A bundled re-export (D-L205 B9) | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |
 
 ## Held back deliberately
 
-**P09–P12** (softphone, scripting, wallboard, QA). Blocked on **D-T1**: whether
-Kasuwa renders its own WebRTC softphone or embeds the platform's widget. The
-answer changes what the screen *is*, not how it looks, so asking for the design
-first would most likely mean drawing it twice.
+**P09 and P11** (softphone, wallboard) are not planned: telephony and WFM are
+external (ADR-0003). P09 is exported and filed, but nothing is built from it.
+P12 (QA scorecard) is Phase 4 and needs recordings from telephony.

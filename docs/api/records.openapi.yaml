@@ -1701,6 +1701,94 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/NotAuthenticated' }
 
+  /api/v1/me/home-layout:
+    get:
+      tags: [me]
+      summary: The caller's saved Home layout
+      operationId: getHomeLayout
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P03']
+      description: |
+        The Home layout the caller saved (T-0159, D-L196), or `404 not_found`
+        when nothing is saved. An empty `items` is a saved, empty layout and is
+        not the same as nothing saved.
+
+        **It is the caller's own, by the session.** One layout per user. There
+        is no parameter, header or body that chooses whose layout is read:
+        unknown query parameters are ignored, never honoured, and a scope header
+        is `400 validation_failed`. Nothing about a programme is stored.
+
+        Served only behind the flag `home_layout_server`; with the flag off the
+        web keeps the layout in the browser. `Cache-Control: no-store`.
+      responses:
+        '200':
+          description: The saved layout.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, enum: ['no-store'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeLayout' }
+              example:
+                role: rep
+                items:
+                  - { type: nba, span: 12 }
+                  - { type: agenda, span: 6 }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [me]
+      summary: Save the caller's Home layout, replacing any earlier one
+      operationId: putHomeLayout
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P03']
+      description: |
+        Replaces the caller's layout (never appends) and answers with what is
+        stored. The body is closed: a key the contract does not name, such as a
+        `userId`, `tenantId` or `programmeId`, is `400 validation_failed`, and
+        so is an unknown `role`, an unknown widget `type`, a `span` other than
+        4, 6, 8 or 12, or more than 19 items. Nothing is stored on a 400.
+        `Cache-Control: no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeLayout' }
+      responses:
+        '200':
+          description: The saved layout.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, enum: ['no-store'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeLayout' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+    delete:
+      tags: [me]
+      summary: Delete the caller's saved Home layout (Reset)
+      operationId: deleteHomeLayout
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P03']
+      description: |
+        Removes the caller's layout, so Home draws the role's default again.
+        **Idempotent:** deleting when nothing is saved is `204`, never `404`.
+        Reset cannot be a PUT of the default, because the screen filters the
+        default by the sources live in this process and would store a narrowed
+        layout. `Cache-Control: no-store`.
+      responses:
+        '204':
+          description: Deleted, or there was nothing to delete.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, enum: ['no-store'] }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
   # Deliberately absent: the P04/04 Map view (M03 P2), saved views, bulk
   # actions, export, merge and per-chip counts. No PRD module in this slice owns
   # them; see the T-0039 report. A map operation, when one is added, starts as
@@ -7251,6 +7339,34 @@ components:
         data:
           type: array
           items: { $ref: '#/components/schemas/MyProgramme' }
+
+    HomeLayoutItem:
+      type: object
+      additionalProperties: false
+      required: [type, span]
+      description: One widget slot on Home. Closed.
+      properties:
+        type:
+          type: string
+          enum: [nba, agenda, deals, quota, wa, pipeline, forecast, leader, approvals, tickets, queues, csat, programme, schedule, news, revenue, cost, profit, sla, ai]
+        span:
+          type: integer
+          enum: [4, 6, 8, 12]
+          description: Columns of a 12-column grid.
+
+    HomeLayout:
+      type: object
+      additionalProperties: false
+      required: [role, items]
+      description: |
+        The caller's Home layout. Widget types and widths only: no record, name
+        or number. Closed.
+      properties:
+        role: { type: string, enum: [rep, manager, support, bpo, exec] }
+        items:
+          type: array
+          maxItems: 19
+          items: { $ref: '#/components/schemas/HomeLayoutItem' }
 
     ContactPage:
       type: object

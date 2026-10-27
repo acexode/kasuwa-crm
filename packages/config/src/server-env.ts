@@ -2,9 +2,11 @@ import { databaseCredentialProblems } from './database-target';
 import { storageEncryptionProblems } from './storage-env';
 import {
   apiEnv as parseApiEnv,
+  realtimeEnv as parseRealtimeEnv,
   workerEnv as parseWorkerEnv,
   type ApiEnv,
   type EnvSource,
+  type RealtimeEnv,
   type WorkerEnv,
 } from './schemas.mjs';
 
@@ -108,6 +110,21 @@ export function workerEnv(source: EnvSource = process.env): WorkerEnv {
   refuse('worker', storageEncryptionProblems(source));
   if (enforced(parsed.NODE_ENV)) {
     refuse('worker', databaseCredentialProblems(source, ['DATABASE_URL', 'DATABASE_RELAY_URL']));
+  }
+  return parsed;
+}
+
+/**
+ * The WebSocket gateway (T-0160). Requires NODE_ENV (D-L95), `DATABASE_URL`
+ * (kasuwa_app) and `REDIS_URL` (the schema), runs the stub-auth and cookie
+ * guards, and outside development and test the credential guard on
+ * `DATABASE_URL`. Names a variable, never echoes a value.
+ */
+export function realtimeEnv(source: EnvSource = process.env): RealtimeEnv {
+  refuseUnsetNodeEnv('realtime', source, parseRealtimeEnv);
+  const parsed = parseRealtimeEnv(source);
+  if (enforced(parsed.NODE_ENV)) {
+    refuse('realtime', databaseCredentialProblems(source, ['DATABASE_URL']));
   }
   return parsed;
 }

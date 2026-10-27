@@ -1,6 +1,6 @@
 # T-0153 — The osv-scanner baseline must not simply expire
 
-**id** T-0153 · **status** `assigned` · **owner** Cursor · **priority** P0 (expires **2026-10-31**) · **module** Repo (CI) ·
+**id** T-0153 · **status** `done` · **owner** Cursor · **priority** P0 (expires **2026-10-31**) · **module** Repo (CI) ·
 **PRD** Phase 3 plan S0 (`docs/phase3/PLAN.md`); D-L41, D-L205 #5 · **deps** none ·
 **decisions** the 2027-01-31 horizon is proposed here, the lead may move it · **budget** 2 sessions
 

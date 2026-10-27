@@ -1298,6 +1298,14 @@ test.describe('P04/04 — the Kanban by status', () => {
 // Convert (D-P17, D-L75)
 // ===========================================================================
 
+test('a caller without contact.write is offered no convert control, and the lead still reads @leads-p04 @leads-p04-writers', async ({ page }) => {
+  // T-0158: getMyCapabilities says `contact.write` is held in no programme.
+  const mock = await openLeads(page, { state: 'ready', role: 'writer', capabilities: 'reader' });
+  await expect(row(page, LEAD_NEW.id).first()).toBeVisible();
+  await expect(page.locator('[data-action="convert-lead"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
+});
+
 test.describe('P04/01 — convert a lead', () => {
   test('to an existing account picked by name, from the lead’s own programme only, sent once as { version, accountId } @leads-p04 @leads-p04-convert-existing', async ({
     page,

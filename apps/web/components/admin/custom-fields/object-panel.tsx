@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { Drawer } from '@kasuwa/ui/components';
 import type { MessageId, Translator } from '@kasuwa/i18n/bundle';
 import { Icon } from '../../icon';
+import { useMayInTenant } from '../../../lib/use-capabilities';
 import { formatCount } from '../../../lib/admin-format';
 import { fullState } from '../../../lib/custom-field-model';
 import {
@@ -204,6 +205,9 @@ export function ObjectPanel({
 }) {
   const list = useResource((signal) => listCustomFields(object, signal), [object]);
   const docked = useDocked();
+  // T-0158: left out only when the API said the caller lacks `custom_field.write`
+  // (the tenant admin's alone). An unread answer draws them; the API's 403 is the gate.
+  const mayWrite = useMayInTenant('custom_field.write');
   const [showRetired, setShowRetired] = useState(false);
   const [query, setQuery] = useState('');
   const [form, setForm] = useState<FormState>({ kind: 'closed' });
@@ -299,7 +303,11 @@ export function ObjectPanel({
     );
 
   return (
-    <div data-screen="P18/B" className={dockedOpen ? 'flex items-start xl:-mb-10 xl:-me-8 xl:-mt-7' : ''}>
+    <div
+      data-screen="P18/B"
+      {...(dockedOpen ? { 'data-editor-docked': '' } : {})}
+      className={dockedOpen ? 'flex items-start xl:-mb-10 xl:-me-8 xl:-mt-7' : ''}
+    >
       <div className={`flex min-w-0 flex-1 flex-col gap-5 ${dockedOpen ? 'xl:pb-10 xl:pe-8 xl:pt-7' : ''}`}>
         {header}
 
@@ -379,18 +387,20 @@ export function ObjectPanel({
                     ratio={active.length / data.limits.fieldsPerObject}
                   />
                   {flags.usage ? <Meter label={t.t('admin.studio.meter.filterable')} value={t.t('admin.studio.meter.unknown')} ratio={null} /> : null}
-                  <button
-                    ref={newButton}
-                    type="button"
-                    data-testid="field-new"
-                    disabled={full}
-                    title={full ? t.t('admin.studio.limit.title') : undefined}
-                    onClick={(event) => open({ kind: 'create' }, event.currentTarget)}
-                    className={STUDIO_PRIMARY}
-                  >
-                    <Icon name="add" size={20} />
-                    {t.t('admin.studio.custom.new')}
-                  </button>
+                  {mayWrite ? (
+                    <button
+                      ref={newButton}
+                      type="button"
+                      data-testid="field-new"
+                      disabled={full}
+                      title={full ? t.t('admin.studio.limit.title') : undefined}
+                      onClick={(event) => open({ kind: 'create' }, event.currentTarget)}
+                      className={STUDIO_PRIMARY}
+                    >
+                      <Icon name="add" size={20} />
+                      {t.t('admin.studio.custom.new')}
+                    </button>
+                  ) : null}
                 </div>
 
                 <div role="status">
@@ -446,7 +456,7 @@ export function ObjectPanel({
                           onClick={(event) => {
                             // A press on a control in the row (or on the glyph inside one) is that control's own:
                             // the retire button must not also open the editor behind its dialog (T-0149).
-                            if (retired || (event.target instanceof Element && event.target.closest('button, a, input') !== null)) return;
+                            if (retired || !mayWrite || (event.target instanceof Element && event.target.closest('button, a, input') !== null)) return;
                             const edit = event.currentTarget.querySelector<HTMLElement>('[data-testid="field-edit"]');
                             if (edit !== null) open({ kind: 'edit', field: item }, edit);
                           }}
@@ -455,7 +465,7 @@ export function ObjectPanel({
                           }`}
                         >
                           <span role="cell" className="flex min-w-0 items-center gap-1.5 font-semibold">
-                            {retired ? (
+                            {retired || !mayWrite ? (
                               <span data-record-text className="truncate text-text-2">
                                 {item.label}
                               </span>
@@ -514,7 +524,7 @@ export function ObjectPanel({
                             </span>
                           )}
                           <span role="cell" className="col-start-2 row-start-1 flex justify-end md:col-start-auto md:row-start-auto">
-                            {retired ? null : (
+                            {retired || !mayWrite ? null : (
                               <button
                                 type="button"
                                 data-testid="field-retire"

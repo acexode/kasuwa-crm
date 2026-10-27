@@ -304,8 +304,10 @@ export async function crmPipelineEnabled(): Promise<boolean> {
  * Per process, like the others. It grants nothing: authoring needs
  * `script.write` and a run needs `script.run`, decided by the scripting API
  * from the session and `user_programme` whether this is on or off. It is
- * deliberately NOT in `crmLiveNav()`: the builder has no nav entry for anyone
- * until a capability read exists (R3, T-0079).
+ * deliberately NOT in `crmLiveNav()`: the builder has no nav entry for anyone.
+ * The capability read now exists (T-0158), so linking authors only is the
+ * lead's call (R3); until then a non-writer who types /scripts gets the
+ * not-found a missing script gets.
  */
 export async function crmScriptsEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();
@@ -609,14 +611,16 @@ export interface HomeWidgetFlags {
   readonly fx: boolean;
   /** T-0136's `calendar_sync`: the agenda's empty state offers "Connect calendar", disabled (D-P22). */
   readonly calendar: boolean;
+  /** T-0159's `home_layout_server`: the layout is kept per user on the server, not in the browser (D-L196). */
+  readonly layoutServer: boolean;
 }
 
 export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
   await initialiseFeatureFlags();
   const context = toEvaluationContext({ tenantId: CRM_SHELL });
-  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display' | 'calendar_sync') =>
+  const read = (name: 'ai_nba' | 'whatsapp_inbox' | 'quota' | 'approvals' | 'home_kpis' | 'fx_display' | 'calendar_sync' | 'home_layout_server') =>
     featureFlagClient().getBooleanValue(name, false, context);
-  const [aiNba, whatsapp, quota, approvals, kpis, fx, calendar] = await Promise.all([
+  const [aiNba, whatsapp, quota, approvals, kpis, fx, calendar, layoutServer] = await Promise.all([
     read('ai_nba'),
     read('whatsapp_inbox'),
     read('quota'),
@@ -624,8 +628,9 @@ export async function homeWidgetFlags(): Promise<HomeWidgetFlags> {
     read('home_kpis'),
     read('fx_display'),
     read('calendar_sync'),
+    read('home_layout_server'),
   ]);
-  return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar };
+  return { aiNba, whatsapp, quota, approvals, kpis, fx, calendar, layoutServer };
 }
 
 /**

@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
 import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
+import { CAPABILITIES_PATH, answerCapabilities, type CapabilitiesAnswer } from './capabilities-mock';
 
 /**
  * The P07 half of `docs/api/records.openapi.yaml` — `listMyActivities`,
@@ -972,6 +973,8 @@ export const NEW_ACTIVITY_IDS: readonly string[] = [
 // ---------------------------------------------------------------------------
 
 export interface ActivitiesMockOptions {
+  /** What `getMyCapabilities` answers (T-0158). Default `writer`: every write control is drawn. See capabilities-mock.ts. */
+  readonly capabilities?: CapabilitiesAnswer;
   /** The browser's IANA zone (the journey's `timezoneId`). The screen must send exactly this. Default Africa/Lagos. */
   readonly browserTimeZone?: string;
   /** Hold every read until `release()`: the loading frame, without a clock. */
@@ -1504,6 +1507,7 @@ export async function installActivitiesMock(page: Page, options: ActivitiesMockO
       requests.push(url);
       checkHeaders(request, `${method} ${url.pathname}`);
 
+      if (url.pathname === CAPABILITIES_PATH && method === 'GET') return answerCapabilities(route, options.capabilities, [PROGRAMME_ONE.id, PROGRAMME_TWO.id]);
       if (url.pathname === ME_PATH && method === 'GET') {
         return answer(route, 'getCurrentUser', 200, clone(CURRENT_USER));
       }

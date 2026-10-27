@@ -1,5 +1,6 @@
 import { Controller, Get, Header, UseFilters, UseGuards, UseInterceptors } from '@nestjs/common';
 import { listMyProgrammes, type MyProgramme } from '@kasuwa/domain-core';
+import { listCapabilities, loadGrants } from '@kasuwa/permissions';
 import { AdminErrorFilter } from '../admin/common/admin-errors';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
@@ -8,6 +9,12 @@ import { currentTx } from '../tenancy/tenant-context';
 /** `#/components/schemas/MyProgrammeList` in docs/api/records.openapi.yaml. */
 export interface MyProgrammeListResponse {
   data: MyProgramme[];
+}
+
+/** `#/components/schemas/MyCapabilities` in docs/api/auth.openapi.yaml. */
+export interface MyCapabilitiesResponse {
+  tenant: { admin: boolean; can: string[] };
+  programmes: Array<{ id: string; can: string[] }>;
 }
 
 /**
@@ -41,5 +48,33 @@ export class MeController {
     const rows = await listMyProgrammes(currentTx());
     // Rebuilt field by field: the contract's item is closed.
     return { data: rows.map((row) => ({ id: row.id, name: row.name })) };
+  }
+
+  /**
+   * getMyCapabilities — GET /api/v1/me/capabilities (T-0158, D-L84): what the
+   * caller may DO, per reachable programme and for the tenant, so the web can
+   * leave out the controls the API would answer 403 to. A convenience, never
+   * the gate: every write is decided again where it happens.
+   *
+   * Computed from `loadGrants`, which re-reads the flag, the memberships and
+   * the sets inside this request's transaction, so a change shows on the very
+   * next call. There is no input: the session decides whose capabilities these
+   * are, and only programmes the session already reaches are named.
+   *
+   * `no-store`, for the reason `listMyProgrammes` gives: the URL is the same
+   * for everyone.
+   */
+  @Get('capabilities')
+  @Header('Cache-Control', 'no-store')
+  async getMyCapabilities(): Promise<MyCapabilitiesResponse> {
+    const capabilities = listCapabilities(await loadGrants(currentTx()));
+    // Rebuilt field by field: the contract's shape is closed.
+    return {
+      tenant: { admin: capabilities.tenant.admin, can: [...capabilities.tenant.can] },
+      programmes: capabilities.programmes.map((programme) => ({
+        id: programme.id,
+        can: [...programme.can],
+      })),
+    };
   }
 }

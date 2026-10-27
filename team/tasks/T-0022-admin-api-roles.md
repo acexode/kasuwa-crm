@@ -1,6 +1,6 @@
 # T-0022 — Admin API: roles and permission sets
 
-**owner** Agent 1 · **status** `not-assigned` · **priority** P0 · **deps** none · **budget** 2 sessions
+**owner** Agent 1 · **status** `done` · **priority** P0 · **deps** none · **budget** 2 sessions
 
 ## Goal
 Implement the `roles` operations of `docs/api/admin.openapi.yaml` (`listRoles`, `createRole`,

@@ -14,6 +14,12 @@ openapi: 3.1.0
 #    `user_programme` inside the tenant transaction, on every request. A client
 #    that sends its own scope is rejected (CLAUDE.md section 2, rule 2).
 #
+#    ONE EXCEPTION, `getMyCapabilities` (T-0158, D-L84): what the caller may DO,
+#    for the programmes the session ALREADY reaches and the tenant. It names no
+#    programme the caller could not already list (`listMyProgrammes`), and it is
+#    a convenience for drawing controls, never the gate: every write is decided
+#    again where it happens.
+#
 # 2. NO RESPONSE DISTINGUISHES "no such user" FROM "wrong password" FROM
 #    "wrong tenant" FROM "disabled user". They are one status, one body, one
 #    `code`, and — because argon2id is also run against a dummy hash when the
@@ -63,6 +69,8 @@ tags:
     description: Establishing and ending a session.
   - name: onboarding
     description: Self-serve sign-up and verification.
+  - name: me
+    description: The caller's own scope, as the session resolves it.
 
 paths:
   /api/v1/auth/sign-in:
@@ -434,6 +442,48 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /api/v1/me/capabilities:
+    get:
+      tags: [me]
+      summary: What the caller may do (T-0158)
+      operationId: getMyCapabilities
+      x-kasuwa-implemented: true
+      description: |
+        The actions the caller holds, for the tenant and for each programme they
+        reach, so a screen can leave out a control the API would answer 403 to.
+        **A convenience, never the gate**: every write is decided again, and a
+        screen that cannot read this answer draws its controls.
+
+        **Scope is the session's.** There is no parameter, header or body that
+        chooses whose capabilities are read; unknown query parameters are
+        ignored, and a scope header is `400 validation_failed`. Only programmes
+        the caller already reaches are named, and the tenant-admin flag does
+        not add any (D-L53). A user with no membership gets `programmes: []`.
+
+        **Closed.** `tenant.admin` is the user's tenant-admin flag; `tenant.can`
+        is the tenant-level actions it grants and is empty without the flag.
+        Each programme's `can` is what its permission set grants there. Every
+        `can` is sorted ascending and holds no duplicates. Read fresh on every
+        request, so a changed set, flag or membership shows on the next call.
+
+        `Cache-Control: no-store`: the URL is the same for everyone.
+      responses:
+        '200':
+          description: The caller's capabilities.
+          headers:
+            Cache-Control:
+              description: Always `no-store`.
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyCapabilities' }
+              example:
+                tenant: { admin: false, can: [] }
+                programmes:
+                  - id: 3f1c2a3e-6a0b-4d6e-9d1f-5b7a1c9e2d10
+                    can: [activity.write, contact.claim_and_set_status, deal.write, script.run]
         '401': { $ref: '#/components/responses/NotAuthenticated' }
 
   /api/v1/auth/sso/lookup:
@@ -887,6 +937,34 @@ components:
         email: { type: string, format: email }
         displayName: { type: string }
         locale: { type: string, example: en-NG }
+
+    MyCapabilities:
+      type: object
+      additionalProperties: false
+      required: [tenant, programmes]
+      properties:
+        tenant:
+          type: object
+          additionalProperties: false
+          required: [admin, can]
+          properties:
+            admin: { type: boolean }
+            can:
+              type: array
+              description: Sorted ascending, no duplicates. Empty without the tenant-admin flag.
+              items: { type: string }
+        programmes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, can]
+            properties:
+              id: { type: string, format: uuid }
+              can:
+                type: array
+                description: Sorted ascending, no duplicates.
+                items: { type: string }
 
     SsoConnection:
       type: object

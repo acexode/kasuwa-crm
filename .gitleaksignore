@@ -15,3 +15,21 @@ f705aa71fa8cc10722a5e40f07c88b44a3a3e3cb:tests/e2e/support/auth-mock.generated.t
 
 # An invented base32 TOTP fixture ("not a real enrolment", per the test).
 aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:generic-api-key:22
+
+# Migration SHA-256 checksums pinned by the T-0090 contact-fields suite (pairs of
+# migration name and hash). Public file hashes, not credentials.
+25038b3befb0e3e130f0653fe4937177b97d115e:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:108
+25038b3befb0e3e130f0653fe4937177b97d115e:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:117
+25038b3befb0e3e130f0653fe4937177b97d115e:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:118
+74dd0eed56f46732797612d0e8c2b88f5b99595b:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:108
+74dd0eed56f46732797612d0e8c2b88f5b99595b:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:117
+74dd0eed56f46732797612d0e8c2b88f5b99595b:tests/acceptance/records/contact-fields.acceptance.test.ts:generic-api-key:118
+
+# An invented key id ("invented-key") in an auth-role integration test fixture.
+7960649657d49dba29abf054402badcd0539244a:packages/db/src/auth-role.integration.test.ts:generic-api-key:101
+
+# A fake session token ("ksw_s1_abc-DEF_123") in the realtime handshake unit test
+# (T-0160). The test builds a Cookie and an Authorization header from it; no
+# service accepts it. gitleaks scans every ref, so this one commit on the T-0160
+# branch failed the Secret scan on every open PR.
+284d13d9a45b3dac7e0dab49bab1e1ba6d8255e5:apps/realtime/src/handshake.test.ts:generic-api-key:6

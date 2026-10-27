@@ -1,6 +1,6 @@
 # T-0023 — `listFieldSecurityObjects`, `api_name` immutability, no `nin`/`bvn` types
 
-**owner** Agent 2 · **status** `not-assigned` · **priority** P0 · **deps** none · **budget** 2 sessions
+**owner** Agent 2 · **status** `done` · **priority** P0 · **deps** none · **budget** 2 sessions
 
 ## Goal
 1. Implement `listFieldSecurityObjects` from `docs/api/admin.openapi.yaml`, backed by `object_def`

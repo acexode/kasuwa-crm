@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
+import { CAPABILITIES_PATH, answerCapabilities, type CapabilitiesAnswer } from './capabilities-mock';
 
 /**
  * The accounts half of `docs/api/records.openapi.yaml` — `listAccounts`,
@@ -603,6 +604,8 @@ function withholding(row: AccountRow, withheld: readonly string[]): AccountRow {
 export type WriteRefusal = 'not_permitted' | 'field_not_editable' | 'stale_write';
 
 export interface AccountsMockOptions {
+  /** What `getMyCapabilities` answers (T-0158). Default `writer`: every write control is drawn. See capabilities-mock.ts. */
+  readonly capabilities?: CapabilitiesAnswer;
   readonly scenario?: AccountsScenario;
   /** How many programmes `listMyProgrammes` returns. Default two: create must ask which. */
   readonly programmes?: 'one' | 'two';
@@ -939,6 +942,19 @@ export async function installAccountsMock(page: Page, options: AccountsMockOptio
         return fulfil(route, 404, errorExample('NotFound'));
       }
       return fulfil(route, 200, { data: clone(programmes) });
+    },
+  );
+
+  await page.route(
+    (url) => url.pathname === CAPABILITIES_PATH,
+    async (route) => {
+      const request = route.request();
+      checkHeaders(request, 'getMyCapabilities');
+      if (request.method() !== 'GET') {
+        violations.push(`${request.method()} ${CAPABILITIES_PATH} is not an operation`);
+        return fulfil(route, 404, errorExample('NotFound'));
+      }
+      return answerCapabilities(route, options.capabilities, programmes.map((programme) => programme.id));
     },
   );
 

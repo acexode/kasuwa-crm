@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0129 |
-| **status** | `assigned` |
+| **status** | `done` |
 | **module** | Design system (`packages/ui`) |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |

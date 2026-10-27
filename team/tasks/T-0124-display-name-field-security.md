@@ -1,6 +1,6 @@
 # T-0124 — `displayName` follows its name parts everywhere (D-L68)
 
-**status** `not-assigned` (contract decision first; suite to be written) · **owner** Agent 3 · **priority** P2 ·
+**status** `done` · **owner** Agent 3 · **priority** P2 ·
 **decisions** D-L68, D-L133, T-0085 R8
 
 ## Goal
