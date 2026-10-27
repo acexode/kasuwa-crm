@@ -27,3 +27,9 @@ aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:ge
 
 # An invented key id ("invented-key") in an auth-role integration test fixture.
 7960649657d49dba29abf054402badcd0539244a:packages/db/src/auth-role.integration.test.ts:generic-api-key:101
+
+# A fake session token ("ksw_s1_abc-DEF_123") in the realtime handshake unit test
+# (T-0160). The test builds a Cookie and an Authorization header from it; no
+# service accepts it. gitleaks scans every ref, so this one commit on the T-0160
+# branch failed the Secret scan on every open PR.
+284d13d9a45b3dac7e0dab49bab1e1ba6d8255e5:apps/realtime/src/handshake.test.ts:generic-api-key:6
