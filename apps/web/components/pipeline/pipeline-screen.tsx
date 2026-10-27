@@ -1,6 +1,7 @@
 'use client';
 
 import { clientLazy } from '../../lib/client-lazy';
+import { useMayInAnyProgramme } from '../../lib/use-capabilities';
 import {
   useCallback,
   useEffect,
@@ -88,7 +89,8 @@ import { usePipelineBoard } from './use-pipeline-board';
  * keeping what was typed (D-L102). Nothing is optimistic: a card moves when
  * the server has answered, and every write is followed by a re-read.
  *
- * Write controls show to every caller; the API's 403 is the gate (D-L84).
+ * Write controls (T-0158): left out only on an answer that says `deal.write` is
+ * held nowhere; otherwise they show and the API's 403 is the gate (D-L84).
  * Offline, every write and drag is off and nothing queues (D-P21). Nothing is
  * stored on the device (D-L64).
  *
@@ -434,6 +436,9 @@ export function PipelineScreen({
       ?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest', inline: 'start' });
   };
 
+  // T-0158: left out only when the API said `deal.write` is held nowhere the caller
+  // reaches; an unread answer draws them and the API's 403 is the gate.
+  const mayWrite = useMayInAnyProgramme('deal.write');
   const newDeal = () => setCreating(true);
 
   return (
@@ -446,7 +451,7 @@ export function PipelineScreen({
       appBar={{
         title: t.t('records.nav.deals'),
         actions: (
-          <DealsBarActions t={t} live={live} onNew={newDeal} newDisabled={!online || !ready} />
+          <DealsBarActions t={t} live={live} {...(mayWrite ? { onNew: newDeal } : {})} newDisabled={!online || !ready} />
         ),
       }}
     >
@@ -495,17 +500,19 @@ export function PipelineScreen({
               />
             ) : null}
             {modules.fxDisplay ? <UsdSwitch t={t} /> : null}
-            <Button
-              variant="primary"
-              icon="add"
-              data-action="new-deal"
-              data-requires-connection=""
-              disabled={!online || !ready}
-              onClick={newDeal}
-              className="hidden px-4 md:inline-flex"
-            >
-              {t.t('pipeline.newDeal')}
-            </Button>
+            {mayWrite ? (
+              <Button
+                variant="primary"
+                icon="add"
+                data-action="new-deal"
+                data-requires-connection=""
+                disabled={!online || !ready}
+                onClick={newDeal}
+                className="hidden px-4 md:inline-flex"
+              >
+                {t.t('pipeline.newDeal')}
+              </Button>
+            ) : null}
           </div>
 
           {modules.summary && summary !== null ? (
@@ -726,6 +733,7 @@ export function PipelineScreen({
               blockedId={blocked?.dealId ?? null}
               pending={pending}
               onMove={(deal, toStageId) => requestMove(deal, toStageId, false)}
+              mayMove={mayWrite}
               onClearFilters={() => setFilterState(NO_FILTERS)}
             />
           ) : empty ? (
@@ -738,15 +746,17 @@ export function PipelineScreen({
                 title={t.t('pipeline.board.empty.title')}
                 body={t.t('pipeline.board.empty.body')}
                 action={
-                  <Button
-                    variant="primary"
-                    icon="add"
-                    data-requires-connection=""
-                    disabled={!online}
-                    onClick={newDeal}
-                  >
-                    {t.t('pipeline.newDeal')}
-                  </Button>
+                  mayWrite ? (
+                    <Button
+                      variant="primary"
+                      icon="add"
+                      data-requires-connection=""
+                      disabled={!online}
+                      onClick={newDeal}
+                    >
+                      {t.t('pipeline.newDeal')}
+                    </Button>
+                  ) : undefined
                 }
               />
             </div>
@@ -767,6 +777,7 @@ export function PipelineScreen({
               onDrop={onDrop}
               onMoveSheet={setSheet}
               onActiveColumn={setActiveColumn}
+              mayMove={mayWrite}
             />
           )}
         </div>

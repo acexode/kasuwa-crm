@@ -1,6 +1,7 @@
 'use client';
 
 import { clientLazy } from '../../lib/client-lazy';
+import { useMayInAnyProgramme } from '../../lib/use-capabilities';
 import { guarded } from '../custom/lazy-boundary';
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { createBundleTranslator, type MessageBundle, type Translator } from '@kasuwa/i18n/bundle';
@@ -90,9 +91,9 @@ const FilterSheet = guarded(clientLazy(() => import('../records/filter-sheet').t
  * on the list pieces every P04 screen shares (`components/records/`).
  *
  * ---------------------------------------------------------------------------
- * WRITE CONTROLS SHOW TO EVERY CALLER, AND THE API'S 403 IS THE GATE (D-L84).
- * Nothing in the contract tells the screen whether the caller holds
- * `account.write` (no capability read until T-0079). A refused write is said
+ * THE API'S 403 IS THE GATE (D-L84). `getMyCapabilities` (T-0158) lets the screen
+ * leave out the write controls from a caller who holds `account.write` nowhere;
+ * a caller whose answer cannot be read keeps them. A refused write is said
  * plainly, in translated copy, inside the sheet, which keeps what was typed.
  *
  * A LOCK IS NOT AN EMPTY CELL, AND AN EMPTY CELL IS NOT A LOCK. Field security
@@ -249,6 +250,9 @@ export function AccountsScreen({
   const lastActive = [...ACCOUNT_FILTERS].reverse().find((spec) => view.filters[spec.key].length > 0)?.key;
   const removeLast = lastActive === undefined ? null : () => setFilters((current) => ({ ...current, [lastActive]: [] }));
 
+  // T-0158: left out only when the API said `account.write` is held nowhere the
+  // caller reaches. An unread answer draws them, and the API's 403 is the gate.
+  const mayWrite = useMayInAnyProgramme('account.write');
   const startCreate = () => {
     if (offline) return;
     setAnnouncement('');
@@ -288,7 +292,7 @@ export function AccountsScreen({
         subtitle: phoneSubtitle(t, 'accounts.views.all', unsaved, count),
         actions: <PhoneBarActions t={t} savedViews={flags.savedViews} menuItems={menuItems} offline={offline} />,
       }}
-      fab={<CrmFab label={t.t('records.action.newShort')} onClick={startCreate} />}
+      fab={mayWrite ? <CrmFab label={t.t('records.action.newShort')} onClick={startCreate} /> : undefined}
     >
       <div data-screen="P04/03" data-list-state={state} className="flex min-w-0 flex-col md:gap-3">
         {offline ? (
@@ -310,7 +314,7 @@ export function AccountsScreen({
           savedViews={flags.savedViews ? { allLabel: 'accounts.views.all', unsaved } : null}
           switcher={<ViewSwitcher t={t} value="table" built={['table']} mapView={flags.mapView} onChange={() => undefined} />}
           menuItems={menuItems}
-          primary={<NewButton t={t} label="accounts.action.new" action="create-account" offline={offline} onClick={startCreate} />}
+          primary={mayWrite ? <NewButton t={t} label="accounts.action.new" action="create-account" offline={offline} onClick={startCreate} /> : null}
           offline={offline}
         />
 
@@ -448,8 +452,8 @@ export function AccountsScreen({
           offline={offline}
           onClear={clearAll}
           onRemoveLast={removeLast}
-          onCreate={startCreate}
-          onEdit={startEdit}
+          onCreate={mayWrite ? startCreate : null}
+          onEdit={mayWrite ? startEdit : null}
           onPageSize={(pageSize) => setView((current) => ({ ...current, pageSize }))}
         />
 
@@ -687,8 +691,8 @@ function Body({
   offline: boolean;
   onClear: () => void;
   onRemoveLast: (() => void) | null;
-  onCreate: () => void;
-  onEdit: (row: Account) => void;
+  onCreate: (() => void) | null;
+  onEdit: ((row: Account) => void) | null;
   onPageSize: (size: PageSize) => void;
 }) {
   const paging = usePaging(list, pageSize);
@@ -722,7 +726,7 @@ function Body({
         phoneActions={null}
         phoneNote=""
         actions={
-          <button
+          onCreate === null ? null : <button
             type="button"
             data-action="create-account"
             data-requires-connection=""
@@ -844,7 +848,7 @@ function Body({
                         : [cell];
                     })}
                     <td className={cellClass(selected, 'text-end')}>
-                      <EditButton t={t} row={row} offline={offline} onEdit={onEdit} />
+                      {onEdit === null ? null : <EditButton t={t} row={row} offline={offline} onEdit={onEdit} />}
                     </td>
                   </tr>
                 );
@@ -923,7 +927,7 @@ function AccountCard({
   row: Account;
   offline: boolean;
   quickActions: boolean;
-  onEdit: (row: Account) => void;
+  onEdit: ((row: Account) => void) | null;
 }) {
   const phone = row.phones?.[0];
   const actions: CardAction[] = [
@@ -934,15 +938,19 @@ function AccountCard({
           { key: 'sms', icon: 'sms', label: 'records.card.sms', onClick: null, tone: 'info' },
         ] as const)
       : []),
-    {
-      key: 'edit',
-      icon: 'edit',
-      label: 'accounts.action.edit',
-      onClick: () => onEdit(row),
-      tone: 'soft',
-      ariaDisabled: offline,
-      attributes: { 'data-action': 'edit-account', 'data-requires-connection': '' },
-    },
+    ...(onEdit === null
+      ? []
+      : [
+          {
+            key: 'edit',
+            icon: 'edit',
+            label: 'accounts.action.edit',
+            onClick: () => onEdit(row),
+            tone: 'soft',
+            ariaDisabled: offline,
+            attributes: { 'data-action': 'edit-account', 'data-requires-connection': '' },
+          } satisfies CardAction,
+        ]),
   ];
   const owner = cellWithheld(row, 'owner')
     ? null

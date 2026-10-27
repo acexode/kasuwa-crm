@@ -1082,6 +1082,16 @@ test.describe('crm_pipeline gates /pipelines', () => {
   });
 });
 
+test('a caller without deal.write is offered no new-deal or move control, and the board still reads @p06-pipeline @p06-pipeline-writers', async ({ page }) => {
+  // T-0158: getMyCapabilities says `deal.write` is held in no programme.
+  const mock = await openBoard(page, { capabilities: 'reader' });
+  await boardSettled(page);
+  await expect(page.locator('[data-deal-card]').first()).toBeVisible();
+  await expect(page.locator('[data-action="new-deal"]')).toHaveCount(0);
+  await expect(page.locator('[data-action="move-deal"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
+});
+
 // ===========================================================================
 // The shell and the index (R1, R2)
 // ===========================================================================

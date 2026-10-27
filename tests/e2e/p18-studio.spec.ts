@@ -1208,8 +1208,8 @@ test('a caller without custom_field.write reads the list; every write is refused
   expect(mock.writes.map((write) => write.status)).toEqual([403, 403, 403]);
 });
 
-test.fixme('a caller without custom_field.write is offered no write control (waits on the capability read, T-0079) @p18-studio @p18-studio-writers', async ({ page }) => {
-  await openStudio(page, { caller: 'member' });
+test('a caller without custom_field.write is offered no write control (T-0158) @p18-studio @p18-studio-writers', async ({ page }) => {
+  await openStudio(page, { caller: 'member', capabilities: 'reader' });
   await expect(page.locator(`${SCREEN} [data-testid="field-new"], ${SCREEN} [data-testid="field-edit"], ${SCREEN} [data-testid="field-retire"]`)).toHaveCount(0);
 });
 

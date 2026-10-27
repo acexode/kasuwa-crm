@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 273 rows; built 126, partial 11, mock-only 26, flagged-off 81, deferred 10, not-started 19.
+Totals: 274 rows; built 127, partial 11, mock-only 26, flagged-off 81, deferred 10, not-started 19.
 
 ## Modules
 
@@ -151,6 +151,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `regenerateBackupCodes` | POST /api/v1/auth/me/mfa/backup-codes — Regenerate the backup codes (step-up, T-0012) | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `signOut` | POST /api/v1/auth/sign-out — Revoke the current session | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `getCurrentUser` | GET /api/v1/auth/me — The current user | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `getMyCapabilities` | GET /api/v1/me/capabilities — What the caller may do (T-0158) | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `lookupSso` | POST /api/v1/auth/sso/lookup — Find the SSO connection for an email domain | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `signUp` | POST /api/v1/auth/sign-up — Start a self-serve sign-up (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
 | operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |

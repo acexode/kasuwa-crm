@@ -15,7 +15,9 @@ import { CrmFab, CrmShell } from '../crm/crm-shell';
 import type { LanguageOption } from '../auth/language-menu';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../auth/button-classes';
 import { HEADER_PRIMARY, TOOL_BUTTON } from '../records/list-classes';
-import { RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
+import { RecordNotFound, RecordOfflineBanner, RecordUnavailable } from '../record/record-states';
+import { mayInAnyProgramme } from '../../lib/capabilities-api';
+import { useCapabilities } from '../../lib/use-capabilities';
 import { SCRIPT_LOCALES, type ScriptLocale } from '../../lib/script-graph';
 import {
   createScript,
@@ -33,11 +35,11 @@ import { formatDayFirst } from '../../lib/date-locale';
  * paged on `nextCursor` (a short page is not the last), with no count
  * (D-P13), and the cursor never in the address bar.
  *
- * D-L84 / R2: nothing tells the screen who holds `script.write`, so "New
- * script" shows to every caller and the API's 403 is the gate, drawn as a
- * translated alert that keeps what was typed. A non-writer simply sees no
- * scripts, exactly as an admin with none does. There is no nav entry to this
- * screen for anyone until a capability read exists (R3).
+ * D-L84 / T-0158: `getMyCapabilities` says who holds `script.write`. A caller
+ * who holds it nowhere gets the not-found a missing script gets; while the
+ * answer is unread "New script" shows and the API's 403 is the gate, drawn as a
+ * translated alert that keeps what was typed. The CRM nav still links nobody
+ * here (R3, the lead's flag).
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -121,6 +123,29 @@ export function ScriptListScreen({
   const programmeName = (id: string) =>
     programmes.find((programme) => programme.id === id)?.name ?? null;
   const headingId = useId();
+
+  // T-0158: an answer that says `script.write` is held nowhere the caller reaches
+  // draws the same not-found as a script that does not exist. It is client-side,
+  // so the status is not 404: the server cannot know this without the read, and
+  // a mock only reaches the browser. An unread answer draws the list (the API's
+  // listScripts is still the gate).
+  const capabilities = useCapabilities();
+  if (capabilities !== null && !mayInAnyProgramme(capabilities, 'script.write')) {
+    return (
+      <CrmShell
+        t={t}
+        locale={locale}
+        locales={locales}
+        current="studio"
+        live={live}
+        appBar={{ title: t.t('scripting.builder.title') }}
+      >
+        <div data-screen="P10/05" data-builder-view="not-found">
+          <RecordNotFound t={t} />
+        </div>
+      </CrmShell>
+    );
+  }
 
   return (
     <CrmShell

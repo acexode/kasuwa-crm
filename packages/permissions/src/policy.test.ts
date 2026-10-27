@@ -12,6 +12,7 @@ import {
   canTenant,
   canUpdateContact,
   canWriteActivity,
+  listCapabilities,
   contactUpdateWithinClaim,
   permissionSetKeysGranting,
   type Grants,
@@ -502,5 +503,49 @@ describe('deals (T-0108; D-L88, D-L115, D-P18)', () => {
       'the flag',
     ).toBe(true);
     expect(canWriteDeal(inP1('admin', true), OUTSIDE, CALLER, own, true)).toBe(false);
+  });
+});
+
+describe('listCapabilities (T-0158)', () => {
+  const P1 = '11111111-0000-4000-8000-00000158c001';
+  const P2 = '11111111-0000-4000-8000-00000158c002';
+  const grants = (over: Partial<Grants>): Grants => ({
+    isTenantAdmin: false,
+    reachableProgrammeIds: [P1, P2],
+    programmeSets: new Map<string, string | null>([
+      [P1, 'agent'],
+      [P2, null],
+    ]),
+    ...over,
+  });
+
+  it('is derived from canProgramme: an agent holds the agent set, a set-less membership nothing', () => {
+    const result = listCapabilities(grants({}));
+    expect(result.tenant).toEqual({ admin: false, can: [] });
+    expect(result.programmes).toEqual([
+      {
+        id: P1,
+        can: ['activity.write', 'contact.claim_and_set_status', 'deal.write', 'script.run'],
+      },
+      { id: P2, can: [] },
+    ]);
+  });
+
+  it('gives a tenant admin every tenant action, sorted, and every action in a reachable programme', () => {
+    const result = listCapabilities(grants({ isTenantAdmin: true }));
+    expect(result.tenant.admin).toBe(true);
+    expect(result.tenant.can).toEqual([...TENANT_ACTIONS].sort());
+    expect(result.programmes[1]?.can).toEqual([...PROGRAMME_ACTIONS].sort());
+  });
+
+  it('never names a programme outside the resolved scope, even one with a set', () => {
+    const result = listCapabilities(grants({ reachableProgrammeIds: [P1] }));
+    expect(result.programmes.map((p) => p.id)).toEqual([P1]);
+  });
+
+  it('lists a programme once', () => {
+    expect(listCapabilities(grants({ reachableProgrammeIds: [P1, P1] })).programmes).toHaveLength(
+      1,
+    );
   });
 });
