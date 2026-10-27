@@ -301,6 +301,9 @@ function isActive(locator: Locator): Promise<boolean> {
 }
 
 async function expectNoSeriousAxe(page: Page, label: string): Promise<void> {
+  // A dialog or sheet still fading in has translucent text, and axe measures contrast mid-fade (D-L208: the retire
+  // dialog failed color-contrast intermittently). Measure the settled screen.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((violation) => violation.impact === 'critical' || violation.impact === 'serious');
   expect(blocking.map((violation) => `${violation.id}: ${violation.help}`), `serious or critical accessibility violations on ${label}`).toEqual([]);
@@ -399,7 +402,10 @@ async function choose(form: Locator, name: string, value: string): Promise<void>
   }
   const radio = form.locator(`input[type="radio"][name="${name}"][value="${value}"]`);
   expect(await radio.count(), `the form has no select or radio named ${name} offering ${value}`).toBeGreaterThan(0);
-  await radio.check({ force: true });
+  // The radio is sr-only (its label is the visible control). A forced pointer check needs the input inside the
+  // viewport, which at 360px it intermittently is not (D-L208); the DOM click is the same activation, viewport-free.
+  await radio.first().evaluate((input: HTMLInputElement) => input.click());
+  await expect(radio.first()).toBeChecked();
 }
 
 /** Enabled controls named `name`: what an admin could still change. */

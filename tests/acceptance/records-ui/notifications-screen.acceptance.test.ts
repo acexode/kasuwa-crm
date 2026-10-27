@@ -726,6 +726,10 @@ describe('acceptance: T-0101 — every string through i18n, in all eight catalog
     const full = readdirSync(fromRoot('packages/i18n/src/locales'))
       .filter((name) => /^[a-zA-Z-]+\.json$/.test(name))
       .map((name) => name.replace(/\.json$/, ''))
+      // Lead edit (D-L208): en-XA is GENERATED into this folder by `pnpm i18n:pseudo`
+      // (gitignored; CI runs it before every browser job), so it is a full copy of
+      // en, not a catalogue a translator keeps. Locally it is usually absent.
+      .filter((locale) => locale !== 'en-XA')
       .filter((locale) => Object.keys(catalogue(locale)).length === en)
       .sort();
     expect(full).toEqual([...FULL_CATALOGUES].sort());

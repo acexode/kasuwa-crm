@@ -276,7 +276,7 @@ const ROUTE_FILE = 'apps/web/app/admin/custom-fields/page.tsx';
 const PINNED_SHA256: Readonly<Record<string, string>> = {
   // Lead re-pin (T-0090, D-L145): the mock serves the P02 home's three reads; @p18-studio-absent reads the
   // studio's own surfaces, not the whole body; the budget is pinned at 266,000 (R24).
-  [SPEC]: '7f444a2b63398e2776b14632f0e9ddec565e8fbd14b3375552b186a514089cb9',
+  [SPEC]: '795b2559f376ee50fbf154fd50bebbbc9398ab6b5840d805f5d2b2a347aa92ae',
   [MOCK]: '17b55c004588f37efee18975ee581e071abcdebdc6db7c6b9b3b8aafa9f6d5c7',
 };
 
