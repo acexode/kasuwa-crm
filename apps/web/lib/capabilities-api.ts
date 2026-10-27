@@ -41,8 +41,15 @@ export function mayInProgramme(
 
 /**
  * One read per page lifetime, shared by every screen that asks. A failed read
- * is not kept, so the next screen asks again. Sign-out is a full navigation, so
- * the next session never sees this one's answer.
+ * is not kept, so the next screen asks again.
+ *
+ * Why a module variable cannot outlive its session (ADR-0019): every way a
+ * session ends is a full page load. The sign-out buttons call
+ * `window.location.assign(SIGN_IN_PATH)` after `signOut()`, and `apiFetch`'s
+ * 401 handler does the same, so the next user always starts with this module
+ * re-evaluated and `cached` empty. The sign-in screens are only reached that
+ * way. If a client-side sign-out or user switch is ever added, it must call
+ * `resetCapabilitiesCache()`.
  */
 let cached: Promise<Capabilities | null> | null = null;
 

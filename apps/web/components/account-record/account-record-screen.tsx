@@ -1,5 +1,6 @@
 'use client';
 
+import { useMayInProgramme } from '../../lib/use-capabilities';
 import { clientLazy } from '../../lib/client-lazy';
 import { guarded } from '../custom/lazy-boundary';
 import Link from 'next/link';
@@ -88,9 +89,10 @@ const AddressesCard = clientLazy(() => import('../record/record-placeholders').t
  *     "access denied" frame, P05/05's queued edits (D-P21), and the account's
  *     name in the document title.
  *
- * D-L84: no read tells the screen whether the caller may write, so the write
- * controls show to everyone and the API's 403 is the gate, drawn as an alert
- * in the reader's language. Nothing is optimistic.
+ * D-L84 / T-0158: `getMyCapabilities` lets the screen leave out the edit and log
+ * controls from a caller who lacks `account.write` / `activity.write` in this
+ * account's programme. An unread answer draws them, and the API's 403 is the
+ * gate, drawn as an alert in the reader's language. Nothing is optimistic.
  * ---------------------------------------------------------------------------
  */
 
@@ -246,6 +248,10 @@ function Ready({
   const [pane, setPane] = useState<Pane>('insights');
   const [channel, setChannel] = useState<ComposerChannel>('whatsapp');
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  // T-0158: left out only when the API said the caller lacks the action in this
+  // account's programme. An unread answer draws them; the API's 403 is the gate.
+  const mayEdit = useMayInProgramme('account.write', record.programmeId);
+  const mayLog = useMayInProgramme('activity.write', record.programmeId);
   const headings = { header: useId(), details: useId(), contacts: useId(), related: useId() };
 
   const complete = async (activityId: string) => {
@@ -282,7 +288,7 @@ function Ready({
   const actions: RecordAction[] = [
     ...(flags.call ? [{ key: 'call', icon: 'call' as const, label: t.t('record.action.call'), primary: true, disabled: true, title: soon }] : []),
     // The export's account bar has WhatsApp and Email, and no SMS.
-    ...(flags.composer
+    ...(flags.composer && mayLog
       ? (['whatsapp', 'email'] as const).map((value) => ({
           key: value,
           icon: value === 'whatsapp' ? ('chat' as const) : ('mail' as const),
@@ -290,9 +296,9 @@ function Ready({
           onClick: () => openChannel(value),
         }))
       : []),
-    {
+    ...(mayLog ? [{
       key: 'log',
-      icon: 'edit_note',
+      icon: 'edit_note' as const,
       label: t.t('record.action.log'),
       disabled: offline,
       attributes: { 'data-action': 'log-activity', 'data-requires-connection': '' },
@@ -307,7 +313,7 @@ function Ready({
         },
         attributes: { 'data-action': 'log-activity', 'data-activity-type': type, 'data-requires-connection': '' },
       })),
-    },
+    }] : []),
     ...(flags.related
       ? [
           { key: 'deal', icon: 'handshake' as const, label: t.t('record.action.newDeal'), disabled: true, title: soon },
@@ -340,7 +346,7 @@ function Ready({
                   locked={locked}
                   mono={key === 'phones'}
                   edit={
-                    EDITED.has(key)
+                    EDITED.has(key) && mayEdit
                       ? { label: t.t('record.action.edit', { field: label }), action: 'edit-account', disabled: offline, onClick: () => setEditing(true) }
                       : undefined
                   }
@@ -411,7 +417,7 @@ function Ready({
 
   const activity = (
     <>
-      {flags.composer ? (
+      {flags.composer && mayLog ? (
         <Composer t={t} channel={channel} onChannel={setChannel} offline={offline} onSaveNote={saveNote} inputRef={composerInput} />
       ) : null}
       <TimelineCard

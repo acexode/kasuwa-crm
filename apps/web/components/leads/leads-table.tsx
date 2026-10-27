@@ -29,6 +29,8 @@ import { CardName, RecordCard, SwipeHint, type CardAction } from '../records/rec
 import { EmptyLanding, NoResults, STATE_PRIMARY, STATE_QUIET, STATE_SECONDARY, UnbuiltAction } from '../records/list-states';
 import { getLead, listLeads, type ConvertLeadResult, type Lead } from '../../lib/leads-api';
 import { isWithheld } from '../../lib/records-api';
+import { useCapabilities } from '../../lib/use-capabilities';
+import { mayInProgramme } from '../../lib/capabilities-api';
 import {
   LEAD_COLUMNS,
   LEAD_FILTERS,
@@ -124,6 +126,11 @@ export function LeadsTable({
   const list = useKeysetList(q, view, fetchLeads);
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  // T-0158: convert writes `status` and `accountId`, so it needs `contact.write` in
+  // the lead's programme. Left out only on an answer that says no; an unread
+  // answer draws it and the API's 403 is the gate.
+  const capabilities = useCapabilities();
+  const mayConvert = (row: Lead): boolean => capabilities === null || mayInProgramme(capabilities, 'contact.write', row.programmeId);
 
   const searched =
     list.answered.q.trim() !== '' ||
@@ -190,6 +197,7 @@ export function LeadsTable({
         onClear={onClear}
         onRemoveLast={onRemoveLast}
         onConvert={startConvert}
+        mayConvert={mayConvert}
         onPageSize={onPageSize}
       />
       <p role="status" className="sr-only">
@@ -231,6 +239,7 @@ function Body({
   onClear,
   onRemoveLast,
   onConvert,
+  mayConvert,
   onPageSize,
 }: {
   t: Translator;
@@ -244,6 +253,7 @@ function Body({
   onClear: () => void;
   onRemoveLast: (() => void) | null;
   onConvert: (row: Lead) => void;
+  mayConvert: (row: Lead) => boolean;
   onPageSize: (size: PageSize) => void;
 }) {
   const size = (view.pageSize ?? 25) as PageSize;
@@ -386,7 +396,7 @@ function Body({
                       />
                     ))}
                     <td className={cellClass(selected, 'text-end')}>
-                      <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} />
+                      <ConvertAction t={t} row={row} offline={offline} onConvert={onConvert} may={mayConvert(row)} />
                     </td>
                   </tr>
                 );
@@ -400,7 +410,7 @@ function Body({
       {flags.quickActions ? <SwipeHint t={t} label="records.card.hint" /> : null}
       <ul className="-mx-4 flex flex-col border-t border-border md:hidden">
         {rows.map((row) => (
-          <LeadCard key={row.id} t={t} row={row} offline={offline} quickActions={flags.quickActions} onConvert={onConvert} />
+          <LeadCard key={row.id} t={t} row={row} offline={offline} quickActions={flags.quickActions} onConvert={onConvert} may={mayConvert(row)} />
         ))}
       </ul>
       <div className="md:hidden">
@@ -486,12 +496,14 @@ function LeadCard({
   offline,
   quickActions,
   onConvert,
+  may,
 }: {
   t: Translator;
   row: Lead;
   offline: boolean;
   quickActions: boolean;
   onConvert: (row: Lead) => void;
+  may: boolean;
 }) {
   const name = nameOrWithheld(t, row.displayName);
   const phone = row.phones?.[0];
@@ -504,7 +516,7 @@ function LeadCard({
           { key: 'sms', icon: 'sms', label: 'records.card.sms', onClick: null, tone: 'info' },
         ] as const)
       : []),
-    ...(offer === 'offer'
+    ...(offer === 'offer' && may
       ? [
           {
             key: 'convert',
@@ -567,13 +579,16 @@ function ConvertAction({
   row,
   offline,
   onConvert,
+  may,
 }: {
   t: Translator;
   row: Lead;
   offline: boolean;
   onConvert: (row: Lead) => void;
+  may: boolean;
 }) {
   const offer = convertOffer(row);
+  if (offer === 'offer' && !may) return null;
   if (offer === 'locked') {
     return (
       <span className="inline-flex items-center gap-1 whitespace-nowrap text-meta text-text-muted">

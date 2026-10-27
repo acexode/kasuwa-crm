@@ -930,6 +930,15 @@ test.describe('crm_activities gates /activities', () => {
   });
 });
 
+test('a caller without activity.write is offered no compose control, and My tasks still reads @p07 @p07-writers', async ({ page }) => {
+  // T-0158: getMyCapabilities says `activity.write` is held in no programme.
+  const mock = await openActivities(page, { capabilities: 'reader' });
+  await bucketsSettled(page);
+  await expect(shown(screen(page).getByTestId('my-tasks')).first()).toBeVisible();
+  await expect(page.locator('[data-action="compose"], [data-action="compose-task"]')).toHaveCount(0);
+  expect(mock.violations).toEqual([]);
+});
+
 // ===========================================================================
 // The shell
 // ===========================================================================

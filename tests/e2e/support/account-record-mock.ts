@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { TENANT_A } from '@kasuwa/db';
 import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
+import { CAPABILITIES_PATH, answerCapabilities, type CapabilitiesAnswer } from './capabilities-mock';
 
 /**
  * The account record half of `docs/api/records.openapi.yaml` — `getAccount`,
@@ -1007,6 +1008,8 @@ export const MAX_ANCESTORS = 4;
 export type Role = 'admin' | 'agent' | 'reader';
 
 export interface AccountRecordMockOptions {
+  /** What `getMyCapabilities` answers (T-0158). Default `writer`: every write control is drawn. See capabilities-mock.ts. */
+  readonly capabilities?: CapabilitiesAnswer;
   /** The record the journey opens. getAccount for anything else must be a served parent. */
   readonly recordId?: string;
   /** The caller's permission set (see the header). Default `agent`. */
@@ -1690,6 +1693,7 @@ export async function installAccountRecordMock(page: Page, options: AccountRecor
       requests.push(url);
       checkHeaders(request, `${method} ${url.pathname}`);
 
+      if (url.pathname === CAPABILITIES_PATH && method === 'GET') return answerCapabilities(route, options.capabilities, [PROGRAMME_ONE.id, PROGRAMME_TWO.id]);
       if (url.pathname === ME_PATH && method === 'GET') {
         return answer(route, 'getCurrentUser', 200, clone(CURRENT_USER));
       }

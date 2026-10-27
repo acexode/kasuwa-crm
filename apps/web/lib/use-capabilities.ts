@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { loadMyCapabilities, mayInAnyProgramme, type Capabilities } from './capabilities-api';
+import { loadMyCapabilities, mayInAnyProgramme, mayInProgramme, type Capabilities } from './capabilities-api';
 
 /**
  * The caller's capabilities, or `null` while the read is in flight or when it
@@ -26,4 +26,16 @@ export function useCapabilities(): Capabilities | null {
 export function useMayInAnyProgramme(action: string): boolean {
   const capabilities = useCapabilities();
   return capabilities === null ? true : mayInAnyProgramme(capabilities, action);
+}
+
+/** False only when the API said the caller does not hold `action` in `programmeId`. */
+export function useMayInProgramme(action: string, programmeId: string): boolean {
+  const capabilities = useCapabilities();
+  return capabilities === null ? true : mayInProgramme(capabilities, action, programmeId);
+}
+
+/** False only when the API said the caller does not hold the tenant-level `action`. */
+export function useMayInTenant(action: string): boolean {
+  const capabilities = useCapabilities();
+  return capabilities === null ? true : capabilities.tenant.can.includes(action);
 }

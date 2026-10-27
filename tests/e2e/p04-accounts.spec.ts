@@ -1105,19 +1105,12 @@ test('a caller without account.write sees no create or edit control, and the lis
   page,
 }) => {
   // T-0158: getMyCapabilities says `account.write` is held nowhere the caller
-  // reaches. The mock answers it here, in the browser, as it does listMyProgrammes.
-  await page.route('**/api/v1/me/capabilities', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      headers: { 'cache-control': 'no-store' },
-      body: JSON.stringify({
-        tenant: { admin: false, can: [] },
-        programmes: [{ id: PROGRAMME_ONE.id, can: ['activity.write', 'script.run'] }],
-      }),
-    }),
-  );
-  const mock = await openAccounts(page, { state: 'ready', programmes: 'one' });
+  // reaches. The mock answers it, as it answers listMyProgrammes.
+  const mock = await openAccounts(page, {
+    state: 'ready',
+    programmes: 'one',
+    capabilities: { tenant: { admin: false, can: [] }, programmes: [{ id: PROGRAMME_ONE.id, can: ['activity.write', 'script.run'] }] },
+  });
   await expect(row(page, ACCOUNT_EXAMPLE.id)).toBeVisible();
   await expect(page.locator('[data-action="create-account"]')).toHaveCount(0);
   await expect(page.locator('[data-action="edit-account"]')).toHaveCount(0);
