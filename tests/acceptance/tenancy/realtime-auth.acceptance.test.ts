@@ -310,7 +310,7 @@ describe('acceptance: realtime authenticates and filters server side (T-0160)', 
       const bodies = new Set<string>();
       for (const [label, headers, query] of cases) {
         const result = await connect(headers, query);
-        expect('refused' in result, `${label}: a socket opened`).toBe(false);
+        expect('refused' in result, `${label}: a socket opened`).toBe(true);
         if (!('refused' in result)) continue;
         expect(result.refused.status, label).toBe(401);
         bodies.add(result.refused.body);

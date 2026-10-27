@@ -269,6 +269,14 @@ const PLANTS: Record<string, Plant> = {
       [PLANT_SCRIPT, TENANT_A, PROGRAMME_A1],
     );
   },
+  /** T-0159 (lead edit, D-L208): one user's Home layout. Nothing seeds one. */
+  home_layout: async (client) => {
+    await client.query(
+      `INSERT INTO home_layout (tenant_id, user_id, role, items, updated_at)
+       VALUES ($1, $2, 'rep', '[]'::jsonb, ${PAST})`,
+      [TENANT_A, USER_A_SUPERVISOR],
+    );
+  },
 };
 
 describe('acceptance: schema hygiene (T-0011)', () => {

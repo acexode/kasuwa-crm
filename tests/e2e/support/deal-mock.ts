@@ -43,6 +43,7 @@ import {
   type StoredDeal,
 } from './pipeline-mock';
 import { CUSTOM_FIELDS_PATH, CustomFieldsServer, type CustomFieldsSetup } from './custom-values-mock';
+import { CAPABILITIES_PATH, answerCapabilities } from './capabilities-mock';
 
 /**
  * The deal detail's half of `docs/api/records.openapi.yaml`, served into the
@@ -1307,6 +1308,8 @@ export async function installDealMock(page: Page, options: DealMockOptions = {})
       }
       if (url.pathname === ME_PATH && method === 'GET') return me(route);
       if (url.pathname === PROGRAMMES_PATH && method === 'GET') return programmes(route);
+      // T-0158 (D-L208): the deal page reads the caller's capabilities. Writer: every control drawn.
+      if (url.pathname === CAPABILITIES_PATH && method === 'GET') return answerCapabilities(route, 'writer', [PROGRAMME_ONE.id, PROGRAMME_TWO.id]);
       if (url.pathname === CUSTOM_FIELDS_PATH && method === 'GET') return custom.answerList(route);
       const pipelineMatch = /^\/api\/v1\/pipelines\/([^/]+)$/.exec(url.pathname);
       if (pipelineMatch !== null && method === 'GET') return getPipeline(route, url, pipelineMatch[1] ?? '');

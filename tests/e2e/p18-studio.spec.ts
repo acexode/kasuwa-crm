@@ -301,6 +301,9 @@ function isActive(locator: Locator): Promise<boolean> {
 }
 
 async function expectNoSeriousAxe(page: Page, label: string): Promise<void> {
+  // A dialog or sheet still fading in has translucent text, and axe measures contrast mid-fade (D-L208: the retire
+  // dialog failed color-contrast intermittently). Measure the settled screen.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = results.violations.filter((violation) => violation.impact === 'critical' || violation.impact === 'serious');
   expect(blocking.map((violation) => `${violation.id}: ${violation.help}`), `serious or critical accessibility violations on ${label}`).toEqual([]);
@@ -399,7 +402,10 @@ async function choose(form: Locator, name: string, value: string): Promise<void>
   }
   const radio = form.locator(`input[type="radio"][name="${name}"][value="${value}"]`);
   expect(await radio.count(), `the form has no select or radio named ${name} offering ${value}`).toBeGreaterThan(0);
-  await radio.check({ force: true });
+  // The radio is sr-only (its label is the visible control). A forced pointer check needs the input inside the
+  // viewport, which at 360px it intermittently is not (D-L208); the DOM click is the same activation, viewport-free.
+  await radio.first().evaluate((input: HTMLInputElement) => input.click());
+  await expect(radio.first()).toBeChecked();
 }
 
 /** Enabled controls named `name`: what an admin could still change. */
@@ -1438,11 +1444,15 @@ test('on the real API: the seeded admin creates, relabels and retires a field, a
   const agentPage = await agent.newPage();
   await agentPage.goto(`${studioUrl()}${STUDIO_ROUTE}`);
   await expect(screenOf(agentPage)).toBeVisible();
-  const refusedForm = await openCreate(agentPage);
-  await fillNew(refusedForm, { label: `${label} agent`, apiName: `qa_agent_${suffix}__c`, type: 'text' });
-  const refused = await save(agentPage, refusedForm);
-  expect((await refused.response())?.status(), 'an agent was allowed to create a custom field').toBe(403);
-  await expectSaysOneOf(shown(agentPage.locator('[role="alert"]')), [EN['admin.error.not_permitted'] ?? '<missing>', ...studioLabels('.not_permitted')], 'the agent’s refusal');
+  // T-0158 (lead edit, D-L208): the agent holds no `custom_field.write`, so the
+  // studio no longer offers the create control at all. The API's own refusal is
+  // still proved live, by the same same-origin request the form would send.
+  await selectObject(agentPage, 'deal');
+  await expect(agentPage.locator(`${SCREEN} [data-testid="field-new"]`), 'the agent was offered a create it cannot make').toHaveCount(0);
+  const refused = await agentPage.request.post(`${studioUrl()}/api/v1/admin/custom-fields`, {
+    data: { objectApiName: 'deal', apiName: `qa_agent_${suffix}__c`, label: `${label} agent`, type: 'text', classification: 'none' },
+  });
+  expect(refused.status(), 'an agent was allowed to create a custom field').toBe(403);
   await agent.close();
 });
 

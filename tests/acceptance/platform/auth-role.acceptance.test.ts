@@ -1062,6 +1062,7 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
       const realtime: Record<string, unknown> = {
         ...realtimeEnv({
           ...AMBIENT,
+          NODE_ENV: 'test',
           DATABASE_URL,
           REDIS_URL: 'redis://r:6379',
           DATABASE_AUTH_URL,
