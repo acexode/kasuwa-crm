@@ -59,6 +59,7 @@ const EXPORTS = {
   P09: 'P09/Kasuwa Voice.html',
   P10: 'P10/Kasuwa Scripting.html',
   P18: 'P18/Kasuwa Customisation Studio.html',
+  P21: 'P21/Kasuwa Design System – Kasuwa Quotes & Invoicing.html',
   P26: 'P26/Kasuwa Notifications.html',
   P27: 'P27/Kasuwa Search - Command.html',
   P28: 'P28/Kasuwa Data Management.html',

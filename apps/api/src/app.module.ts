@@ -50,6 +50,12 @@ import { CHANNEL, createApiChannel } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
+import {
+  CataloguePriceBookController,
+  CatalogueProductController,
+  CatalogueProgrammeController,
+} from './commerce/catalogue.controller';
+import { CommerceModule } from './commerce/commerce.module';
 import { SearchController } from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
@@ -108,6 +114,13 @@ export const SCRIPTING_CONTROLLERS = [
   ContactScriptsController,
 ];
 
+/** Product catalogue (commerce.openapi.yaml, T-0164). */
+export const COMMERCE_CONTROLLERS = [
+  CatalogueProgrammeController,
+  CatalogueProductController,
+  CataloguePriceBookController,
+];
+
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 
@@ -122,6 +135,7 @@ const TELEMETRY_CONTROLLERS = [
   ...CONTROLLERS,
   AuthController,
   ...SCRIPTING_CONTROLLERS,
+  ...COMMERCE_CONTROLLERS,
   ...ADMIN_CONTROLLERS,
 ];
 
@@ -252,7 +266,9 @@ export class AppModule implements NestModule {
     // Every records answer is `no-store`, the guard's 401 and 400 included, which the
     // handlers' `@Header` (set after the guards) never reaches (T-0080, D-L90's follow-up).
     // And every scripting answer (T-0113, scripting.openapi.yaml's NoStore header).
-    consumer.apply(NoStoreMiddleware).forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS);
+    consumer
+      .apply(NoStoreMiddleware)
+      .forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS, ...COMMERCE_CONTROLLERS);
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {
@@ -292,6 +308,7 @@ export class AppModule implements NestModule {
         // In-call script authoring (T-0113): its own module for its no-store
         // middleware, like the audit area.
         ScriptsModule,
+        CommerceModule,
       ],
       controllers: CONTROLLERS,
       providers: [

@@ -145,6 +145,13 @@ export const PROGRAMME_ACTIONS = [
    * and by the tenant-admin flag. An agent's deal is always its own.
    */
   'deal.reassign',
+  /**
+   * D-L210 (T-0164): create and update products and variants, and upsert
+   * price-book entries, in the record's programme (the book's, the product's).
+   * Held by `admin` and the tenant-admin flag only; no other set holds it.
+   * Reads of the catalogue stay open to every member.
+   */
+  'catalogue.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];

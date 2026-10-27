@@ -31,6 +31,7 @@ describe('feature flags', () => {
       'crm_activities',
       'crm_scripts',
       'crm_pipeline',
+      'crm_products',
       'crm_search',
       'crm_custom_fields',
       'crm_import',

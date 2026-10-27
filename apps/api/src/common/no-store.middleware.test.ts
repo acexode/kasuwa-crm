@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AccountsController } from '../accounts/accounts.controller';
 import { ActivitiesController } from '../activities/activities.controller';
 import { MyActivitiesController } from '../activities/my-activities.controller';
-import { AppModule, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.module';
+import { AppModule, COMMERCE_CONTROLLERS, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.module';
 import { ContactsController } from '../contacts/contacts.controller';
 import { DealsController, PipelineDealsController } from '../deals/deals.controller';
 import { ImportsController } from '../imports/imports.controller';
@@ -83,7 +83,11 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
     expect(noStore).toHaveLength(1);
     expect(noStore[0]?.middleware).toEqual([NoStoreMiddleware]);
     // T-0113: and every scripting controller, in the same one application.
-    expect(noStore[0]?.routes).toEqual([...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS]);
+    expect(noStore[0]?.routes).toEqual([
+      ...RECORDS_CONTROLLERS,
+      ...SCRIPTING_CONTROLLERS,
+      ...COMMERCE_CONTROLLERS,
+    ]);
   });
 
   it('names the scripting controllers: authoring (T-0113) and runs (T-0114)', () => {

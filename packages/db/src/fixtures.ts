@@ -19,6 +19,11 @@
  *                  00000015   script
  *                  00000016   script version
  *                  00000017   deal
+ *                  00000018   tax profile
+ *                  00000019   price book
+ *                  0000001a   product
+ *                  0000001b   product variant
+ *                  0000001c   price book entry
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -442,6 +447,235 @@ export const SEED_SCRIPTS: readonly SeedScript[] = [
     },
     versionId: `${A}000000160001`,
     publishedByUserId: USER_A_SUPERVISOR,
+  },
+];
+
+export interface SeedTaxProfile {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  name: string;
+  rateBps: number;
+}
+
+export interface SeedPriceBook {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  name: string;
+  currency: 'NGN' | 'GHS' | 'KES' | 'ZAR';
+}
+
+/** One VAT profile per programme (T-0164), kind `00000018`. */
+export const SEED_TAX_PROFILES: readonly SeedTaxProfile[] = [
+  {
+    id: `${A}000000180001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Nigeria VAT 7.5%',
+    rateBps: 750,
+  },
+  {
+    id: `${A}000000180002`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Nigeria VAT 7.5%',
+    rateBps: 750,
+  },
+  {
+    id: `${B}000000180001`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Nigeria VAT 7.5%',
+    rateBps: 750,
+  },
+  {
+    id: `${B}000000180002`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Nigeria VAT 7.5%',
+    rateBps: 750,
+  },
+];
+
+/** Four standard price books per programme (T-0164), kind `00000019`. */
+export const SEED_PRICE_BOOKS: readonly SeedPriceBook[] = [
+  {
+    id: `${A}000000190001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Standard NGN',
+    currency: 'NGN',
+  },
+  {
+    id: `${A}000000190002`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Standard GHS',
+    currency: 'GHS',
+  },
+  {
+    id: `${A}000000190003`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Standard KES',
+    currency: 'KES',
+  },
+  {
+    id: `${A}000000190004`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Standard ZAR',
+    currency: 'ZAR',
+  },
+  {
+    id: `${A}000000190005`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Standard NGN',
+    currency: 'NGN',
+  },
+  {
+    id: `${A}000000190006`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Standard GHS',
+    currency: 'GHS',
+  },
+  {
+    id: `${A}000000190007`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Standard KES',
+    currency: 'KES',
+  },
+  {
+    id: `${A}000000190008`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A2,
+    name: 'Standard ZAR',
+    currency: 'ZAR',
+  },
+  {
+    id: `${B}000000190001`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Standard NGN',
+    currency: 'NGN',
+  },
+  {
+    id: `${B}000000190002`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Standard GHS',
+    currency: 'GHS',
+  },
+  {
+    id: `${B}000000190003`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Standard KES',
+    currency: 'KES',
+  },
+  {
+    id: `${B}000000190004`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B1,
+    name: 'Standard ZAR',
+    currency: 'ZAR',
+  },
+  {
+    id: `${B}000000190005`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Standard NGN',
+    currency: 'NGN',
+  },
+  {
+    id: `${B}000000190006`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Standard GHS',
+    currency: 'GHS',
+  },
+  {
+    id: `${B}000000190007`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Standard KES',
+    currency: 'KES',
+  },
+  {
+    id: `${B}000000190008`,
+    tenantId: TENANT_B,
+    programmeId: PROGRAMME_B2,
+    name: 'Standard ZAR',
+    currency: 'ZAR',
+  },
+];
+
+export interface SeedProduct {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  name: string;
+  sku: string;
+  taxProfileId: string;
+}
+
+export interface SeedProductVariant {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  productId: string;
+  name: string;
+  sku: string;
+}
+
+export interface SeedPriceBookEntry {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  priceBookId: string;
+  productId: string;
+  variantId: string;
+  amountMinor: string;
+  currency: 'NGN' | 'GHS' | 'KES' | 'ZAR';
+}
+
+/** One seed product in PROGRAMME_A1 so schema-hygiene can exercise updated_at (T-0164). */
+export const SEED_PRODUCTS: readonly SeedProduct[] = [
+  {
+    id: `${A}0000001a0001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    name: 'Collections retainer',
+    sku: 'SEED-RET-001',
+    taxProfileId: `${A}000000180001`,
+  },
+];
+
+export const SEED_PRODUCT_VARIANTS: readonly SeedProductVariant[] = [
+  {
+    id: `${A}0000001b0001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    productId: `${A}0000001a0001`,
+    name: 'Standard',
+    sku: 'SEED-RET-001-STD',
+  },
+];
+
+export const SEED_PRICE_BOOK_ENTRIES: readonly SeedPriceBookEntry[] = [
+  {
+    id: `${A}0000001c0001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    priceBookId: `${A}000000190001`,
+    productId: `${A}0000001a0001`,
+    variantId: `${A}0000001b0001`,
+    amountMinor: '25000000',
+    currency: 'NGN',
   },
 ];
 

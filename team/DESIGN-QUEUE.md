@@ -83,7 +83,7 @@ APIs, domain code and adapters behind them are built first.
 
 | Prompt | Screens | Task it unblocks | Requested |
 |---|---|---|---|
-| **P21** Quotes, invoicing, local payments | Founding pack Prompt 21 | T-0171 (S1) | `DESIGN NEEDED`, D-L205 B9 |
+| **P21** Quotes, invoicing, local payments | Filed at `docs/design/P21/` (`96afee2`); `index.txt` has 27 frames (product catalogue, price books, quote builder, invoices, payments). | T-0171 (S1) | Received |
 | **P23** BPO client portal | Founding pack Prompt 23 | T-0184 (S2) | `DESIGN NEEDED`, D-L205 B9 |
 | **P02** Channels and Compliance groups | The two settings groups the P02 export lacks | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |
 | **P08** Inbox, re-export | A bundled re-export (D-L205 B9) | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |

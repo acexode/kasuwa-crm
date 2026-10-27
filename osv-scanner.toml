@@ -229,3 +229,18 @@ id = "GHSA-rq7h-c2jc-7f22"
 ignoreUntil = 2027-01-31T00:00:00Z
 reason = "vite 5.4.21 (vitest 2.1.9's transform engine): files outside server.fs.allow served when project paths match system paths (CVSS 6.3, fixed in 6.4.4). dev-only: a transitive devDependency of vitest; apps/web is built by Next and no vite config exists. not reachable: the finding needs the Vite dev server listening, and no script or CI step runs `vite`; vitest starts its Vite server only for the UI, browser mode or an api port, and none is configured. fix: vite 6.4.4 or later arrives with the vitest major upgrade (its own task); re-triage by the expiry."
 
+
+[[IgnoredVulns]]
+id = "GHSA-2m5v-pch6-74hx"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): TLS certificate validation bypass through dropped tls options in Agent (CVSS 7.4, fixed in 6.29.1). test-only: reached through @kasuwa/testing, packages/testing and tests/*, and in no runtime closure. not reachable: testcontainers talks to the local Docker socket and its containers, never to a remote TLS host. fix: it clears with the testcontainers upgrade that drops undici 5 (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-9fm3-97px-rjf6"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): WebSocket client DoS through unbounded automatic PONG buffering (CVSS 5.9, fixed in 6.29.1). test-only: reached through @kasuwa/testing, packages/testing and tests/*, and in no runtime closure. not reachable: testcontainers opens no WebSocket client. fix: it clears with the testcontainers upgrade that drops undici 5 (its own task); re-triage by the expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-qrxm-fqhp-jwvm"
+ignoreUntil = 2027-01-31T00:00:00Z
+reason = "undici 5.29.0 (via testcontainers 10.28.0): DoS through TLS 1.2 certificate-changing renegotiation (CVSS 7.5, fixed in 6.29.1). test-only: reached through @kasuwa/testing, packages/testing and tests/*, and in no runtime closure. not reachable: testcontainers talks to the local Docker socket and its containers, never to a remote TLS host. fix: it clears with the testcontainers upgrade that drops undici 5 (its own task); re-triage by the expiry."

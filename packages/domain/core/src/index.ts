@@ -50,3 +50,5 @@ export * from './notification/owner-events';
 export * from './notification/notification-handler';
 export * from './notification/notification.repository';
 export * from './home/home-layout.repository';
+export * from './commerce/catalogue.types';
+export * from './commerce/catalogue.repository';
