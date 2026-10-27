@@ -50,6 +50,7 @@ import {
   type WidgetType,
 } from './home-model';
 import { browserLayoutStore } from './layout-store';
+import { createLayoutWriter, shouldApplyLoad } from './layout-sync';
 import { serverLayoutStore } from './server-layout-store';
 import { useHomeData, type HomeData } from './use-home-data';
 import { WidgetCard, WidgetEmpty, WidgetError, WidgetSkeleton, type WidgetEditProps } from './widget-card';
@@ -161,12 +162,27 @@ export function HomeScreen({
   const gridRef = useRef<HTMLDivElement>(null);
   const addTileRef = useRef<HTMLButtonElement>(null);
 
+  const editedRef = useRef(false);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  // Writes go one at a time and the last edit wins.
+  const write = useMemo(
+    () =>
+      createLayoutWriter(async (op) => {
+        if (userId === null) return;
+        if (op.kind === 'clear') await store.clear(userId, role);
+        else await store.save(userId, role, op.layout);
+      }),
+    [userId, role, store],
+  );
+
   // The person's own layout, once we know who they are.
   useEffect(() => {
     if (userId === null) return undefined;
     let current = true;
+    // An edit made while the read was in flight wins over what the read returns.
     void store.load(userId, role).then((saved) => {
-      if (current && saved !== null) setLayout(drawable(saved, sources));
+      if (shouldApplyLoad(editedRef.current, current, saved)) setLayout(drawable(saved, sources));
     });
     return () => {
       current = false;
@@ -175,16 +191,18 @@ export function HomeScreen({
 
   const commit = useCallback(
     (next: Layout) => {
+      editedRef.current = true;
       setLayout(next);
-      if (userId !== null) void store.save(userId, role, next);
+      write({ kind: 'save', layout: next });
     },
-    [userId, role, store],
+    [write],
   );
 
   const reset = useCallback(() => {
+    editedRef.current = true;
     setLayout(defaultLayout(role, sources));
-    if (userId !== null) void store.clear(userId, role);
-  }, [role, sources, userId, store]);
+    write({ kind: 'clear' });
+  }, [role, sources, write]);
 
   const startResize = useCallback(
     (type: WidgetType, span: Span) => (event: ReactPointerEvent<HTMLElement>) => {
@@ -203,21 +221,19 @@ export function HomeScreen({
         const snapped = snapSpan((startWidth + delta + gap) / column);
         if (snapped !== last) {
           last = snapped;
+          editedRef.current = true;
           setLayout((current) => resize(current, type, snapped));
         }
       };
       const onUp = () => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        setLayout((current) => {
-          if (userId !== null) void store.save(userId, role, current);
-          return current;
-        });
+        if (last !== span) write({ kind: 'save', layout: layoutRef.current });
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [role, userId, store],
+    [write],
   );
 
   const now = data.now;

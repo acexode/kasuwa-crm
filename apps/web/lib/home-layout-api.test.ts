@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { serverLayoutStore } from '../components/home/server-layout-store';
+import { createServerLayoutStore, serverLayoutStore } from '../components/home/server-layout-store';
 import { deleteHomeLayout, getHomeLayout, HOME_LAYOUT_PATH, putHomeLayout } from './home-layout-api';
 
 const LAYOUT = {
@@ -86,9 +86,55 @@ describe('serverLayoutStore (T-0159)', () => {
 
   it('does not send the user id: the session decides whose layout it is', async () => {
     const fetchMock = stub(200, LAYOUT);
-    await serverLayoutStore.save('a-user-id', 'rep', LAYOUT.items);
+    const store = createServerLayoutStore();
+    await store.load('a-user-id', 'rep');
+    fetchMock.mockClear();
+    await store.save('a-user-id', 'rep', LAYOUT.items);
     const [path, init] = call(fetchMock);
+    expect(init.method).toBe('PUT');
     expect(path).toBe(HOME_LAYOUT_PATH);
     expect(String(init.body)).not.toContain('a-user-id');
+  });
+});
+
+describe('serverLayoutStore after a failed read (T-0159 review)', () => {
+  const put = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.filter((c) => (c[1] as RequestInit).method === 'PUT');
+
+  it('does not write over the server when the read failed with a 5xx', async () => {
+    const fetchMock = stub(503, { statusCode: 503, code: 'service_unavailable', message: 'x' });
+    const store = createServerLayoutStore();
+    expect(await store.load('u', 'rep')).toBeNull();
+    await store.save('u', 'rep', LAYOUT.items);
+    expect(put(fetchMock)).toHaveLength(0);
+  });
+
+  it('does not write when the read failed on the network', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('offline');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const store = createServerLayoutStore();
+    await store.load('u', 'rep');
+    await store.save('u', 'rep', LAYOUT.items);
+    expect(put(fetchMock)).toHaveLength(0);
+  });
+
+  it('retries the read on the next edit and writes once it succeeds', async () => {
+    const store = createServerLayoutStore();
+    stub(503, { statusCode: 503, code: 'service_unavailable', message: 'x' });
+    await store.load('u', 'rep');
+    const fetchMock = stub(200, LAYOUT);
+    await store.save('u', 'rep', LAYOUT.items);
+    expect(put(fetchMock)).toHaveLength(1);
+  });
+
+  it('writes after a 404: nothing saved is a successful read', async () => {
+    const store = createServerLayoutStore();
+    stub(404, { statusCode: 404, code: 'not_found', message: 'Not found' });
+    expect(await store.load('u', 'rep')).toBeNull();
+    const fetchMock = stub(200, LAYOUT);
+    await store.save('u', 'rep', LAYOUT.items);
+    expect(put(fetchMock)).toHaveLength(1);
   });
 });
