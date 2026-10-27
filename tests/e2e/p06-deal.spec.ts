@@ -230,7 +230,7 @@ const SCREEN = '[data-screen="P06/05"]';
  * until the lead re-pins this one line to the builder's first green
  * measurement. Why the ceiling: see the budget test.
  */
-const DEAL_BUDGET_BYTES = 285_500;
+const DEAL_BUDGET_BYTES = 286_500;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 

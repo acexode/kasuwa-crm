@@ -1438,11 +1438,15 @@ test('on the real API: the seeded admin creates, relabels and retires a field, a
   const agentPage = await agent.newPage();
   await agentPage.goto(`${studioUrl()}${STUDIO_ROUTE}`);
   await expect(screenOf(agentPage)).toBeVisible();
-  const refusedForm = await openCreate(agentPage);
-  await fillNew(refusedForm, { label: `${label} agent`, apiName: `qa_agent_${suffix}__c`, type: 'text' });
-  const refused = await save(agentPage, refusedForm);
-  expect((await refused.response())?.status(), 'an agent was allowed to create a custom field').toBe(403);
-  await expectSaysOneOf(shown(agentPage.locator('[role="alert"]')), [EN['admin.error.not_permitted'] ?? '<missing>', ...studioLabels('.not_permitted')], 'the agent’s refusal');
+  // T-0158 (lead edit, D-L208): the agent holds no `custom_field.write`, so the
+  // studio no longer offers the create control at all. The API's own refusal is
+  // still proved live, by the same same-origin request the form would send.
+  await selectObject(agentPage, 'deal');
+  await expect(agentPage.locator(`${SCREEN} [data-testid="field-new"]`), 'the agent was offered a create it cannot make').toHaveCount(0);
+  const refused = await agentPage.request.post(`${studioUrl()}/api/v1/admin/custom-fields`, {
+    data: { objectApiName: 'deal', apiName: `qa_agent_${suffix}__c`, label: `${label} agent`, type: 'text', classification: 'none' },
+  });
+  expect(refused.status(), 'an agent was allowed to create a custom field').toBe(403);
   await agent.close();
 });
 
