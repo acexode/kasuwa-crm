@@ -279,10 +279,10 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `pipeline_summary` | The P06 board summary line built from the served column totals and counts (T-0135). | flagged-off | `pipeline_summary` | — | packages/feature-flags/src/index.ts |
 | flag | `pipeline_templates` | The P06 first-pipeline template picker, with Create disabled until a pipeline can be created (T-0135, D-L194). | flagged-off | `pipeline_templates` | — | packages/feature-flags/src/index.ts |
 | flag | `whatsapp_recency` | The last WhatsApp contact on P06 cards and list rows, an empty dash until the inbox serves it (T-0135, D-L194). | flagged-off | `whatsapp_recency` | — | packages/feature-flags/src/index.ts |
-| flag | `deal_products` | The P06 deal detail Products and VAT card, empty until products exist (T-0135, D-L194). | flagged-off | `deal_products` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_products` | The P06 deal detail Products and VAT card, reading the programme catalogue (T-0170). | flagged-off | `deal_products` | — | packages/feature-flags/src/index.ts |
 | flag | `deal_risk` | The P06 deal detail Deal risk card, empty until scoring exists (T-0135, D-L194). | flagged-off | `deal_risk` | — | packages/feature-flags/src/index.ts |
 | flag | `deal_relationships` | The P06 deal detail Contact roles and Competitors cards (T-0135, D-L194). | flagged-off | `deal_relationships` | — | packages/feature-flags/src/index.ts |
-| flag | `deal_quotes` | The P06 deal detail Quotes and Approval history cards, empty until those modules exist (T-0135, D-L194). | flagged-off | `deal_quotes` | — | packages/feature-flags/src/index.ts |
+| flag | `deal_quotes` | The P06 deal detail Quotes card (reads programme quotes for the deal) and empty Approval history (T-0170). | flagged-off | `deal_quotes` | — | packages/feature-flags/src/index.ts |
 | flag | `product_tour` | The P01/6 product-tour button, drawn disabled until a tour exists (D-L194). | flagged-off | `product_tour` | D-L194 | packages/feature-flags/src/index.ts |
 | flag | `map_view` | The disabled Map segment in the P04 list view switchers (T-0133, D-L194). | flagged-off | `map_view` | D-L69 | packages/feature-flags/src/index.ts |
 | flag | `bulk_actions` | Row selection and the bulk action bar on the P04 lists, actions disabled until built (T-0133, D-L194). | flagged-off | `bulk_actions` | — | packages/feature-flags/src/index.ts |

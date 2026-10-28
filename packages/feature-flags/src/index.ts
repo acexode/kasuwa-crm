@@ -503,13 +503,13 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
-   * T-0135 (D-L194): the deal detail's Products card (line items, VAT 7.5%
-   * and totals), in its empty state: no product or price-book module exists.
+   * T-0135 / T-0170: the deal detail's Products card. Reads the programme
+   * catalogue (list prices) when on; Add product stays disabled until P21.
    */
   deal_products: {
-    description: 'The P06 deal detail Products and VAT card, empty until products exist (T-0135, D-L194).',
+    description: 'The P06 deal detail Products and VAT card, reading the programme catalogue (T-0170).',
     defaultValue: false,
-    owner: 'T-0135 (placeholder)',
+    owner: 'T-0170',
     productionReady: false,
   },
   /**
@@ -534,13 +534,13 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
-   * T-0135 (D-L194): the deal detail's Quotes and Approval history cards, in
-   * their empty states: no quote or approval module exists.
+   * T-0135 / T-0170: the deal detail's Quotes card (programme quotes for this
+   * deal) and Approval history (still empty until T-0166).
    */
   deal_quotes: {
-    description: 'The P06 deal detail Quotes and Approval history cards, empty until those modules exist (T-0135, D-L194).',
+    description: 'The P06 deal detail Quotes card (reads programme quotes for the deal) and empty Approval history (T-0170).',
     defaultValue: false,
-    owner: 'T-0135 (placeholder)',
+    owner: 'T-0170',
     productionReady: false,
   },
   /**
