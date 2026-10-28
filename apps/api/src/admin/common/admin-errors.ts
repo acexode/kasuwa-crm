@@ -61,6 +61,11 @@ export type AdminErrorCode =
   /** records.openapi.yaml (T-0105): moveDeal's conflicts (T-0108). */
   | 'transition_not_allowed'
   | 'requirements_unmet'
+  /** commerce.openapi.yaml (T-0165): setQuoteStatus / updateQuote. */
+  | 'invalid_transition'
+  | 'not_editable'
+  /** commerce.openapi.yaml (T-0165 / D-L211): product with no book entry. */
+  | 'no_price'
   /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
   | 'import_status_conflict'
   | 'upload_mismatch'

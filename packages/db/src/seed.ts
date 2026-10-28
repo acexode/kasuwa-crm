@@ -23,6 +23,8 @@ import {
   SEED_PRICE_BOOK_ENTRIES,
   SEED_PRODUCTS,
   SEED_PRODUCT_VARIANTS,
+  SEED_QUOTE_LINES,
+  SEED_QUOTES,
   SEED_SCRIPTS,
   SEED_TAX_PROFILES,
   SEED_TENANTS,
@@ -403,6 +405,42 @@ export async function runSeed(options: SeedOptions): Promise<void> {
           entry.variantId,
           entry.amountMinor,
           entry.currency,
+        ],
+      );
+    }
+
+    for (const quote of SEED_QUOTES) {
+      await client.query(
+        `INSERT INTO quote
+           (id, tenant_id, programme_id, price_book_id, deal_id, contact_id, currency, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft')`,
+        [
+          quote.id,
+          quote.tenantId,
+          quote.programmeId,
+          quote.priceBookId,
+          quote.dealId,
+          quote.contactId,
+          quote.currency,
+        ],
+      );
+    }
+
+    for (const line of SEED_QUOTE_LINES) {
+      await client.query(
+        `INSERT INTO quote_line
+           (id, tenant_id, programme_id, quote_id, product_id, variant_id,
+            quantity, unit_amount_minor)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::bigint)`,
+        [
+          line.id,
+          line.tenantId,
+          line.programmeId,
+          line.quoteId,
+          line.productId,
+          line.variantId,
+          line.quantity,
+          line.unitAmountMinor,
         ],
       );
     }

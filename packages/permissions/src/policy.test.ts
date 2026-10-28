@@ -70,7 +70,8 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         action === 'contact.claim_and_set_status' ||
           action === 'activity.write' ||
           action === 'script.run' ||
-          action === 'deal.write',
+          action === 'deal.write' ||
+          action === 'quotes.write',
       );
     }
   });
@@ -79,7 +80,13 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
   it.each([
     [
       AGENT_PERMISSION_SET_KEY,
-      ['contact.claim_and_set_status', 'activity.write', 'script.run', 'deal.write'],
+      [
+        'contact.claim_and_set_status',
+        'activity.write',
+        'script.run',
+        'deal.write',
+        'quotes.write',
+      ],
     ],
     [
       'team_lead',
@@ -91,6 +98,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write',
         'deal.write_any',
         'deal.reassign',
+        'quotes.write',
       ],
     ],
     [
@@ -103,6 +111,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write',
         'deal.write_any',
         'deal.reassign',
+        'quotes.write',
       ],
     ],
   ])('gives the %s set exactly %j', (key, expected) => {
@@ -417,6 +426,25 @@ describe('canWriteActivity (D-P18: log and complete; D-L81: an agent assigns onl
   });
 });
 
+describe('quotes.write (D-L211: reps quote, a read-only set reads)', () => {
+  it('is held by agent, team_lead, programme_manager and admin, and by the flag; not qa_analyst', () => {
+    for (const key of ['agent', 'team_lead', 'programme_manager', 'admin']) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'quotes.write', P1), key).toBe(true);
+    }
+    for (const key of ['qa_analyst', 'client_portal', 'unknown_set']) {
+      const subject = grants({ programmeSets: new Map([[P1, key]]) });
+      expect(canProgramme(subject, 'quotes.write', P1), key).toBe(false);
+    }
+    expect(canProgramme(grants({ programmeSets: new Map([[P1, null]]) }), 'quotes.write', P1)).toBe(
+      false,
+    );
+    const flag = grants({ isTenantAdmin: true, programmeSets: new Map([[P1, 'qa_analyst']]) });
+    expect(canProgramme(flag, 'quotes.write', P1)).toBe(true);
+    expect(canProgramme(flag, 'quotes.write', OUTSIDE)).toBe(false);
+  });
+});
+
 describe('the action lists', () => {
   it('keep tenant-level and programme-scoped actions disjoint', () => {
     const tenant = new Set<string>(TENANT_ACTIONS);
@@ -525,7 +553,13 @@ describe('listCapabilities (T-0158)', () => {
     expect(result.programmes).toEqual([
       {
         id: P1,
-        can: ['activity.write', 'contact.claim_and_set_status', 'deal.write', 'script.run'],
+        can: [
+          'activity.write',
+          'contact.claim_and_set_status',
+          'deal.write',
+          'quotes.write',
+          'script.run',
+        ],
       },
       { id: P2, can: [] },
     ]);

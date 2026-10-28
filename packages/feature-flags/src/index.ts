@@ -280,6 +280,16 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0165 (M05 P0): programme quotes API — create/list/get/update and gated
+   * status changes. Off by default until P21 screens land (T-0171).
+   */
+  crm_quotes: {
+    description: 'Programme-scoped quotes with line items, discounts, validity and gated status changes (T-0165).',
+    defaultValue: false,
+    owner: 'T-0165',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the

@@ -4,8 +4,15 @@ import {
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './catalogue.controller';
+import { QuotesController, QuotesProgrammeController } from './quotes.controller';
 
 @Module({
-  controllers: [CatalogueProgrammeController, CatalogueProductController, CataloguePriceBookController],
+  controllers: [
+    CatalogueProgrammeController,
+    CatalogueProductController,
+    CataloguePriceBookController,
+    QuotesProgrammeController,
+    QuotesController,
+  ],
 })
 export class CommerceModule {}

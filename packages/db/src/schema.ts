@@ -1834,6 +1834,63 @@ export const priceBookEntry = pgTable(
   ],
 );
 
+export const QUOTE_STATUSES = [
+  'draft',
+  'sent',
+  'accepted',
+  'rejected',
+  'expired',
+  'cancelled',
+] as const;
+export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
+
+/** A programme quote (T-0165 / D-L211). */
+export const quote = pgTable(
+  'quote',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    priceBookId: uuid('price_book_id').notNull(),
+    dealId: uuid('deal_id'),
+    contactId: uuid('contact_id'),
+    currency: text('currency', { enum: COMMERCE_CURRENCIES }).notNull(),
+    status: text('status', { enum: QUOTE_STATUSES }).notNull().default('draft'),
+    discountBps: integer('discount_bps').notNull().default(0),
+    validUntil: timestamp('valid_until', { withTimezone: true }),
+    version: integer('version').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // No quote_programme_idx: prefix of quote_tenant_programme_id_key.
+    uniqueIndex('quote_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+  ],
+);
+
+/** A line on a quote (T-0165). */
+export const quoteLine = pgTable(
+  'quote_line',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    quoteId: uuid('quote_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    variantId: uuid('variant_id'),
+    quantity: integer('quantity').notNull(),
+    unitAmountMinor: bigint('unit_amount_minor', { mode: 'bigint' }).notNull(),
+    discountBps: integer('discount_bps').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('quote_line_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    index('quote_line_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -1886,6 +1943,8 @@ export const TENANT_SCOPED_TABLES = [
   'price_book',
   'price_book_entry',
   'tax_profile',
+  'quote',
+  'quote_line',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];
