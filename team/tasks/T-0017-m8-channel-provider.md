@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0017 |
-| **status** | `not-assigned` |
+| **status** | `assigned` |
 | **module** | M8 omnichannel |
 | **owner** | Agent 5 — Messaging & Service |
 | **priority** | **P0 — T-0016 and T-0012 both need something to send through** |
@@ -77,3 +77,8 @@ Behaviours they will name:
 - DND checking requires a licensed integration with a per-lookup cost. That is
   spend *and* a compliance dependency, and it is much better known before launch
   than after the first complaint.
+
+
+## Phase 3 note (D-L212)
+
+Provisional Dotgo/Gupshup-shaped adapter; CI sandbox/fake; production fail-closed until Dotgo SMS/DND answers.

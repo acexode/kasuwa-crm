@@ -4603,7 +4603,7 @@ Cursor's `docs/phase3/PLAN.md` (PR #215) is approved, subject to these amendment
 - existing commit scopes plus the task id; `payments` is added when the package lands.
 
 **Still open:**
-- B2, the portal identity model, stays with @acexode via the T-0178 ADR.
+- B2, the portal identity model: **ANSWERED by D-L212 / ADR-0021** (accepted 2026-10-28).
 - WS5 being out of Phase 3 is being confirmed with @acexode; work proceeds as if it is out.
 
 **Windows machine:**
@@ -4767,3 +4767,16 @@ T-0165 (#244) landed quotes. @acexode decided both money and product questions t
   itself, which allowed one quote per price book; every create after the seed's quote answered 500. Removed: the
   foreign key's target is `price_book`'s key from 0047.
 - `me-capabilities` now lists `quotes.write` for the agent and team-lead sets (lead edit).
+
+### D-L212 — Portal identity model accepted (ADR-0021); Phase 3 hard blockers ship with provisional defaults (@acexode, lead, 2026-10-28)
+
+@acexode accepted ADR-0021 Decision 1–5 as the B2 answer, and directed that remaining hard blockers ship with provisional lead defaults (overturnable):
+
+- **B2 — ANSWERED by ADR-0021.** Portal people are `portal_identity` + `portal_session` + `portal_programme`, not `"user"` / `user_programme`. Sign-in and invite acceptance resolve the tenant with the existing `app.resolve_tenant_by_slug`; invite URLs carry the tenant slug and the token in a fragment or POST. Portal session resolve uses a presented-token SELECT policy (non-definer GUC accessor). **No third `SECURITY DEFINER` function.** Scope is always read from `portal_programme` inside the tenant transaction. Unblocks T-0179 onwards.
+- ADR open questions 2–6 take the ADR recommendations: presented-token policy; separate `__Host-kasuwa_portal_session`; MFA factors keyed by `portal_identity_id`; new `portal_invite` absorbing `portal_user`; SSO out of S2 P0.
+- **B3 provisional (T-0169 / T-0177):** payment links ship paid + expired only; refunds/partials are flagged empty states. MoMo/M-Pesa adapter kinds with fake/sandbox; production fail-closed.
+- **B4 provisional (T-0174):** Fake MBS provider (Draft → Submitted → Cleared/Failed + retry); no real NRS credentials in CI.
+- **B5 provisional (T-0175):** admin-entered FX rates + 24h lock TTL; `fx_display` behind flag.
+- **B1 provisional (T-0017 / T-0016 OTP):** Dotgo/Gupshup-shaped adapter behind config; CI sandbox/fake; sign-up OTP via fake channel; `self_serve_signup` stays off.
+- Designs: P21 and P23 received; P08 and P02 exports filed (Channels/Compliance page frames may use empty states).
+

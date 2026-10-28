@@ -83,10 +83,10 @@ APIs, domain code and adapters behind them are built first.
 
 | Prompt | Screens | Task it unblocks | Requested |
 |---|---|---|---|
-| **P21** Quotes, invoicing, local payments | Filed at `docs/design/P21/` (`96afee2`); `index.txt` has 27 frames (product catalogue, price books, quote builder, invoices, payments). | T-0171 (S1) | Received |
-| **P23** BPO client portal | Founding pack Prompt 23 | T-0184 (S2) | `DESIGN NEEDED`, D-L205 B9 |
-| **P02** Channels and Compliance groups | The two settings groups the P02 export lacks | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |
-| **P08** Inbox, re-export | A bundled re-export (D-L205 B9) | T-0192 (S3) | `DESIGN NEEDED`, D-L205 B9 |
+| **P21** Quotes, invoicing, local payments | Filed at `docs/design/P21/`; `index.txt` has 27 frames. | T-0171 (S1) | Received |
+| **P23** BPO client portal | Filed at `docs/design/P23/` (`3e5907b`); Claude Design export present. | T-0184 (S2) | Received |
+| **P02** Channels and Compliance groups | Nav groups exist in the admin export; dedicated page frames thin — T-0192 uses empty states where needed. | T-0192 (S3) | Received (nav); frames optional |
+| **P08** Inbox | Filed at `docs/design/P08/Kasuwa Inbox.html`. Re-export not required for S3 start. | T-0192 (S3) | Received |
 
 ## Held back deliberately
 

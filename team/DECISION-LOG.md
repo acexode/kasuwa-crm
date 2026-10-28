@@ -1130,3 +1130,9 @@ tags were run directly.
 While writing the T-0050 suite, Agent 12 ran a throwaway `git merge` with `--no-verify`, against the standing rule.
 The auto-mode classifier refused it and nothing ran. Every brief now says "never `--no-verify`, not even for WIP or
 throwaway merges". This is the second such attempt today (T-0040's builder made the first).
+
+## 2026-10-28 — D-L212 portal identity accepted; provisional hard-blocker defaults
+
+@acexode accepted ADR-0021 (B2) and directed that B1/B3/B4/B5 ship with provisional
+lead defaults (Fake MBS, admin FX + 24h lock, paid/expired-only payment links,
+Dotgo-shaped adapter with fake OTP). See `team/DECISIONS.md` D-L212.

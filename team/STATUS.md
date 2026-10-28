@@ -2,50 +2,32 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-28 (Africa/Lagos).** Phase 2 is complete (D-L192). The UI fidelity programme is complete and Phase 3 is unblocked (D-L204).
-The Phase 3 plan is approved (D-L205, `docs/phase3/PLAN.md`). **S1 commerce wave landed on `main` via #246** (after quotes core #244 / D-L211 #247).
-**New lead session?** Read `team/HANDOFF.md` first. Phases and designs are in `team/ROADMAP.md`; open questions in
-`team/DECISIONS.md`. The PR gate is the fast gate (D-L207): lint, typecheck, unit, integration and isolation on every PR; UI
-acceptance and e2e run in the full gate.
+**2026-10-28 (Africa/Lagos).** Phase 3 remainder wave in flight under the phase lead (`cursor/p3-dev-e3f2`).
+ADR-0021 / B2 accepted (D-L212). Hard blockers B1/B3/B4/B5 ship with provisional defaults.
+**New lead session?** Read `team/HANDOFF.md` first. Plan: Phase 3 remainder waves W0–W6.
 
 ## Done
-- **Phase 0:** the foundation. **Phase 1:** hardening, 12 tasks, closing with T-0049 (`kasuwa_auth`, ADR-0013).
-- **Phase 2:** contacts, accounts, leads, the 360° record, activities, search and the command palette, custom fields and the
-  studio, CSV import, duplicates and merge, notifications, pipeline and deals, script builder and agent run, the outbox,
-  the browser session (BFF, ADR-0019). `pnpm demo` runs every screen through the real BFF.
-- **UI fidelity (D-L193 to D-L204):** every built screen was rebuilt to its Claude Design export (P01 to P07, P10, P18,
-  P26, P27, P28). Final gate on D-L204: e2e 740 passed, isolation 4,774 of 4,777 (the rest are the known timing bounds).
-  Every page is under PRD 2.13's 300,000-byte budget.
+- Phase 0–2 and UI fidelity (D-L204). S0 housekeeping. S1 commerce core (#244/#246/#247): catalogue, quotes, approvals, PDF/send, payments-adapter, deal wiring. T-0178 ADR drafted then accepted (D-L212). P21 and P23 designs filed.
 
-## Just landed: Phase 3 S1 commerce (lead squash #246 → `87f35ce`)
-| Task | PR | State |
+## In flight: Phase 3 remainder (W0–W6)
+| Wave | Tasks | State |
 |---|---|---|
-| T-0165 quotes core & isolation (D-L211: reps quote; prices from price book) | #244 | merged |
-| T-0168 `packages/payments-adapter` (PAN-free; fail-closed production default) | #246 | merged |
-| T-0166 discount approvals (migration 0049; `quotes.approve`) | #246 | merged |
-| T-0167 quote PDF render & email send (migration 0050; email-only) | #246 | merged |
-| T-0170 deal commerce UI wiring (`deal_products` / `deal_quotes` flags) | #246 | merged |
-| T-0178 portal identity ADR-0021 | #246 | merged — **Proposed only; B2 still open for @acexode** |
-
-## Still open from S0 / earlier Phase 3
-| Task | PR | State |
-|---|---|---|
-| T-0157 sign-in reads on the auth pool (D-A3) | check open PRs | D-A3 path |
-| T-0198 zod 3 to 4 | not started | removes the accepted zod advisory (D-L206) by 2026-12-31 |
-| Next S1 screen / catalogue follow-ons | — | P21 design still owed for T-0171 |
+| W0 | B2 accept, DESIGN-QUEUE, task files, W1 acceptance | this PR |
+| W1 | T-0169, T-0171, T-0185, T-0186, T-0018, webhook harness | next |
+| W2 | T-0179–T-0184 portal P0 | queued |
+| W3 | T-0187–T-0191, T-0193 inbox core | queued |
+| W4 | T-0192, T-0017, T-0016 | queued |
+| W5 | T-0172–T-0177 commerce P1 (provisional B3/B4/B5) | queued |
+| W6 | T-0195–T-0196 portal P1 | queued |
 
 ## Waiting on you
 | | |
 |---|---|
-| **Provider and BSP (B1)** | Dotgo's SMS fallback, rates, data location, DPA and sender IDs. Sender-ID and DND whitelisting takes 4 to 6 weeks, so ask now |
-| **B2 to B5** | Portal identity model; payment refunds and reconciliation; the NRS MBS route; the FX source |
-| **Designs** | P21 (quotes and invoicing), P23 (client portal), P02 Channels and Compliance, and a P08 re-export. Only the three screen tasks (T-0171, T-0184, T-0192) wait for them |
+| **Overturn provisional defaults** | B1 Dotgo SMS/DND detail; B3 refunds; B4 NRS route; B5 FX source — code ships with lead defaults until overturned |
 | **Reviewers** | fr and pcm drafts need a human reviewer |
 
 ## Risks the lead is carrying
-- **Runtime advisories (D-L206):** the zod finding is accepted only until **2026-12-31**; T-0198 removes it. The csv-parse
-  one is fixed by T-0197 once #235 merges.
-- **Secret reads (D-L70):** `kasuwa_app` can still read password hashes and MFA secrets until T-0157 (#231, migration 0046) lands.
-- **auth-availability timing bounds** fail on a loaded host, on main and on branches alike. Known noise.
-- **Production readiness:** no production cell exists (D-L65) and there is no branch protection (D-L34).
-- **Dev machine:** 16 GB shared with the dialler. One Docker stack at a time; see `team/OPERATIONS.md`.
+- Provisional B1/B3/B4/B5 must stay fail-closed in production.
+- Migration serialization across waves.
+- auth-availability timing bounds under load (known noise).
+- Byte budgets on P21/P23/P08 screens.

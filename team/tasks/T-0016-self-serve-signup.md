@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0016 |
-| **status** | `not-assigned` |
+| **status** | `assigned` |
 | **module** | M1 + M2 |
 | **owner** | Agent 1 — Platform & Security |
 | **priority** | P0 — built in MVP, **enabled at v1** |

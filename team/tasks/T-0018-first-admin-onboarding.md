@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0018 |
-| **status** | `not-assigned` |
+| **status** | `assigned` |
 | **module** | M19 + all UIs |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |
@@ -72,3 +72,8 @@ Behaviours they will name:
 
 - Server-side wizard state needs a table. A new table is a decision, and it
   needs `tenant_id`, RLS enabled and forced, and a policy, like everything else.
+
+
+## Phase 3 note (D-L205 / D-L212)
+
+Behind new flag `onboarding_persistence` (on in `pnpm demo`, off elsewhere).

@@ -1,11 +1,11 @@
 # ADR-0021 — Portal identity is a separate table set; invite and session lookup stay off a third `SECURITY DEFINER`
 
-- **Status:** Proposed (T-0178, Phase 3 S2 / B2). Docs only. @acexode reviews (D-A3; CLAUDE.md §2.7).
+- **Status:** Accepted (T-0178 / D-L212). @acexode accepted Decision 1–5 on 2026-10-28; open questions 2–6 take the ADR recommendations.
 - **Date:** 2026-10-28
 - **Deciders:** Lead; Agent A4 drafted it; @acexode decides B2
 - **Source:** `docs/phase3/PLAN.md` S2; brief §11.7; M18 open question 1; D-L52 M18 gates; CLAUDE.md §2.2 and §2.7
 - **Amends:** nothing accepted yet. Relates to ADR-0008 (opaque sessions), ADR-0009 (presented-key, no new definer), ADR-0013 (`kasuwa_auth`), ADR-0019 (browser session). Does not change the count of `SECURITY DEFINER` functions.
-- **Does not resolve B2 in `team/DECISIONS.md`.** This file proposes the text; @acexode marks B2 answered.
+- **Resolves B2.** Pasted into `team/DECISIONS.md` / DECISION-LOG as D-L212 on 2026-10-28.
 
 ## Context
 
