@@ -4,6 +4,7 @@ import {
   findQuoteById,
   listQuotes,
   QuoteInvalidTransitionError,
+  QuoteNoPriceError,
   QuoteNotEditableError,
   QuoteProgrammeOutOfScopeError,
   setQuoteStatus,
@@ -38,6 +39,7 @@ export interface QuoteLineWire {
 export interface QuoteWire {
   id: string;
   programmeId: string;
+  priceBookId: string;
   dealId: string | null;
   contactId: string | null;
   currency: string;
@@ -57,6 +59,7 @@ function toWire(quote: Quote): QuoteWire {
   return {
     id: quote.id,
     programmeId: quote.programmeId,
+    priceBookId: quote.priceBookId,
     dealId: quote.dealId,
     contactId: quote.contactId,
     currency: quote.currency,
@@ -93,6 +96,13 @@ function mapQuoteError(error: unknown): never {
   }
   if (error instanceof QuoteNotEditableError) {
     throw new AdminError(HttpStatus.CONFLICT, 'not_editable', 'Only a draft quote can be edited.');
+  }
+  if (error instanceof QuoteNoPriceError) {
+    throw new AdminError(
+      HttpStatus.BAD_REQUEST,
+      'no_price',
+      'That product has no price in the quote price book.',
+    );
   }
   throw error;
 }

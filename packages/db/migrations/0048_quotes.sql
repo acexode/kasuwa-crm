@@ -5,13 +5,15 @@
 
 SET LOCAL lock_timeout = '5s';
 
-LOCK TABLE tenant, programme, deal, contact, product, product_variant
+LOCK TABLE tenant, programme, deal, contact, product, product_variant, price_book,
+           price_book_entry
   IN SHARE ROW EXCLUSIVE MODE;
 
 CREATE TABLE quote (
   id              uuid        PRIMARY KEY,
   tenant_id       uuid        NOT NULL,
   programme_id    uuid        NOT NULL,
+  price_book_id   uuid        NOT NULL,
   deal_id         uuid,
   contact_id      uuid,
   currency        text        NOT NULL,
@@ -23,12 +25,19 @@ CREATE TABLE quote (
   updated_at      timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT quote_tenant_programme_id_key UNIQUE (tenant_id, programme_id, id),
+  -- Target of currency FK: quote currency is the named book's.
+  CONSTRAINT quote_tenant_programme_price_book_currency_key
+    UNIQUE (tenant_id, programme_id, price_book_id, currency),
   CONSTRAINT quote_tenant_fk
     FOREIGN KEY (tenant_id)
     REFERENCES tenant (id) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT quote_programme_same_tenant_fk
     FOREIGN KEY (tenant_id, programme_id)
     REFERENCES programme (tenant_id, id) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT quote_price_book_currency_fk
+    FOREIGN KEY (tenant_id, programme_id, price_book_id, currency)
+    REFERENCES price_book (tenant_id, programme_id, id, currency)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
   -- MATCH SIMPLE: NULL deal_id skips; a deal must be of this programme.
   CONSTRAINT quote_deal_same_programme_fk
     FOREIGN KEY (tenant_id, programme_id, deal_id)

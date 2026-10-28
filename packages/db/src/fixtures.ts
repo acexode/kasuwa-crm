@@ -685,6 +685,7 @@ export interface SeedQuote {
   id: string;
   tenantId: string;
   programmeId: string;
+  priceBookId: string;
   currency: 'NGN' | 'GHS' | 'KES' | 'ZAR';
   dealId: string | null;
   contactId: string | null;
@@ -707,6 +708,7 @@ export const SEED_QUOTES: readonly SeedQuote[] = [
     id: `${A}0000001d0001`,
     tenantId: TENANT_A,
     programmeId: PROGRAMME_A1,
+    priceBookId: `${A}000000190001`,
     currency: 'NGN',
     dealId: `${A}000000170001`,
     contactId: `${A}0000000e0001`,

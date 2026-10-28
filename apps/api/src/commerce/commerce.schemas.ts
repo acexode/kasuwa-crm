@@ -41,16 +41,16 @@ export const UpsertPriceBookEntryBody = z.strictObject({
 
 export const QuoteIdParam = z.object({ quoteId: z.uuid() });
 
+/** D-L211: client lines carry no price; the server reads the book. */
 export const QuoteLineBody = z.strictObject({
   productId: z.uuid(),
   variantId: z.uuid().optional(),
   quantity: z.number().int().min(1).max(999999),
-  unitAmountMinor: AmountMinorSchema,
   discountBps: z.number().int().min(0).max(10000).optional(),
 });
 
 export const CreateQuoteBody = z.strictObject({
-  currency: CommerceCurrencySchema,
+  priceBookId: z.uuid(),
   dealId: z.uuid().nullable().optional(),
   contactId: z.uuid().nullable().optional(),
   discountBps: z.number().int().min(0).max(10000).optional(),

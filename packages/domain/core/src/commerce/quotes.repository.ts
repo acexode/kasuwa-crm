@@ -33,6 +33,14 @@ export class QuoteNotEditableError extends Error {
   }
 }
 
+/** Product/variant has no entry in the quote's price book (D-L211). */
+export class QuoteNoPriceError extends Error {
+  constructor() {
+    super('No price book entry for that product');
+    this.name = 'QuoteNoPriceError';
+  }
+}
+
 function assertInScope(tx: TenantTx, programmeId: string): void {
   if (!tx.session.programmeIds.includes(programmeId)) {
     throw new QuoteProgrammeOutOfScopeError();
@@ -42,6 +50,7 @@ function assertInScope(tx: TenantTx, programmeId: string): void {
 interface QuoteRow {
   id: string;
   programme_id: string;
+  price_book_id: string;
   deal_id: string | null;
   contact_id: string | null;
   currency: CommerceCurrency;
@@ -105,6 +114,7 @@ function toQuote(row: QuoteRow, lines: QuoteLine[]): Quote {
   return {
     id: row.id,
     programmeId: row.programme_id,
+    priceBookId: row.price_book_id,
     dealId: row.deal_id,
     contactId: row.contact_id,
     currency: row.currency,
@@ -119,8 +129,8 @@ function toQuote(row: QuoteRow, lines: QuoteLine[]): Quote {
   };
 }
 
-const QUOTE_COLUMNS = `id, programme_id, deal_id, contact_id, currency, status, discount_bps,
-  valid_until, version, created_at, updated_at`;
+const QUOTE_COLUMNS = `id, programme_id, price_book_id, deal_id, contact_id, currency, status,
+  discount_bps, valid_until, version, created_at, updated_at`;
 
 async function assertProductInProgramme(
   tx: TenantTx,
@@ -159,10 +169,59 @@ async function assertOptionalRef(
   return rows.length > 0;
 }
 
+/** null → missing / out-of-scope book (404). */
+async function loadPriceBook(
+  tx: TenantTx,
+  programmeId: string,
+  priceBookId: string,
+): Promise<{ id: string; currency: CommerceCurrency } | null> {
+  const rows = await tx.query<{ id: string; currency: CommerceCurrency }>(
+    `SELECT id, currency FROM price_book
+      WHERE tenant_id = $1::uuid AND programme_id = $2::uuid AND id = $3::uuid`,
+    [tx.session.tenantId, programmeId, priceBookId],
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Variant entry first, else product entry (D-L211). Throws QuoteNoPriceError
+ * when neither exists.
+ */
+async function resolveUnitAmount(
+  tx: TenantTx,
+  programmeId: string,
+  priceBookId: string,
+  productId: string,
+  variantId: string | null,
+): Promise<string> {
+  if (variantId !== null) {
+    const variantRows = await tx.query<{ amount_minor: string }>(
+      `SELECT amount_minor::text AS amount_minor FROM price_book_entry
+        WHERE tenant_id = $1::uuid AND programme_id = $2::uuid
+          AND price_book_id = $3::uuid AND product_id = $4::uuid
+          AND variant_id = $5::uuid`,
+      [tx.session.tenantId, programmeId, priceBookId, productId, variantId],
+    );
+    const variant = variantRows[0];
+    if (variant) return variant.amount_minor;
+  }
+  const productRows = await tx.query<{ amount_minor: string }>(
+    `SELECT amount_minor::text AS amount_minor FROM price_book_entry
+      WHERE tenant_id = $1::uuid AND programme_id = $2::uuid
+        AND price_book_id = $3::uuid AND product_id = $4::uuid
+        AND variant_id IS NULL`,
+    [tx.session.tenantId, programmeId, priceBookId, productId],
+  );
+  const product = productRows[0];
+  if (product) return product.amount_minor;
+  throw new QuoteNoPriceError();
+}
+
 async function replaceLines(
   tx: TenantTx,
   programmeId: string,
   quoteId: string,
+  priceBookId: string,
   lines: readonly QuoteLineInput[],
 ): Promise<boolean> {
   for (const line of lines) {
@@ -182,6 +241,13 @@ async function replaceLines(
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     if (line === undefined) continue;
+    const unitAmountMinor = await resolveUnitAmount(
+      tx,
+      programmeId,
+      priceBookId,
+      line.productId,
+      line.variantId ?? null,
+    );
     await tx.query(
       `INSERT INTO quote_line
          (id, tenant_id, programme_id, quote_id, product_id, variant_id,
@@ -196,7 +262,7 @@ async function replaceLines(
         line.productId,
         line.variantId ?? null,
         line.quantity,
-        line.unitAmountMinor,
+        unitAmountMinor,
         line.discountBps ?? 0,
         i,
       ],
@@ -212,6 +278,9 @@ export async function createQuote(
   input: CreateQuoteInput,
 ): Promise<Quote | null> {
   assertInScope(tx, programmeId);
+  const book = await loadPriceBook(tx, programmeId, input.priceBookId);
+  if (book === null) return null;
+
   const dealId = input.dealId === undefined ? null : input.dealId;
   const contactId = input.contactId === undefined ? null : input.contactId;
   if (!(await assertOptionalRef(tx, programmeId, 'deal', dealId))) return null;
@@ -231,23 +300,24 @@ export async function createQuote(
   const validUntil = input.validUntil ? new Date(input.validUntil) : null;
   await tx.query(
     `INSERT INTO quote
-       (id, tenant_id, programme_id, deal_id, contact_id, currency, status,
+       (id, tenant_id, programme_id, price_book_id, deal_id, contact_id, currency, status,
         discount_bps, valid_until, version)
-     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, 'draft',
-             $7, $8, 1)`,
+     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid, $7, 'draft',
+             $8, $9, 1)`,
     [
       id,
       tx.session.tenantId,
       programmeId,
+      book.id,
       dealId,
       contactId,
-      input.currency,
+      book.currency,
       input.discountBps ?? 0,
       validUntil,
     ],
   );
 
-  const replaced = await replaceLines(tx, programmeId, id, input.lines);
+  const replaced = await replaceLines(tx, programmeId, id, book.id, input.lines);
   if (!replaced) return null;
   return findQuoteById(tx, id);
 }
@@ -299,7 +369,13 @@ export async function updateQuote(
   if (!(await assertOptionalRef(tx, current.programmeId, 'contact', contactId))) return null;
 
   if (input.lines !== undefined) {
-    const ok = await replaceLines(tx, current.programmeId, quoteId, input.lines);
+    const ok = await replaceLines(
+      tx,
+      current.programmeId,
+      quoteId,
+      current.priceBookId,
+      input.lines,
+    );
     if (!ok) return null;
   }
 

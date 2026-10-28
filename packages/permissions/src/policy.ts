@@ -153,9 +153,11 @@ export const PROGRAMME_ACTIONS = [
    */
   'catalogue.write',
   /**
-   * T-0165: create, update and change status of quotes in the record's
-   * programme. Held by `admin` and the tenant-admin flag only; no other set
-   * holds it. Reads of quotes stay open to every member.
+   * T-0165 / D-L211: create, update and change status of quotes in the
+   * record's programme. Held by `agent`, `team_lead`, `programme_manager` and
+   * `admin`, and by the tenant-admin flag. Reads stay open to every member.
+   * Catalogue prices stay admin-only (`catalogue.write`); a rep lowers a price
+   * only by discount (T-0166 approvals).
    */
   'quotes.write',
 ] as const;
@@ -200,6 +202,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'activity.write',
     'script.run',
     'deal.write',
+    'quotes.write',
   ],
   [TEAM_LEAD_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
@@ -209,6 +212,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.write',
     'deal.write_any',
     'deal.reassign',
+    'quotes.write',
   ],
   [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
@@ -218,6 +222,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.write',
     'deal.write_any',
     'deal.reassign',
+    'quotes.write',
   ],
 };
 

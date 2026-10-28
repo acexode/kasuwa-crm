@@ -50,9 +50,12 @@ async function outcome(run: () => Promise<unknown>): Promise<unknown> {
   }
 }
 
+const PRICE_BOOK = '11111111-0000-4000-8000-000000190001';
+
 const draft = {
   id: QUOTE,
   programmeId: PROGRAMME,
+  priceBookId: PRICE_BOOK,
   dealId: null,
   contactId: null,
   currency: 'NGN' as const,
@@ -87,8 +90,8 @@ describe('quotes writes need quotes.write (T-0165)', () => {
   it('create: 403 without the action, and nothing is written', async () => {
     const result = await outcome(() =>
       createQuoteFor(tx, { programmeId: PROGRAMME }, {
-        currency: 'NGN',
-        lines: [{ productId: PRODUCT, quantity: 1, unitAmountMinor: '100' }],
+        priceBookId: PRICE_BOOK,
+        lines: [{ productId: PRODUCT, quantity: 1 }],
       }),
     );
     expect(result).toMatchObject({ code: 'not_permitted' });
@@ -99,8 +102,8 @@ describe('quotes writes need quotes.write (T-0165)', () => {
   it('create: a programme outside the session is 404 before the permission check', async () => {
     const result = await outcome(() =>
       createQuoteFor(tx, { programmeId: OTHER }, {
-        currency: 'NGN',
-        lines: [{ productId: PRODUCT, quantity: 1, unitAmountMinor: '100' }],
+        priceBookId: PRICE_BOOK,
+        lines: [{ productId: PRODUCT, quantity: 1 }],
       }),
     );
     expect(result).toMatchObject({ code: 'not_found' });

@@ -1844,13 +1844,14 @@ export const QUOTE_STATUSES = [
 ] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
-/** A programme quote (T-0165). */
+/** A programme quote (T-0165 / D-L211). */
 export const quote = pgTable(
   'quote',
   {
     id: uuid('id').primaryKey(),
     tenantId: uuid('tenant_id').notNull(),
     programmeId: uuid('programme_id').notNull(),
+    priceBookId: uuid('price_book_id').notNull(),
     dealId: uuid('deal_id'),
     contactId: uuid('contact_id'),
     currency: text('currency', { enum: COMMERCE_CURRENCIES }).notNull(),
@@ -1864,6 +1865,12 @@ export const quote = pgTable(
   (table) => [
     // No quote_programme_idx: prefix of quote_tenant_programme_id_key.
     uniqueIndex('quote_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    uniqueIndex('quote_tenant_programme_price_book_currency_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.priceBookId,
+      table.currency,
+    ),
   ],
 );
 
