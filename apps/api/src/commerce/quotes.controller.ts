@@ -61,6 +61,7 @@ export class QuotesController {
 
   /** operationId setQuoteStatus */
   @Post(':quoteId/status')
+  @HttpCode(HttpStatus.OK)
   async setStatus(@Param() params: unknown, @Body() body: unknown) {
     return setQuoteStatusFor(currentTx(), params, body);
   }
