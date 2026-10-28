@@ -50,6 +50,7 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_products',
   'crm_quotes',
+  'quote_approvals',
   'quote_send',
   'crm_search',
   'admin_live_api',

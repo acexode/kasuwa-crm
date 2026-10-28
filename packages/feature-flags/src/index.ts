@@ -290,6 +290,16 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0166 (M05 P0): in-app discount approvals for quotes above a programme
+   * threshold. Off by default until P21 screens land (T-0171).
+   */
+  quote_approvals: {
+    description: 'In-app discount approval requests and decisions for programme quotes (T-0166).',
+    defaultValue: false,
+    owner: 'T-0166',
+    productionReady: false,
+  },
+  /**
    * T-0167 (M05 P0): quote PDF render and email send through the channel
    * adapter. Off by default until a real email provider exists and P21
    * screens land (T-0171). Send fails closed via NullChannelProvider in

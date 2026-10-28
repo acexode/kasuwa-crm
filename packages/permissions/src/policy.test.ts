@@ -99,6 +99,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write_any',
         'deal.reassign',
         'quotes.write',
+        'quotes.approve',
       ],
     ],
     [
@@ -112,6 +113,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write_any',
         'deal.reassign',
         'quotes.write',
+        'quotes.approve',
       ],
     ],
   ])('gives the %s set exactly %j', (key, expected) => {

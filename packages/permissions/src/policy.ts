@@ -160,6 +160,12 @@ export const PROGRAMME_ACTIONS = [
    * only by discount (T-0166 approvals).
    */
   'quotes.write',
+  /**
+   * T-0166: decide a pending discount approval in the record's programme.
+   * Held by `admin`, `team_lead`, `programme_manager`, and the tenant-admin
+   * flag. Requesting an approval still needs `quotes.write`.
+   */
+  'quotes.approve',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -213,6 +219,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.write_any',
     'deal.reassign',
     'quotes.write',
+    'quotes.approve',
   ],
   [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
@@ -223,6 +230,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.write_any',
     'deal.reassign',
     'quotes.write',
+    'quotes.approve',
   ],
 };
 

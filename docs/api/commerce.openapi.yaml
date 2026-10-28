@@ -4,11 +4,11 @@ info:
   title: Kasuwa Commerce API
   version: 0.1.0-T-0167
   description: |
-    Programme-scoped product catalogue (T-0164), quotes (T-0165), and quote PDF /
-    email send (T-0167): products, price books, tax profiles, quotes with line
-    items, a deterministic PDF render, and email send through the channel adapter.
-    Currencies NGN/GHS/KES/ZAR only (B6). Money is never a float — `amountMinor`
-    is a string of digits plus an ISO currency code.
+    Programme-scoped product catalogue (T-0164), quotes (T-0165 / D-L211),
+    discount approvals (T-0166), and quote PDF / email send (T-0167). Currencies
+    NGN/GHS/KES/ZAR only (B6). Money is never a float — `amountMinor` is a string
+    of digits plus an ISO currency code.
+
 
     Scope is resolved from the session. A programme the caller cannot reach, a
     product in another programme, and a missing id all answer `404 not_found`
@@ -375,9 +375,38 @@ components:
         providerMessageId: { type: string, nullable: true }
         quoteVersion: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
+    QuoteApproval:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - quoteId
+        - requestedByUserId
+        - discountBps
+        - status
+        - decidedByUserId
+        - decidedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        quoteId: { type: string, format: uuid }
+        requestedByUserId: { type: string, format: uuid }
+        discountBps: { type: integer, minimum: 0, maximum: 10000 }
+        status: { type: string, enum: [pending, approved, rejected] }
+        decidedByUserId: { type: string, format: uuid, nullable: true }
+        decidedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DecideApprovalRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approved, rejected] }
 
-security:
-  - bearerAuth: []
 
 security:
   - bearerAuth: []
@@ -962,3 +991,135 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/programmes/{programmeId}/approvals:
+    get:
+      operationId: listApprovals
+      x-kasuwa-implemented: true
+      summary: List quote discount approvals in a programme
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Approvals
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/QuoteApproval' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/quotes/{quoteId}/approvals:
+    post:
+      operationId: requestApproval
+      x-kasuwa-implemented: true
+      summary: Request discount approval for a draft quote above the programme threshold
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Approval requested
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteApproval' }
+        '400':
+          description: Below threshold or no rule / validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Not permitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Quote not found or not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Not draft or already pending
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/approvals/{approvalId}/decision:
+    post:
+      operationId: decideApproval
+      x-kasuwa-implemented: true
+      summary: Approve or reject a pending discount approval
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: approvalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecideApprovalRequest' }
+      responses:
+        '200':
+          description: Decision recorded
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteApproval' }
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Not permitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Approval not found or not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Not pending
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+

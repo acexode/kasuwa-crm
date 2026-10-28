@@ -23,6 +23,7 @@ import {
   SEED_PRICE_BOOK_ENTRIES,
   SEED_PRODUCTS,
   SEED_PRODUCT_VARIANTS,
+  SEED_APPROVAL_RULES,
   SEED_QUOTE_LINES,
   SEED_QUOTES,
   SEED_SCRIPTS,
@@ -441,6 +442,22 @@ export async function runSeed(options: SeedOptions): Promise<void> {
           line.variantId,
           line.quantity,
           line.unitAmountMinor,
+        ],
+      );
+    }
+
+
+    for (const rule of SEED_APPROVAL_RULES) {
+      await client.query(
+        `INSERT INTO approval_rule
+           (id, tenant_id, programme_id, threshold_bps, approver_permission_set_key)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          rule.id,
+          rule.tenantId,
+          rule.programmeId,
+          rule.thresholdBps,
+          rule.approverPermissionSetKey,
         ],
       );
     }
