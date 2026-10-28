@@ -409,6 +409,12 @@ importers:
         specifier: ^4.6.6
         version: 4.6.7
 
+  packages/payments-adapter:
+    dependencies:
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.7
+
   packages/permissions:
     dependencies:
       '@kasuwa/db':
@@ -526,6 +532,9 @@ importers:
       '@kasuwa/domain-core':
         specifier: workspace:*
         version: link:../../packages/domain/core
+      '@kasuwa/payments-adapter':
+        specifier: workspace:*
+        version: link:../../packages/payments-adapter
       '@kasuwa/testing':
         specifier: workspace:*
         version: link:../../packages/testing
