@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CommerceCurrencySchema, type CommerceCurrency } from './catalogue.types';
+import type { CommerceCurrency } from './catalogue.types';
 
 export const QUOTE_STATUSES = [
   'draft',

@@ -8,6 +8,7 @@ import { createQuoteFor, setQuoteStatusFor, updateQuoteFor } from './quotes.serv
 const PROGRAMME = '11111111-0000-4000-8000-0000000c0001';
 const OTHER = '11111111-0000-4000-8000-0000000c0002';
 const QUOTE = '11111111-0000-4000-8000-0000001d0001';
+const BOOK = '11111111-0000-4000-8000-000000190001';
 const PRODUCT = '11111111-0000-4000-8000-0000001a0001';
 
 const mocks = vi.hoisted(() => ({
@@ -50,14 +51,12 @@ async function outcome(run: () => Promise<unknown>): Promise<unknown> {
   }
 }
 
-const PRICE_BOOK = '11111111-0000-4000-8000-000000190001';
-
 const draft = {
   id: QUOTE,
   programmeId: PROGRAMME,
-  priceBookId: PRICE_BOOK,
   dealId: null,
   contactId: null,
+  priceBookId: BOOK,
   currency: 'NGN' as const,
   status: 'draft' as const,
   discountBps: 0,
@@ -90,7 +89,7 @@ describe('quotes writes need quotes.write (T-0165)', () => {
   it('create: 403 without the action, and nothing is written', async () => {
     const result = await outcome(() =>
       createQuoteFor(tx, { programmeId: PROGRAMME }, {
-        priceBookId: PRICE_BOOK,
+        priceBookId: BOOK,
         lines: [{ productId: PRODUCT, quantity: 1 }],
       }),
     );
@@ -102,7 +101,7 @@ describe('quotes writes need quotes.write (T-0165)', () => {
   it('create: a programme outside the session is 404 before the permission check', async () => {
     const result = await outcome(() =>
       createQuoteFor(tx, { programmeId: OTHER }, {
-        priceBookId: PRICE_BOOK,
+        priceBookId: BOOK,
         lines: [{ productId: PRODUCT, quantity: 1 }],
       }),
     );
@@ -128,5 +127,32 @@ describe('quotes writes need quotes.write (T-0165)', () => {
     expect(
       await outcome(() => setQuoteStatusFor(tx, { quoteId: QUOTE }, { status: 'accepted' })),
     ).toMatchObject({ code: 'invalid_transition' });
+  });
+
+  it('create: 400 no_price when the book has no entry for a product (D-L211)', async () => {
+    mocks.allowed.mockReturnValue(true);
+    const { QuoteNoPriceError } = await import('@kasuwa/domain-core');
+    mocks.create.mockRejectedValue(new QuoteNoPriceError());
+    expect(
+      await outcome(() =>
+        createQuoteFor(tx, { programmeId: PROGRAMME }, {
+          priceBookId: BOOK,
+          lines: [{ productId: PRODUCT, quantity: 1 }],
+        }),
+      ),
+    ).toMatchObject({ code: 'no_price' });
+  });
+
+  it('create: a posted price or currency is a 400 and nothing is written', async () => {
+    mocks.allowed.mockReturnValue(true);
+    for (const body of [
+      { priceBookId: BOOK, lines: [{ productId: PRODUCT, quantity: 1, unitAmountMinor: '1' }] },
+      { priceBookId: BOOK, currency: 'NGN', lines: [{ productId: PRODUCT, quantity: 1 }] },
+    ]) {
+      expect(
+        await outcome(() => createQuoteFor(tx, { programmeId: PROGRAMME }, body)),
+      ).toMatchObject({ code: 'validation_failed' });
+    }
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 });

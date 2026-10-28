@@ -228,7 +228,10 @@ components:
         productId: { type: string, format: uuid }
         variantId: { type: string, format: uuid, nullable: true }
         quantity: { type: integer, minimum: 1, maximum: 999999 }
-        unitAmountMinor: { type: string, pattern: '^\\d{1,18}$' }
+        unitAmountMinor:
+          type: string
+          pattern: '^\\d{1,18}$'
+          description: Snapshot of the price book entry when the line was written.
         discountBps: { type: integer, minimum: 0, maximum: 10000 }
     Quote:
       type: object
@@ -256,7 +259,10 @@ components:
         priceBookId: { type: string, format: uuid }
         dealId: { type: string, format: uuid, nullable: true }
         contactId: { type: string, format: uuid, nullable: true }
-        currency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+          description: The price book's currency; fixed at create and never changes.
         status:
           type: string
           enum: [draft, sent, accepted, rejected, expired, cancelled]
@@ -276,7 +282,10 @@ components:
       additionalProperties: false
       required: [priceBookId, lines]
       properties:
-        priceBookId: { type: string, format: uuid }
+        priceBookId:
+          type: string
+          format: uuid
+          description: A price book of the same programme. Sets the quote's currency; a posted currency is refused.
         dealId: { type: string, format: uuid, nullable: true }
         contactId: { type: string, format: uuid, nullable: true }
         discountBps: { type: integer, minimum: 0, maximum: 10000 }
@@ -288,6 +297,7 @@ components:
           items:
             type: object
             additionalProperties: false
+            description: A line carries no price; the server reads it from the quote's price book (D-L211).
             required: [productId, quantity]
             properties:
               productId: { type: string, format: uuid }
@@ -679,7 +689,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Quote' }
         '400':
-          description: Validation failed
+          description: Validation failed (validation_failed), or a product or variant has no price in the quote's book (no_price)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -689,12 +699,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '403':
-          description: Not permitted
+          description: Missing the quotes.write action (not_permitted)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '404':
-          description: Programme, deal, contact or product not reachable
+          description: Programme, price book, deal, contact or product not reachable
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -751,7 +761,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Quote' }
         '400':
-          description: Validation failed
+          description: Validation failed (validation_failed), or a product or variant has no price in the quote's book (no_price)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -761,7 +771,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '403':
-          description: Not permitted
+          description: Missing the quotes.write action (not_permitted)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -810,7 +820,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '403':
-          description: Not permitted
+          description: Missing the quotes.write action (not_permitted)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
