@@ -64,6 +64,8 @@ export type AdminErrorCode =
   /** commerce.openapi.yaml (T-0165): setQuoteStatus / updateQuote. */
   | 'invalid_transition'
   | 'not_editable'
+  /** commerce.openapi.yaml (T-0167): sendQuote on a terminal quote. */
+  | 'not_sendable'
   /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
   | 'import_status_conflict'
   | 'upload_mismatch'

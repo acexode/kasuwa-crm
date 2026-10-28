@@ -245,6 +245,16 @@ const PER_AGENT_ALLOWANCES = [
     pathPattern: reservedMigration('0038'),
     why: 'T-0086 (ADR-0015 fallback, D-L128) assigns Agent 3 one migration, number 0038 reserved: folded search columns; 0037 is T-0111.',
   },
+  {
+    branchPrefix: 'cursor/s1-a5-t0167',
+    pathPattern: reservedMigration('0050'),
+    why: 'Phase 3 S1 T-0167 assigns Agent A5 migration 0050 (quote_send) exclusively; 0049 is T-0166, 0051 is T-0169.',
+  },
+  {
+    branchPrefix: 'cursor/s1-a5-t0167',
+    path: 'tests/acceptance/commerce/quote-send.acceptance.test.ts',
+    why: 'Phase 3 S1 T-0167 assigns Agent A5 the quote-send acceptance suite (lead-authorised deliverable on this branch).',
+  },
 ];
 
 function allows(entry, path) {

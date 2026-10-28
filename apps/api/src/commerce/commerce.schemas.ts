@@ -69,3 +69,9 @@ export const UpdateQuoteBody = z.strictObject({
 export const SetQuoteStatusBody = z.strictObject({
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled']),
 });
+
+/** T-0167: email only until WhatsApp quote delivery after S3. */
+export const SendQuoteBody = z.strictObject({
+  channel: z.literal('email'),
+  to: z.email().max(320),
+});

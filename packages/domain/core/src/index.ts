@@ -54,3 +54,5 @@ export * from './commerce/catalogue.types';
 export * from './commerce/catalogue.repository';
 export * from './commerce/quotes.types';
 export * from './commerce/quotes.repository';
+export * from './commerce/quote-pdf';
+export * from './commerce/quote-send.repository';
