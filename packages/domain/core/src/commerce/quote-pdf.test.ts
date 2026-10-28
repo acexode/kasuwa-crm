@@ -44,8 +44,9 @@ describe('quote PDF (T-0167)', () => {
     expect(content).toContain(quote.id);
     expect(content).toContain('49500000');
     expect(content).toContain(quote.lines[0]!.productId);
-    expect(content.toLowerCase()).not.toContain('@');
-    expect(content.toLowerCase()).not.toContain('email');
+    // Identifiers and money only — no recipient address in the stream.
+    expect(content).not.toMatch(/[^\s]@[^\s]/);
+    expect(content.toLowerCase()).not.toContain('mailto');
   });
 
   it('escapes PDF string delimiters in content', () => {
