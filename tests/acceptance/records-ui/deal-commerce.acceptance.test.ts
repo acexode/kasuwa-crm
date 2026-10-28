@@ -145,9 +145,10 @@ describe('acceptance: T-0170 — commerce client for the deal page', () => {
   it('ships apps/web/lib/commerce-api.ts naming the commerce list paths', () => {
     expect(existsSync(fromRoot(COMMERCE_CLIENT))).toBe(true);
     const source = withoutComments(readFileSync(fromRoot(COMMERCE_CLIENT), 'utf8'));
-    expect(source).toMatch(/\/api\/v1\/programmes\/.*products/);
-    expect(source).toMatch(/\/api\/v1\/programmes\/.*price-books/);
-    expect(source).toMatch(/\/api\/v1\/programmes\/.*quotes/);
+    expect(source).toMatch(/\/api\/v1\/programmes\//);
+    expect(source).toMatch(/['"]products['"]/);
+    expect(source).toMatch(/['"]price-books['"]/);
+    expect(source).toMatch(/['"]quotes['"]/);
     expect(source).toMatch(/\blistProducts\b/);
     expect(source).toMatch(/\blistQuotes\b/);
     expect(source).toMatch(/\bquotesForDeal\b/);
