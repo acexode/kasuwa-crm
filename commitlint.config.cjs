@@ -7,7 +7,7 @@ module.exports = {
       [
         'repo', 'ci', 'api', 'web', 'worker', 'realtime',
         'db', 'config', 'ui', 'i18n', 'testing', 'permissions',
-        'metadata', 'telephony', 'wfm', 'core', 'flags',
+        'metadata', 'telephony', 'wfm', 'payments', 'core', 'flags',
         'docs', 'team', 'claude', 'acceptance',
       ],
     ],
