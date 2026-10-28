@@ -2,8 +2,8 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-27.** Phase 2 is complete (D-L192). The UI fidelity programme is complete and Phase 3 is unblocked (D-L204).
-The Phase 3 plan is approved (D-L205, `docs/phase3/PLAN.md`). The work in flight is **S0, the housekeeping slice**.
+**2026-10-28 (Africa/Lagos).** Phase 2 is complete (D-L192). The UI fidelity programme is complete and Phase 3 is unblocked (D-L204).
+The Phase 3 plan is approved (D-L205, `docs/phase3/PLAN.md`). **S1 commerce wave landed on `main` via #246** (after quotes core #244 / D-L211 #247).
 **New lead session?** Read `team/HANDOFF.md` first. Phases and designs are in `team/ROADMAP.md`; open questions in
 `team/DECISIONS.md`. The PR gate is the fast gate (D-L207): lint, typecheck, unit, integration and isolation on every PR; UI
 acceptance and e2e run in the full gate.
@@ -17,21 +17,22 @@ acceptance and e2e run in the full gate.
   P26, P27, P28). Final gate on D-L204: e2e 740 passed, isolation 4,774 of 4,777 (the rest are the known timing bounds).
   Every page is under PRD 2.13's 300,000-byte budget.
 
-## In flight: Phase 3, S0 housekeeping
+## Just landed: Phase 3 S1 commerce (lead squash #246 → `87f35ce`)
 | Task | PR | State |
 |---|---|---|
-| T-0153 same-major fixes and the re-triaged OSV baseline | #218 | merged |
-| T-0152 `tools/e2e-locked.sh` and a truthful e2e README | #222 | merged |
-| S0 acceptance suites and task files | #228 | open, for the lead |
-| T-0158 `GET /me/capabilities`; the web hides write controls | #229 | open |
-| T-0160 authenticated, scoped realtime gateway (ADR-0020) | #230 | open |
-| T-0157 sign-in reads on the auth pool (D-A3) | #231 | open |
-| T-0159 Home layout on the server (migration 0045) | #232 | open |
-| T-0161 D-L204 polish items | #233 | open |
-| T-0162 D-L192 carry-overs ledger; TOTP claim race | #234 | open |
-| T-0197 csv-parse 5 to 7 | #235 | open |
-| T-0154, T-0155, T-0163 trackers, design intake, worktree record | this PR | open |
-| T-0198 zod 3 to 4 | not started | last in S0, because it touches almost every package |
+| T-0165 quotes core & isolation (D-L211: reps quote; prices from price book) | #244 | merged |
+| T-0168 `packages/payments-adapter` (PAN-free; fail-closed production default) | #246 | merged |
+| T-0166 discount approvals (migration 0049; `quotes.approve`) | #246 | merged |
+| T-0167 quote PDF render & email send (migration 0050; email-only) | #246 | merged |
+| T-0170 deal commerce UI wiring (`deal_products` / `deal_quotes` flags) | #246 | merged |
+| T-0178 portal identity ADR-0021 | #246 | merged — **Proposed only; B2 still open for @acexode** |
+
+## Still open from S0 / earlier Phase 3
+| Task | PR | State |
+|---|---|---|
+| T-0157 sign-in reads on the auth pool (D-A3) | check open PRs | D-A3 path |
+| T-0198 zod 3 to 4 | not started | removes the accepted zod advisory (D-L206) by 2026-12-31 |
+| Next S1 screen / catalogue follow-ons | — | P21 design still owed for T-0171 |
 
 ## Waiting on you
 | | |
