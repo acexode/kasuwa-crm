@@ -290,6 +290,18 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0167 (M05 P0): quote PDF render and email send through the channel
+   * adapter. Off by default until a real email provider exists and P21
+   * screens land (T-0171). Send fails closed via NullChannelProvider in
+   * production regardless of this flag.
+   */
+  quote_send: {
+    description: 'Quote PDF template and send by email through the email channel kind (T-0167).',
+    defaultValue: false,
+    owner: 'T-0167',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the

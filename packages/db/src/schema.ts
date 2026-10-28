@@ -1891,6 +1891,38 @@ export const quoteLine = pgTable(
   ],
 );
 
+/** A successful quote email send (T-0167). Append-only; email channel only. */
+export const QUOTE_SEND_CHANNELS = ['email'] as const;
+export type QuoteSendChannel = (typeof QUOTE_SEND_CHANNELS)[number];
+export const QUOTE_SEND_STATUSES = ['sent'] as const;
+export type QuoteSendStatus = (typeof QUOTE_SEND_STATUSES)[number];
+
+export const quoteSend = pgTable(
+  'quote_send',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    quoteId: uuid('quote_id').notNull(),
+    channel: text('channel', { enum: QUOTE_SEND_CHANNELS }).notNull(),
+    status: text('status', { enum: QUOTE_SEND_STATUSES }).notNull(),
+    toMasked: text('to_masked').notNull(),
+    providerMessageId: text('provider_message_id'),
+    quoteVersion: integer('quote_version').notNull(),
+    sentByUserId: uuid('sent_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('quote_send_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('quote_send_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -1945,6 +1977,7 @@ export const TENANT_SCOPED_TABLES = [
   'tax_profile',
   'quote',
   'quote_line',
+  'quote_send',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 287 rows; built 138, partial 11, mock-only 26, flagged-off 83, deferred 10, not-started 19.
+Totals: 290 rows; built 140, partial 11, mock-only 26, flagged-off 84, deferred 10, not-started 19.
 
 ## Modules
 
@@ -166,6 +166,8 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `createQuote` | POST /api/v1/programmes/{programmeId}/quotes — Create a draft quote | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `getQuote` | GET /api/v1/quotes/{quoteId} — Get a quote | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `updateQuote` | PATCH /api/v1/quotes/{quoteId} — Update a draft quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `renderQuotePdf` | GET /api/v1/quotes/{quoteId}/pdf — Render a deterministic PDF for a quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `sendQuote` | POST /api/v1/quotes/{quoteId}/send — Send a quote by email (fails closed until a real provider exists) | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `setQuoteStatus` | POST /api/v1/quotes/{quoteId}/status — Change quote status through a gated transition | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
@@ -261,6 +263,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_pipeline` | The P06 pipeline board and list view at /pipelines/[pipelineId], with the pipeline index at /pipelines (T-0109). | flagged-off | `crm_pipeline` | D-L88, D-L115 | packages/feature-flags/src/index.ts |
 | flag | `crm_products` | The programme-scoped product catalogue: products, variants, price books and tax profiles (T-0164). | flagged-off | `crm_products` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_quotes` | Programme-scoped quotes with line items, discounts, validity and gated status changes (T-0165). | flagged-off | `crm_quotes` | — | packages/feature-flags/src/index.ts |
+| flag | `quote_send` | Quote PDF template and send by email through the email channel kind (T-0167). | flagged-off | `quote_send` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 | flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |
