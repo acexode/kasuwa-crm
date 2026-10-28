@@ -61,16 +61,24 @@ import { asUser, createApi } from '../support/api';
  *       scope is not confirmed.
  *   R6. Lines reference a product (required) and optional variant of the same
  *       programme. Cross-programme product/variant → 404. Quantity is an
- *       integer 1..999999. `unitAmountMinor` is `/^\d{1,18}$/`. Optional
- *       `discountBps` on the quote and on each line is 0..10000.
- *   R7. Currency is required on create and must match every line's implied
- *       money currency; a stray currency on a line body is refused (400). The
- *       quote currency cannot change after create.
+ *       integer 1..999999. Optional `discountBps` on the quote and on each
+ *       line is 0..10000. AMENDED (D-L211, @acexode): a line carries NO price.
+ *       Its `unitAmountMinor` is read by the server from the quote's price
+ *       book (the variant's entry, else the product's) and stored on the line;
+ *       a client that posts one is refused (400, closed body). A product with
+ *       no entry in that book is 400 `no_price`.
+ *   R7. AMENDED (D-L211): create names `priceBookId` (a book of the same
+ *       programme; another programme's or a missing book is 404). The quote's
+ *       currency is that book's, is returned, and never changes; a posted
+ *       `currency` is a stray key (400).
  *   R8. `validUntil` is an optional ISO-8601 date-time (UTC). Past values are
  *       accepted on draft (expiry is a status transition, not auto).
- *   R9. Writes need `quotes.write` (admin set and tenant-admin flag only,
- *       mirroring `catalogue.write`). An agent reads and is refused every
- *       write with 403 `not_permitted`. Reads stay open to programme members.
+ *   R9. AMENDED (D-L211, @acexode): reps quote. `quotes.write` is held by the
+ *       agent, team_lead, programme_manager and admin sets (and the
+ *       tenant-admin flag). A read-only set (qa_analyst) reads and is refused
+ *       every write with 403 `not_permitted`. Prices stay admin-only
+ *       (`catalogue.write`, D-L210); a rep lowers a price only by discount,
+ *       which T-0166's approval governs.
  *  R10. `crm_quotes` is registered and off by default / not production-ready.
  *  R11. Totals: response includes `subtotalMinor` (sum of line
  *       quantity × unitAmountMinor before discounts), `discountMinor` (quote
@@ -97,6 +105,9 @@ const DEAL_A1 = '11111111-0000-4000-8000-000000170001';
 const PRODUCT_A1 = '11111111-0000-4000-8000-0000001a0001';
 const VARIANT_A1 = '11111111-0000-4000-8000-0000001b0001';
 const PRODUCT_MISSING = '11111111-0000-4000-8000-0000001affff';
+/** Seeded A1 price books (kind 19): NGN carries PRODUCT_A1/VARIANT_A1 at 25,000,000; GHS has no entries. */
+const NGN_BOOK_A1 = '11111111-0000-4000-8000-000000190001';
+const GHS_BOOK_A1 = '11111111-0000-4000-8000-000000190002';
 
 describe('acceptance: quotes (T-0165)', () => {
   let app: INestApplication;
@@ -119,11 +130,12 @@ describe('acceptance: quotes (T-0165)', () => {
 
   const server = () => app.getHttpServer();
   const as = (tenant: string, user: string) => asUser(tenant, user);
-  const writer = () => as(TENANT_A, USER_A_SUPERVISOR);
+  // D-L211: a rep (the agent set) writes quotes.
+  const writer = () => as(TENANT_A, USER_A_AGENT_1);
   const reader = () => as(TENANT_A, USER_A_AGENT_1);
 
   const draftBody = (overrides: Record<string, unknown> = {}) => ({
-    currency: 'NGN',
+    priceBookId: NGN_BOOK_A1,
     dealId: DEAL_A1,
     contactId: CONTACT_A1,
     discountBps: 0,
@@ -133,7 +145,6 @@ describe('acceptance: quotes (T-0165)', () => {
         productId: PRODUCT_A1,
         variantId: VARIANT_A1,
         quantity: 2,
-        unitAmountMinor: '25000000',
         discountBps: 0,
       },
     ],
@@ -148,9 +159,7 @@ describe('acceptance: quotes (T-0165)', () => {
     });
 
     it('has migration 0048 on disk', () => {
-      expect(
-        existsSync(resolve(repoRoot, 'packages/db/migrations/0048_quotes.sql')),
-      ).toBe(true);
+      expect(existsSync(resolve(repoRoot, 'packages/db/migrations/0048_quotes.sql'))).toBe(true);
     });
 
     it('declares the five quote operations as implemented', () => {
@@ -168,13 +177,7 @@ describe('acceptance: quotes (T-0165)', () => {
           implemented: op['x-kasuwa-implemented'],
         })),
       );
-      for (const id of [
-        'createQuote',
-        'listQuotes',
-        'getQuote',
-        'updateQuote',
-        'setQuoteStatus',
-      ]) {
+      for (const id of ['createQuote', 'listQuotes', 'getQuote', 'updateQuote', 'setQuoteStatus']) {
         const op = ops.find((row) => row.id === id);
         expect(op, id).toBeDefined();
         expect(op?.implemented, id).toBe(true);
@@ -290,7 +293,6 @@ describe('acceptance: quotes (T-0165)', () => {
               productId: PRODUCT_A1,
               variantId: VARIANT_A1,
               quantity: 1,
-              unitAmountMinor: '25000000',
               discountBps: 0,
             },
           ],
@@ -391,59 +393,84 @@ describe('acceptance: quotes (T-0165)', () => {
   });
 
   describe('4. validation and permissions', () => {
-    it('refuses an agent write with 403 not_permitted (R9)', async () => {
-      const res = await request(server())
+    it('a rep and an admin write; a read-only set reads and is refused with 403 not_permitted (R9, D-L211)', async () => {
+      const byRep = await request(server())
         .post(QUOTES(PROGRAMME_A1))
-        .set(reader())
+        .set(writer())
         .send(draftBody());
-      expect(res.status).toBe(403);
-      expect(res.body).toMatchObject({ code: 'not_permitted' });
+      expect(byRep.status, JSON.stringify(byRep.body)).toBe(201);
+      const byAdmin = await request(server())
+        .post(QUOTES(PROGRAMME_A1))
+        .set(as(TENANT_A, USER_A_SUPERVISOR))
+        .send(draftBody());
+      expect(byAdmin.status, JSON.stringify(byAdmin.body)).toBe(201);
+
+      await observer.query(
+        `UPDATE user_programme
+            SET permission_set_id = (SELECT id FROM permission_set WHERE tenant_id = $1 AND key = 'qa_analyst')
+          WHERE user_id = $2 AND programme_id = $3`,
+        [TENANT_A, USER_A_AGENT_1, PROGRAMME_A1],
+      );
+      const read = await request(server())
+        .get(QUOTE(byRep.body.id as string))
+        .set(reader());
+      expect(read.status).toBe(200);
+      const writes = await Promise.all([
+        request(server()).post(QUOTES(PROGRAMME_A1)).set(reader()).send(draftBody()),
+        request(server())
+          .patch(QUOTE(byRep.body.id as string))
+          .set(reader())
+          .send({ discountBps: 100 }),
+        request(server())
+          .post(QUOTE_STATUS(byRep.body.id as string))
+          .set(reader())
+          .send({ status: 'sent' }),
+      ]);
+      for (const res of writes) {
+        expect(res.status).toBe(403);
+        expect(res.body).toMatchObject({ code: 'not_permitted' });
+      }
     });
 
-    it('refuses unknown currency, float amount, oversize amount, stray keys (R6/R7)', async () => {
-      const badCurrency = await request(server())
+    it('prices come from the book: a posted price or currency is refused, an unpriced product is no_price (R6/R7, D-L211)', async () => {
+      const postedPrice = await request(server())
         .post(QUOTES(PROGRAMME_A1))
         .set(writer())
-        .send(draftBody({ currency: 'USD' }));
-      expect(badCurrency.status).toBe(400);
+        .send(draftBody({ lines: [{ productId: PRODUCT_A1, quantity: 1, unitAmountMinor: '1' }] }));
+      expect(postedPrice.status, 'a client set its own unit price').toBe(400);
+      expect(postedPrice.body).toMatchObject({ code: 'validation_failed' });
 
-      const floatAmount = await request(server())
+      const postedCurrency = await request(server())
         .post(QUOTES(PROGRAMME_A1))
         .set(writer())
-        .send(
-          draftBody({
-            lines: [
-              {
-                productId: PRODUCT_A1,
-                quantity: 1,
-                unitAmountMinor: '12.5',
-              },
-            ],
-          }),
-        );
-      expect(floatAmount.status).toBe(400);
-
-      const oversize = await request(server())
-        .post(QUOTES(PROGRAMME_A1))
-        .set(writer())
-        .send(
-          draftBody({
-            lines: [
-              {
-                productId: PRODUCT_A1,
-                quantity: 1,
-                unitAmountMinor: '1'.repeat(20),
-              },
-            ],
-          }),
-        );
-      expect(oversize.status).toBe(400);
+        .send(draftBody({ currency: 'NGN' }));
+      expect(postedCurrency.status).toBe(400);
 
       const stray = await request(server())
         .post(QUOTES(PROGRAMME_A1))
         .set(writer())
         .send(draftBody({ totalMinor: '1' }));
       expect(stray.status).toBe(400);
+
+      const unpriced = await request(server())
+        .post(QUOTES(PROGRAMME_A1))
+        .set(writer())
+        .send(draftBody({ priceBookId: GHS_BOOK_A1 }));
+      expect(unpriced.status, 'the GHS book has no entry for the product').toBe(400);
+      expect(unpriced.body).toMatchObject({ code: 'no_price' });
+
+      const otherProgrammeBook = await request(server())
+        .post(QUOTES(PROGRAMME_A1))
+        .set(writer())
+        .send(draftBody({ priceBookId: '11111111-0000-4000-8000-000000190005' }));
+      expect(otherProgrammeBook.status, 'a price book of PROGRAMME_A2').toBe(404);
+      expect(otherProgrammeBook.body).toMatchObject({ code: 'not_found' });
+
+      const ghsQuote = await request(server())
+        .post(QUOTES(PROGRAMME_A1))
+        .set(writer())
+        .send(draftBody());
+      expect(ghsQuote.body.currency, 'the currency is the book’s').toBe('NGN');
     });
 
     it('404s a missing product and a cross-scope deal (R5/R6)', async () => {
@@ -456,7 +483,6 @@ describe('acceptance: quotes (T-0165)', () => {
               {
                 productId: PRODUCT_MISSING,
                 quantity: 1,
-                unitAmountMinor: '100',
               },
             ],
           }),

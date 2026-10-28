@@ -65,6 +65,7 @@ const AGENT_CAN = [
   'activity.write',
   'contact.claim_and_set_status',
   'deal.write',
+  'quotes.write', // D-L211 (T-0165): reps quote
   'script.run',
 ].sort();
 const TEAM_LEAD_CAN = [...AGENT_CAN, 'activity.reassign', 'deal.reassign', 'deal.write_any'].sort();
