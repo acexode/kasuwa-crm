@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: PLACEHOLDER
+Totals: 294 rows; built 143, partial 11, mock-only 26, flagged-off 85, deferred 10, not-started 19.
 
 ## Modules
 
