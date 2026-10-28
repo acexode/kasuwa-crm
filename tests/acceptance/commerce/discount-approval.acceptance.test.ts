@@ -5,7 +5,6 @@ import {
   createPool,
   PROGRAMME_A1,
   PROGRAMME_A2,
-  PROGRAMME_B1,
   TENANT_A,
   TENANT_B,
   TENANT_SCOPED_TABLES,
@@ -314,20 +313,27 @@ describe('acceptance: discount approvals (T-0166)', () => {
     it('answers one 404 for other programme, other tenant, and no-programme', async () => {
       const quoteId = await createDiscountedQuote(writer());
       const requested = await request(server()).post(REQUEST(quoteId)).set(writer());
-      expect(requested.status).toBe(201);
+      expect(requested.status, JSON.stringify(requested.body)).toBe(201);
       const approvalId = requested.body.id as string;
 
+      // Lazy factories, sequential awaits — never start five Nest requests at once.
+      // Other-tenant list must target PROGRAMME_A1 (out of B's scope). Listing
+      // PROGRAMME_B1 as a B agent is 200 with an empty page, not 404.
+      const calls: Array<() => Promise<{ status: number; body: unknown }>> = [
+        () => request(server()).get(APPROVALS(PROGRAMME_A2)).set(as(TENANT_A, USER_A_AGENT_1)),
+        () => request(server()).get(APPROVALS(PROGRAMME_A1)).set(as(TENANT_B, USER_B_AGENT_1)),
+        () =>
+          request(server()).get(APPROVALS(PROGRAMME_A1)).set(as(TENANT_A, USER_A_NO_PROGRAMME)),
+        () =>
+          request(server())
+            .post(DECIDE(approvalId))
+            .set(as(TENANT_B, USER_B_AGENT_1))
+            .send({ decision: 'approved' }),
+        () => request(server()).post(REQUEST(quoteId)).set(as(TENANT_B, USER_B_AGENT_1)),
+      ];
       const bodies: unknown[] = [];
-      for (const call of [
-        request(server()).get(APPROVALS(PROGRAMME_A2)).set(as(TENANT_A, USER_A_AGENT_1)),
-        request(server()).get(APPROVALS(PROGRAMME_B1)).set(as(TENANT_B, USER_B_AGENT_1)),
-        request(server()).get(APPROVALS(PROGRAMME_A1)).set(as(TENANT_A, USER_A_NO_PROGRAMME)),
-        request(server()).post(DECIDE(approvalId)).set(as(TENANT_B, USER_B_AGENT_1)).send({
-          decision: 'approved',
-        }),
-        request(server()).post(REQUEST(quoteId)).set(as(TENANT_B, USER_B_AGENT_1)),
-      ]) {
-        const res = await call;
+      for (const call of calls) {
+        const res = await call();
         expect(res.status, JSON.stringify(res.body)).toBe(404);
         bodies.push(res.body);
       }
