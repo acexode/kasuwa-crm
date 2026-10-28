@@ -83,6 +83,7 @@ describe('the notification event types (T-0100 I2)', () => {
       'contact.owner_changed',
       'deal.owner_changed',
       'import.finished',
+      'quote.approval_requested',
     ]);
   });
 });

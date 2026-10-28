@@ -68,7 +68,13 @@ const AGENT_CAN = [
   'quotes.write', // D-L211 (T-0165): reps quote
   'script.run',
 ].sort();
-const TEAM_LEAD_CAN = [...AGENT_CAN, 'activity.reassign', 'deal.reassign', 'deal.write_any'].sort();
+const TEAM_LEAD_CAN = [
+  ...AGENT_CAN,
+  'activity.reassign',
+  'deal.reassign',
+  'deal.write_any',
+  'quotes.approve', // T-0166: team_lead decides discount approvals
+].sort();
 
 function setId(key: string): string {
   const set = SEED_PERMISSION_SETS.find((s) => s.tenantId === TENANT_A && s.key === key);
@@ -172,7 +178,7 @@ describe('acceptance: GET /api/v1/me/capabilities (T-0158)', () => {
       }
     });
 
-    it('a team lead holds the agent set plus its three extras', async () => {
+    it('a team lead holds the agent set plus its extras (incl. quotes.approve)', async () => {
       await assign(USER_A_AGENT_1, PROGRAMME_A1, setId('team_lead'));
       const body = await capabilities(asUser(TENANT_A, USER_A_AGENT_1));
       expect(byProgramme(body, PROGRAMME_A1)?.can).toEqual(TEAM_LEAD_CAN);

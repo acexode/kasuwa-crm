@@ -38,3 +38,5 @@ aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:ge
 # (field name ends in Key; value is invented, not a credential). fetch-depth 0
 # scans every branch, so this blocked unrelated PRs including T-0165.
 721d79aabffdc22de0f88ff5ce49ba2a5d72b7f3:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207
+# Same fixture after the s1-dev rebase onto main (new commit SHA, same line).
+21fc08e9f0b8aaaac765b8f10a9ba0075d176426:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207

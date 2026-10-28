@@ -29,6 +29,7 @@ function catalogueIds(file: string): string[] {
 
 const DEAL_SOURCES = [
   'deal-screen.tsx',
+  'deal-commerce.tsx',
   'deal-sheet.tsx',
   '../pipeline/move-sheet.tsx',
   '../pipeline/requirement-prompt.tsx',

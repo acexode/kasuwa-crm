@@ -50,6 +50,8 @@ const DEMO_FLAGS = [
   'crm_pipeline',
   'crm_products',
   'crm_quotes',
+  'quote_approvals',
+  'quote_send',
   'crm_search',
   'admin_live_api',
   // T-0134 (D-L194): the P05 record placeholders, in the design's empty or disabled state.

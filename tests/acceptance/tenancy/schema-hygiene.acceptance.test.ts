@@ -166,6 +166,10 @@ const PLANT_FIELD = '11111111-0000-4000-8000-0000001100b3';
 const PLANT_DISPOSITION = '11111111-0000-4000-8000-0000001100b4';
 const PLANT_PORTAL_USER = '11111111-0000-4000-8000-0000001100b5';
 const PLANT_SCRIPT = '11111111-0000-4000-8000-0000001100b6';
+const PLANT_QUOTE_APPROVAL = '11111111-0000-4000-8000-0000001100b7';
+const PLANT_QUOTE_SEND = '11111111-0000-4000-8000-0000001100b8';
+/** Seeded draft quote in PROGRAMME_A1 (kind 1d) — FK target for commerce plants. */
+const SEED_QUOTE_A1 = '11111111-0000-4000-8000-0000001d0001';
 
 type Plant = (client: PoolClient) => Promise<void>;
 
@@ -275,6 +279,26 @@ const PLANTS: Record<string, Plant> = {
       `INSERT INTO home_layout (tenant_id, user_id, role, items, updated_at)
        VALUES ($1, $2, 'rep', '[]'::jsonb, ${PAST})`,
       [TENANT_A, USER_A_SUPERVISOR],
+    );
+  },
+  /** T-0166: pending discount approval on the seeded A1 quote. Nothing seeds one. */
+  quote_approval: async (client) => {
+    await client.query(
+      `INSERT INTO quote_approval
+         (id, tenant_id, programme_id, quote_id, requested_by_user_id, discount_bps,
+          status, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 2000, 'pending', ${PAST})`,
+      [PLANT_QUOTE_APPROVAL, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+    );
+  },
+  /** T-0167: append-only send row on the seeded A1 quote. Nothing seeds one. */
+  quote_send: async (client) => {
+    await client.query(
+      `INSERT INTO quote_send
+         (id, tenant_id, programme_id, quote_id, channel, status, to_masked,
+          quote_version, sent_by_user_id, updated_at)
+       VALUES ($1, $2, $3, $4, 'email', 'sent', 'p***@client.example', 1, $5, ${PAST})`,
+      [PLANT_QUOTE_SEND, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
     );
   },
 };

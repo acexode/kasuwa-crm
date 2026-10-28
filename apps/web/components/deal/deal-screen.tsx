@@ -81,10 +81,13 @@ import { nameOrWithheld } from '../records/name';
  * server's, exact, in the currency's own format, never compact and never
  * recomputed. The close date is a calendar date, drawn as served in every
  * zone. A withheld field is a lock, never a blank or a zero; `name` is never
- * withheld; `null` is "not set". No AI deal risk, products or price books, FX
- * or US$ figures, VAT or totals, quotes, approvals, contact roles,
- * competitors, forecast category, deal type, territory, lead source, deal
- * number, attachments, WhatsApp or email items, and no Undo (D-L88).
+ * withheld; `null` is "not set". No AI deal risk, FX or US$ figures (the
+ * board's `fx_display` switch stays disabled until B5), contact roles beyond
+ * the served primary, competitors, forecast category, deal type, territory,
+ * lead source, deal number, attachments, WhatsApp or email items, and no Undo
+ * (D-L88). Products and quotes are drawn only behind `deal_products` /
+ * `deal_quotes` (T-0170), lazy-loaded from the commerce API; approvals stay
+ * the empty state until T-0166.
  *
  * WRITES. The edit sheet sends `version` plus only what changed (D-L102); a
  * 409 rebases it. "Assign to me" is the only reassignment (R11). A move is
@@ -98,8 +101,8 @@ import { nameOrWithheld } from '../records/name';
  * the API refuses (R21). Offline, every write is off and nothing queues
  * (D-P21); nothing is stored on the device (D-L64).
  *
- * The dialogs and the activity form load when first opened: the deal is what
- * a person on 256 kbps waits for.
+ * The dialogs, the activity form and the commerce panels load when first
+ * opened: the deal is what a person on 256 kbps waits for.
  * ---------------------------------------------------------------------------
  */
 
@@ -107,6 +110,9 @@ const MoveSheet = clientLazy(() => import('../pipeline/move-sheet').then((module
 const RequirementPrompt = clientLazy(() => import('../pipeline/requirement-prompt').then((module) => module.RequirementPrompt));
 const DealSheet = clientLazy(() => import('./deal-sheet').then((module) => module.DealSheet));
 const ActivityForm = clientLazy(() => import('../record/activity-form').then((module) => module.ActivityForm));
+/** T-0170: commerce panels share one lazy chunk; flag-off first paint ships none of it. */
+const DealProductsCard = clientLazy(() => import('./deal-commerce').then((module) => module.DealProductsCard));
+const DealQuotesRail = clientLazy(() => import('./deal-commerce').then((module) => module.DealQuotesRail));
 
 const PANEL = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4';
 
@@ -707,7 +713,9 @@ function Ready({
               </dl>
             </section>
 
-            {modules.products ? <ProductsCard t={t} /> : null}
+            {modules.products ? (
+              <DealProductsCard t={t} locale={locale} deal={deal} programmeId={pipeline.programmeId} />
+            ) : null}
 
             <section aria-labelledby={headings.activity} className={PANEL}>
               <div className="flex flex-wrap items-center gap-2">
@@ -778,18 +786,8 @@ function Ready({
             {modules.relationships ? <ContactRolesCard t={t} locale={locale} deal={deal} /> : null}
             {modules.relationships ? <EmptyCard title={t.t('deal.competitors.title')} body={t.t('deal.competitors.empty')} icon="groups" /> : null}
             {modules.quotes ? (
-              <EmptyCard
-                title={t.t('deal.quotes.title')}
-                body={t.t('deal.quotes.empty')}
-                icon="request_quote"
-                action={
-                  <button type="button" disabled className="h-control-sm rounded-6 px-2.5 text-meta font-bold text-disabled-text">
-                    {t.t('deal.quotes.new')}
-                  </button>
-                }
-              />
+              <DealQuotesRail t={t} locale={locale} dealId={deal.id} programmeId={pipeline.programmeId} />
             ) : null}
-            {modules.quotes ? <EmptyCard title={t.t('deal.approvals.title')} body={t.t('deal.approvals.empty')} icon="approval" /> : null}
             <section aria-labelledby={headings.requirements} className={PANEL}>
               <h2 id={headings.requirements} className="text-card-title">
                 {t.t('deal.requirements')}
@@ -911,13 +909,12 @@ function daysUntil(date: string, nowMs: number): number | null {
   return Math.round((Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1) - today) / 86_400_000);
 }
 
-/** A design card with a title, an empty state and an optional header action (D-L194). */
-function EmptyCard({ title, body, icon, action }: { title: string; body: string; icon: 'groups' | 'request_quote' | 'approval'; action?: ReactNode }) {
+/** A design card with a title and an empty state (D-L194). Competitors only — quotes live in deal-commerce. */
+function EmptyCard({ title, body, icon }: { title: string; body: string; icon: 'groups' }) {
   return (
     <section className={`${PANEL} gap-1`}>
       <div className="mb-1.5 flex items-center">
         <h2 className="flex-1 text-card-title">{title}</h2>
-        {action}
       </div>
       <p className="flex items-start gap-2 border-t border-border py-2.5 text-caption font-normal text-text-2">
         <Icon name={icon} size={16} className="text-text-muted" />
@@ -962,48 +959,6 @@ function ContactRolesCard({ t, locale, deal }: { t: Translator; locale: string; 
         </div>
       )}
       <p className="border-t border-border py-2.5 text-caption font-normal text-text-2">{t.t('deal.roles.empty')}</p>
-    </section>
-  );
-}
-
-/** P06/12's Products card in its empty state: the table's head, no lines, and the totals as dashes (D-L194). */
-function ProductsCard({ t }: { t: Translator }) {
-  const head = 'px-3 text-micro uppercase tracking-[0.05em] text-text-2';
-  return (
-    <section className={PANEL}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="text-card-title">{t.t('deal.products.title')}</h2>
-        <span className="flex-1" />
-        <Button size="compact" icon="add" disabled>
-          {t.t('deal.products.add')}
-        </Button>
-      </div>
-      <div className="overflow-hidden rounded-10 border border-border">
-        <div className="hidden grid-cols-[minmax(0,2.4fr)_100px_130px_56px_64px_140px] gap-2.5 bg-surface-sunken py-2.5 md:grid">
-          <span className={head}>{t.t('deal.products.product')}</span>
-          <span className={`${head} text-end`}>{t.t('deal.products.list')}</span>
-          <span className={`${head} text-end`}>{t.t('deal.products.unit')}</span>
-          <span className={`${head} text-end`}>{t.t('deal.products.qty')}</span>
-          <span className={`${head} text-end`}>{t.t('deal.products.discount')}</span>
-          <span className={`${head} text-end`}>{t.t('deal.products.total')}</span>
-        </div>
-        <p className="flex items-start gap-2 border-t border-border px-3 py-4 text-meta text-text-2 first:border-t-0 md:first:border-t">
-          <Icon name="inventory_2" size={18} className="text-text-muted" />
-          {t.t('deal.products.empty')}
-        </p>
-        <div className="flex flex-col gap-1 border-t border-border bg-surface-sunken px-3 py-2.5 text-meta">
-          {(['deal.products.subtotal', 'deal.products.vat'] as const).map((label) => (
-            <span key={label} className="flex justify-end gap-6">
-              <span className="text-text-2">{t.t(label)}</span>
-              <span className="min-w-[140px] text-end font-mono">{'—'}</span>
-            </span>
-          ))}
-          <span className="flex justify-end gap-6 text-label">
-            <b>{t.t('deal.products.total')}</b>
-            <b className="min-w-[140px] text-end font-mono">{'—'}</b>
-          </span>
-        </div>
-      </div>
     </section>
   );
 }
