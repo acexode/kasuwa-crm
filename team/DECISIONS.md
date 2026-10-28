@@ -4750,3 +4750,20 @@ reviewed it as a contract and amended it before approving.
   the testcontainers upgrade.
 - **Process, for every slice from here:** the acceptance suite is its own `lead/T-xxxx-acceptance` PR, approved
   before the build PR opens. A suite written with its build is reviewed as if it were not.
+
+### D-L211 — Reps quote; a quote line's price comes from the price book (@acexode, lead, 2026-10-28)
+
+T-0165 (#244) landed quotes. @acexode decided both money and product questions the suite raised:
+
+- **Reps quote.** `quotes.write` is held by the agent, team_lead, programme_manager and admin sets (and the
+  tenant-admin flag), as P21 has the rep build the quote. A read-only set (qa_analyst) reads and gets one 403
+  `not_permitted`. Catalogue and prices stay admin-only (`catalogue.write`, D-L210).
+- **Prices come from the book.** A quote names its `priceBookId` (same programme, else 404); its currency is the
+  book's, bound in the schema by a foreign key to `price_book (tenant_id, programme_id, id, currency)`. A line
+  carries no price: the server reads the variant's entry, else the product's, and stores it on the line. A posted
+  price or currency is refused (closed body); a product with no entry in the book is 400 `no_price`. A rep goes
+  below list only by discount, which T-0166's approval governs.
+- **Found in review:** 0048 first put `UNIQUE (tenant_id, programme_id, price_book_id, currency)` on `quote`
+  itself, which allowed one quote per price book; every create after the seed's quote answered 500. Removed: the
+  foreign key's target is `price_book`'s key from 0047.
+- `me-capabilities` now lists `quotes.write` for the agent and team-lead sets (lead edit).
