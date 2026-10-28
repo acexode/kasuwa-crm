@@ -677,3 +677,33 @@ export async function studioFlags(): Promise<StudioFlags> {
   ]);
   return { objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations };
 }
+
+/** T-0171 / P21: catalogue route behind `crm_products`. */
+export async function crmProductsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_products',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** T-0171 / P21: quotes list/builder behind `crm_quotes`. */
+export async function crmQuotesEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_quotes',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** T-0018: server-side onboarding persistence behind `onboarding_persistence`. */
+export async function onboardingPersistenceEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'onboarding_persistence',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}

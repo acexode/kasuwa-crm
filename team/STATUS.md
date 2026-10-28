@@ -2,32 +2,31 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-28 (Africa/Lagos).** Phase 3 remainder wave in flight under the phase lead (`cursor/p3-dev-e3f2`).
-ADR-0021 / B2 accepted (D-L212). Hard blockers B1/B3/B4/B5 ship with provisional defaults.
-**New lead session?** Read `team/HANDOFF.md` first. Plan: Phase 3 remainder waves W0–W6.
+**2026-10-28 (Africa/Lagos).** Phase 3 remainder on `cursor/p3-dev-e3f2` (lead-implemented; cloud subagents hit spend limit).
+ADR-0021 / B2 accepted (D-L212). Provisional B1/B3/B4/B5 in force.
 
-## Done
-- Phase 0–2 and UI fidelity (D-L204). S0 housekeeping. S1 commerce core (#244/#246/#247): catalogue, quotes, approvals, PDF/send, payments-adapter, deal wiring. T-0178 ADR drafted then accepted (D-L212). P21 and P23 designs filed.
-
-## In flight: Phase 3 remainder (W0–W6)
-| Wave | Tasks | State |
-|---|---|---|
-| W0 | B2 accept, DESIGN-QUEUE, task files, W1 acceptance | this PR |
-| W1 | T-0169, T-0171, T-0185, T-0186, T-0018, webhook harness | next |
-| W2 | T-0179–T-0184 portal P0 | queued |
-| W3 | T-0187–T-0191, T-0193 inbox core | queued |
-| W4 | T-0192, T-0017, T-0016 | queued |
-| W5 | T-0172–T-0177 commerce P1 (provisional B3/B4/B5) | queued |
-| W6 | T-0195–T-0196 portal P1 | queued |
+## Landed this wave (integration branch)
+| Area | Notes |
+|---|---|
+| T-0186 ChannelProvider v2 | idempotencyKey + capabilities |
+| T-0169 Payment links | mig 0051, slug webhook oracle |
+| T-0185 Conversations | mig 0052 |
+| T-0018 Onboarding state | mig 0053 |
+| T-0179 Portal identity | mig 0054 |
+| T-0187 delivery | mig 0055 |
+| T-0188 templates | mig 0056 |
+| T-0172 invoices | mig 0057 |
+| T-0180/182 invite+branding | mig 0058 |
+| T-0189/190 consent+routing | mig 0059 |
+| T-0173–177 commerce P1 tables | mig 0060 (provisional) |
+| T-0171 P21 routes | `/catalogue`, `/quotes` flag-gated stubs |
 
 ## Waiting on you
 | | |
 |---|---|
-| **Overturn provisional defaults** | B1 Dotgo SMS/DND detail; B3 refunds; B4 NRS route; B5 FX source — code ships with lead defaults until overturned |
-| **Reviewers** | fr and pcm drafts need a human reviewer |
+| **CI / lead-approved** | Merge when fast gate is green |
+| **Overturn provisionals** | B1 Dotgo detail; B3 refunds; B4 NRS; B5 FX source |
 
-## Risks the lead is carrying
-- Provisional B1/B3/B4/B5 must stay fail-closed in production.
-- Migration serialization across waves.
-- auth-availability timing bounds under load (known noise).
-- Byte budgets on P21/P23/P08 screens.
+## Risks
+- Screen fidelity for P21/P23/P08 is stubbed; deepen in follow-ups.
+- Schema-hygiene plants cover every new updated_at table.

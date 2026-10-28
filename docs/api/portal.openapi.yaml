@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: Kasuwa Portal API
+  version: 0.1.0-T-0179
+  description: External portal identity (ADR-0021 / D-L212). Scope from portal_programme only.
+paths:
+  /api/v1/portal/sign-in:
+    post:
+      operationId: portalSignIn
+      x-kasuwa-implemented: false
+      summary: Portal sign-in
+      responses:
+        '200': { description: Session issued }
+  /api/v1/portal/mfa:
+    post:
+      operationId: portalVerifyMfa
+      x-kasuwa-implemented: false
+      summary: Portal MFA verify
+      responses:
+        '200': { description: MFA accepted }
+  /api/v1/portal/me:
+    get:
+      operationId: portalMe
+      x-kasuwa-implemented: false
+      summary: Current portal identity and programmes
+      responses:
+        '200': { description: Portal me }
