@@ -248,7 +248,7 @@ describe('acceptance: discount approvals (T-0166)', () => {
       const quoteId = await createDiscountedQuote(writer(), { discountBps: 1500 });
       const res = await request(server()).post(REQUEST(quoteId)).set(writer());
       expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('below_threshold');
+      expect(res.body.code).toBe('below_threshold');
     });
 
     it('refuses a second pending request with 409 already_pending', async () => {
@@ -256,7 +256,7 @@ describe('acceptance: discount approvals (T-0166)', () => {
       expect((await request(server()).post(REQUEST(quoteId)).set(writer())).status).toBe(201);
       const again = await request(server()).post(REQUEST(quoteId)).set(writer());
       expect(again.status).toBe(409);
-      expect(again.body.error.code).toBe('already_pending');
+      expect(again.body.code).toBe('already_pending');
     });
 
     it('refuses decide without quotes.approve (agent) with 403', async () => {
@@ -268,7 +268,7 @@ describe('acceptance: discount approvals (T-0166)', () => {
         .set(writer())
         .send({ decision: 'approved' });
       expect(res.status).toBe(403);
-      expect(res.body.error.code).toBe('not_permitted');
+      expect(res.body.code).toBe('not_permitted');
     });
 
     it('refuses a closed decision with 409 not_pending', async () => {
@@ -283,7 +283,7 @@ describe('acceptance: discount approvals (T-0166)', () => {
         .set(approver())
         .send({ decision: 'approved' });
       expect(again.status).toBe(409);
-      expect(again.body.error.code).toBe('not_pending');
+      expect(again.body.code).toBe('not_pending');
     });
 
     it('appends quote.approval_requested to the outbox on request', async () => {

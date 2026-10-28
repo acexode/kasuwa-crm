@@ -77,9 +77,8 @@ CREATE UNIQUE INDEX quote_approval_pending_quote_key
   ON quote_approval (tenant_id, programme_id, quote_id)
   WHERE status = 'pending';
 
-CREATE INDEX quote_approval_programme_idx
-  ON quote_approval (tenant_id, programme_id);
-
+-- quote_approval_quote_idx covers (tenant_id, programme_id, …); no separate
+-- programme-only index (T-0011 prefix rule — same as catalogue/quote drops).
 CREATE INDEX quote_approval_quote_idx
   ON quote_approval (tenant_id, programme_id, quote_id);
 

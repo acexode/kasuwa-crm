@@ -1947,7 +1947,6 @@ export const quoteApproval = pgTable(
       table.programmeId,
       table.id,
     ),
-    index('quote_approval_programme_idx').on(table.tenantId, table.programmeId),
     index('quote_approval_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
   ],
 );

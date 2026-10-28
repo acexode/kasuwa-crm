@@ -53,8 +53,9 @@ import { asUser, withAuthDatabase } from '../support/api';
  *   R6. `renderQuotePdf` returns `application/pdf` whose bytes start with
  *       `%PDF` and are deterministic for the same quote. Programme members
  *       may read it; out of scope is one 404.
- *   R7. Writes (send) need `quotes.write` (admin / tenant-admin). An agent is
- *       403 `not_permitted` on send and may still render the PDF.
+ *   R7. AMENDED (D-L211): send needs `quotes.write` (agent and up). A
+ *       read-only set (qa_analyst) is 403 `not_permitted` on send and may
+ *       still render the PDF.
  *   R8. `quote_send` flag is registered, off by default, not production-ready.
  *       `crm_quotes` remains the quotes API flag.
  *   R9. Isolation: another programme, another tenant, and a user with no
@@ -73,6 +74,9 @@ const QUOTES = (programmeId: string) => `/api/v1/programmes/${programmeId}/quote
 
 const SEED_QUOTE = '11111111-0000-4000-8000-0000001d0001';
 const PRODUCT_A1 = '11111111-0000-4000-8000-0000001a0001';
+const VARIANT_A1 = '11111111-0000-4000-8000-0000001b0001';
+/** Seeded A1 NGN price book (kind 19) — D-L211: create names the book, not a price. */
+const NGN_BOOK_A1 = '11111111-0000-4000-8000-000000190001';
 
 let addressSeq = 0;
 const uniqueAddress = (label: string) =>
@@ -122,13 +126,13 @@ describe('acceptance: quote send (T-0167)', () => {
   const sentTo = (address: string) => fake.sent.filter((message) => message.to === address);
 
   const draftBody = () => ({
-    currency: 'NGN',
+    priceBookId: NGN_BOOK_A1,
     discountBps: 0,
     lines: [
       {
         productId: PRODUCT_A1,
+        variantId: VARIANT_A1,
         quantity: 1,
-        unitAmountMinor: '100000',
         discountBps: 0,
       },
     ],
@@ -314,8 +318,14 @@ describe('acceptance: quote send (T-0167)', () => {
       expect(sentTo(address)).toHaveLength(0);
     });
 
-    it('is 403 for an agent without quotes.write (R7)', async () => {
-      const address = uniqueAddress('agent');
+    it('is 403 for a read-only set without quotes.write (R7, D-L211)', async () => {
+      await observer.query(
+        `UPDATE user_programme
+            SET permission_set_id = (SELECT id FROM permission_set WHERE tenant_id = $1 AND key = 'qa_analyst')
+          WHERE user_id = $2 AND programme_id = $3`,
+        [TENANT_A, USER_A_AGENT_1, PROGRAMME_A1],
+      );
+      const address = uniqueAddress('readonly');
       const response = await request(server())
         .post(QUOTE_SEND(SEED_QUOTE))
         .set(reader())
