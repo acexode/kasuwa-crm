@@ -161,6 +161,12 @@ const APP_RESTRICTED_IMPORT_PATHS = [
     message:
       'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
   },
+  {
+    name: '@kasuwa/payments-adapter',
+    importNames: ['FakePaymentProvider'],
+    message:
+      'The payments fake charges nothing and invents webhook signatures. It belongs in tests only.',
+  },
   STORAGE_ADAPTER_APP_PATH,
   {
     name: '@kasuwa/domain-core',
@@ -365,6 +371,12 @@ export default tseslint.config(
               importNames: ['FakeChannelProvider', 'FakeDndRegister'],
               message:
                 'The channel fakes send nothing and clear every DND lookup. They belong in tests only.',
+            },
+            {
+              name: '@kasuwa/payments-adapter',
+              importNames: ['FakePaymentProvider'],
+              message:
+                'The payments fake charges nothing and invents webhook signatures. It belongs in tests only.',
             },
             STORAGE_ADAPTER_APP_PATH,
           ],
