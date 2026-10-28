@@ -238,15 +238,19 @@ const PII_PROBES: Record<string, string> = {
   'name in the body': 'Adaeze Okonkwo-PiiProbe',
 };
 
+let sendIdemCounter = 0;
+
 function sendRequest(overrides: Partial<SendRequest> = {}): SendRequest {
+  sendIdemCounter += 1;
   return {
     scope: SCOPE_A,
     channel: 'sms',
     to: CLEAR_NUMBER,
     body: 'Your appointment is confirmed.',
     purpose: 'transactional',
-    // T-0186: send requires idempotencyKey (D-L37).
-    idempotencyKey: 'unit-idem-accept-channel-1',
+    // T-0186: send requires idempotencyKey (D-L37). Unique per call so the
+    // fake's idempotency map does not collapse unrelated acceptance probes.
+    idempotencyKey: `unit-idem-accept-channel-${String(sendIdemCounter)}`,
     ...overrides,
   };
 }
