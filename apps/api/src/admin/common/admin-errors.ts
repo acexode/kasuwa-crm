@@ -66,6 +66,12 @@ export type AdminErrorCode =
   | 'not_editable'
   /** commerce.openapi.yaml (T-0165 / D-L211): product with no book entry. */
   | 'no_price'
+  /** commerce.openapi.yaml (T-0166): discount approval request / decide. */
+  | 'below_threshold'
+  | 'no_approval_rule'
+  | 'already_pending'
+  | 'not_pending'
+  | 'not_draft'
   /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
   | 'import_status_conflict'
   | 'upload_mismatch'

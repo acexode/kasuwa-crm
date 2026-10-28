@@ -93,7 +93,7 @@ describe('discount approvals need the right action (T-0166)', () => {
     mocks.findQuote.mockResolvedValue(null);
     mocks.allowed.mockReturnValue(false);
     expect(await outcome(() => requestApprovalFor(tx, { quoteId: QUOTE }))).toMatchObject({
-      error: { code: 'not_found' },
+      code: 'not_found',
     });
     expect(mocks.allowed).not.toHaveBeenCalled();
   });
@@ -102,7 +102,7 @@ describe('discount approvals need the right action (T-0166)', () => {
     mocks.findQuote.mockResolvedValue(quote);
     mocks.allowed.mockReturnValue(false);
     expect(await outcome(() => requestApprovalFor(tx, { quoteId: QUOTE }))).toMatchObject({
-      error: { code: 'not_permitted' },
+      code: 'not_permitted',
     });
     expect(mocks.allowed).toHaveBeenCalledWith('quotes.write', PROGRAMME);
   });
@@ -112,7 +112,7 @@ describe('discount approvals need the right action (T-0166)', () => {
     mocks.allowed.mockReturnValue(false);
     expect(
       await outcome(() => decideApprovalFor(tx, { approvalId: APPROVAL }, { decision: 'approved' })),
-    ).toMatchObject({ error: { code: 'not_found' } });
+    ).toMatchObject({ code: 'not_found' });
     expect(mocks.allowed).not.toHaveBeenCalled();
   });
 
@@ -121,7 +121,7 @@ describe('discount approvals need the right action (T-0166)', () => {
     mocks.allowed.mockReturnValue(false);
     expect(
       await outcome(() => decideApprovalFor(tx, { approvalId: APPROVAL }, { decision: 'approved' })),
-    ).toMatchObject({ error: { code: 'not_permitted' } });
+    ).toMatchObject({ code: 'not_permitted' });
     expect(mocks.allowed).toHaveBeenCalledWith('quotes.approve', PROGRAMME);
   });
 });
