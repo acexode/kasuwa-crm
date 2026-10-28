@@ -143,14 +143,7 @@ describe('quote send / PDF (T-0167)', () => {
   });
 
   it('sendQuoteFor: maps any ChannelError to 503', async () => {
-    class Other extends ChannelError {
-      readonly code = 'provider_rejected' as const;
-      readonly retryable = false;
-      constructor() {
-        super('probe');
-      }
-    }
-    mocks.send.mockRejectedValue(new Other());
+    mocks.send.mockRejectedValue(new ProviderRejectedError());
     expect(
       await outcome(() =>
         sendQuoteFor(tx, { send: mocks.send } as never, { quoteId: QUOTE }, {
