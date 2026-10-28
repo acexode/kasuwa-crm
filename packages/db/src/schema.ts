@@ -1865,12 +1865,6 @@ export const quote = pgTable(
   (table) => [
     // No quote_programme_idx: prefix of quote_tenant_programme_id_key.
     uniqueIndex('quote_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
-    uniqueIndex('quote_tenant_programme_price_book_currency_key').on(
-      table.tenantId,
-      table.programmeId,
-      table.priceBookId,
-      table.currency,
-    ),
   ],
 );
 

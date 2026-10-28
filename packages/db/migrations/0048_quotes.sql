@@ -25,9 +25,6 @@ CREATE TABLE quote (
   updated_at      timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT quote_tenant_programme_id_key UNIQUE (tenant_id, programme_id, id),
-  -- Target of currency FK: quote currency is the named book's.
-  CONSTRAINT quote_tenant_programme_price_book_currency_key
-    UNIQUE (tenant_id, programme_id, price_book_id, currency),
   CONSTRAINT quote_tenant_fk
     FOREIGN KEY (tenant_id)
     REFERENCES tenant (id) ON DELETE CASCADE ON UPDATE RESTRICT,
