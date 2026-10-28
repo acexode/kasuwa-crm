@@ -168,6 +168,8 @@ const PLANT_PORTAL_USER = '11111111-0000-4000-8000-0000001100b5';
 const PLANT_SCRIPT = '11111111-0000-4000-8000-0000001100b6';
 const PLANT_QUOTE_APPROVAL = '11111111-0000-4000-8000-0000001100b7';
 const PLANT_QUOTE_SEND = '11111111-0000-4000-8000-0000001100b8';
+const PLANT_PAYMENT_LINK = '11111111-0000-4000-8000-0000001100b9';
+const PLANT_PAYMENT_EVENT = '11111111-0000-4000-8000-0000001100ba';
 /** Seeded draft quote in PROGRAMME_A1 (kind 1d) — FK target for commerce plants. */
 const SEED_QUOTE_A1 = '11111111-0000-4000-8000-0000001d0001';
 
@@ -299,6 +301,37 @@ const PLANTS: Record<string, Plant> = {
           quote_version, sent_by_user_id, updated_at)
        VALUES ($1, $2, $3, $4, 'email', 'sent', 'p***@client.example', 1, $5, ${PAST})`,
       [PLANT_QUOTE_SEND, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+    );
+  },
+  /** T-0169: pending payment link on the seeded A1 quote. */
+  payment_link: async (client) => {
+    await client.query(
+      `INSERT INTO payment_link
+         (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
+          status, amount_minor, currency, reference, idempotency_key,
+          created_by_user_id, updated_at)
+       VALUES ($1, $2, $3, $4, 'fake', 'fake-link-plant', 'https://pay.example/plant',
+               'pending', 10000, 'NGN', $4, 'idem-plant-0169', $5, ${PAST})`,
+      [PLANT_PAYMENT_LINK, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+    );
+  },
+  /** T-0169: append-only payment event on the planted link. */
+  payment_event: async (client) => {
+    await client.query(
+      `INSERT INTO payment_link
+         (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
+          status, amount_minor, currency, reference, idempotency_key,
+          created_by_user_id, updated_at)
+       VALUES ($1, $2, $3, $4, 'fake', 'fake-link-plant-evt', 'https://pay.example/plant-evt',
+               'pending', 10000, 'NGN', $4, 'idem-plant-0169-evt', $5, ${PAST})`,
+      [PLANT_PAYMENT_LINK, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+    );
+    await client.query(
+      `INSERT INTO payment_event
+         (id, tenant_id, programme_id, payment_link_id, provider_event_id,
+          event_type, occurred_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'evt-plant-0169', 'payment.paid', ${PAST}, ${PAST})`,
+      [PLANT_PAYMENT_EVENT, TENANT_A, PROGRAMME_A1, PLANT_PAYMENT_LINK],
     );
   },
 };

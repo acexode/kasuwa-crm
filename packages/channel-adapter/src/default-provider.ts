@@ -1,5 +1,8 @@
 import type {
+  ChannelCapabilities,
   ChannelProvider,
+  ChannelTemplate,
+  ChannelWebhookEvent,
   DeliveryStatus,
   SendRequest,
   SendResult,
@@ -23,6 +26,18 @@ export class NullChannelProvider implements ChannelProvider {
   async getDeliveryStatus(_scope: TenantScope, _messageId: string): Promise<DeliveryStatus> {
     // Nothing was ever sent, so every id is one this provider has never seen.
     throw new MessageNotFoundError();
+  }
+
+  capabilities(): ChannelCapabilities {
+    return { channels: ['sms', 'whatsapp', 'email'], templates: false, webhooks: false };
+  }
+
+  async templates(_scope: TenantScope): Promise<readonly ChannelTemplate[]> {
+    throw new ProviderUnavailableError();
+  }
+
+  async parseWebhook(_rawBody: string | Uint8Array): Promise<ChannelWebhookEvent> {
+    throw new ProviderUnavailableError();
   }
 }
 

@@ -312,6 +312,22 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0169 (M05 P0): payment links via payments-adapter. Off by default.
+   * Refunds/partials are flagged empty (D-L212).
+   */
+  payment_links: {
+    description: 'Paystack/Flutterwave payment links for quotes; paid and expired only at P0 (T-0169).',
+    defaultValue: false,
+    owner: 'T-0169',
+    productionReady: false,
+  },
+  onboarding_persistence: {
+    description: 'Server-side resumable first-admin onboarding wizard (T-0018, D-L205).',
+    defaultValue: false,
+    owner: 'T-0018',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the

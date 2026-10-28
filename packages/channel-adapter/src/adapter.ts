@@ -203,5 +203,36 @@ export function createChannelAdapter(options: ChannelAdapterOptions): ChannelPro
       }
       return output.data;
     },
+
+    capabilities() {
+      return provider.capabilities();
+    },
+
+    async templates(scope: TenantScope) {
+      const parsedScope = TenantScope.safeParse(scope);
+      if (!parsedScope.success) {
+        return refuse(new InvalidSendRequestError(['scope']), 'channel.templates.invalid', {
+          fields: ['scope'],
+        });
+      }
+      try {
+        return await provider.templates(parsedScope.data);
+      } catch (thrown) {
+        const error = sanitise(thrown, () => new ProviderUnavailableError());
+        return refuse(error, 'channel.templates.failed', {
+          tenantId: parsedScope.data.tenantId,
+          programmeId: parsedScope.data.programmeId,
+        });
+      }
+    },
+
+    async parseWebhook(rawBody: string | Uint8Array) {
+      try {
+        return await provider.parseWebhook(rawBody);
+      } catch (thrown) {
+        const error = sanitise(thrown, () => new ProviderRejectedError());
+        return refuse(error, 'channel.webhook.parse_failed', {});
+      }
+    },
   };
 }

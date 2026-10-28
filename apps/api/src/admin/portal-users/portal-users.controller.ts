@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Body, Get, HttpCode, HttpStatus, Inject, Param, Post } from '@nestjs/common';
 import { ChannelError, type ChannelProvider } from '@kasuwa/channel-adapter';
 import {
@@ -131,6 +132,7 @@ export class PortalUsersController {
         to: result.deliverTo,
         body: invitationBody(token),
         purpose: 'transactional',
+        idempotencyKey: `portal-invite:${result.user.id}:${randomUUID()}`,
       });
     } catch (error) {
       if (error instanceof ChannelError) {

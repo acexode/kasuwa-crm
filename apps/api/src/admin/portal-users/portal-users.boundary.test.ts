@@ -88,6 +88,7 @@ describe('portal users boundary (T-0030)', () => {
       to: ADDRESS,
       body: 'probe',
       purpose: 'transactional',
+      idempotencyKey: 'idem-portal-boundary-email',
     });
     await expect(
       channel.send({
@@ -96,6 +97,7 @@ describe('portal users boundary (T-0030)', () => {
         to: '+2348090000999',
         body: 'probe',
         purpose: 'promotional',
+        idempotencyKey: 'idem-portal-boundary-sms',
       }),
     ).rejects.toHaveProperty('code', 'provider_unavailable');
     expect(provider.sent.map((message) => message.channel)).toEqual(['email']);
@@ -110,6 +112,7 @@ describe('portal users boundary (T-0030)', () => {
         to: ADDRESS,
         body: 'probe',
         purpose: 'transactional',
+        idempotencyKey: 'idem-portal-boundary-null',
       })
       .catch((e: unknown) => e);
     // The controller maps any ChannelError to portalSendUnavailable and rolls back.
