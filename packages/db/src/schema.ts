@@ -1897,6 +1897,68 @@ export const quoteLine = pgTable(
   ],
 );
 
+
+export const APPROVER_PERMISSION_SET_KEYS = [
+  'admin',
+  'team_lead',
+  'programme_manager',
+] as const;
+export type ApproverPermissionSetKey = (typeof APPROVER_PERMISSION_SET_KEYS)[number];
+
+export const QUOTE_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type QuoteApprovalStatus = (typeof QUOTE_APPROVAL_STATUSES)[number];
+
+/** Programme discount-approval threshold and approver role (T-0166). */
+export const approvalRule = pgTable(
+  'approval_rule',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    thresholdBps: integer('threshold_bps').notNull(),
+    approverPermissionSetKey: text('approver_permission_set_key', {
+      enum: APPROVER_PERMISSION_SET_KEYS,
+    }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('approval_rule_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    uniqueIndex('approval_rule_tenant_programme_key').on(table.tenantId, table.programmeId),
+  ],
+);
+
+/** A discount approval request on a quote (T-0166). */
+export const quoteApproval = pgTable(
+  'quote_approval',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    quoteId: uuid('quote_id').notNull(),
+    requestedByUserId: uuid('requested_by_user_id').notNull(),
+    discountBps: integer('discount_bps').notNull(),
+    status: text('status', { enum: QUOTE_APPROVAL_STATUSES }).notNull().default('pending'),
+    decidedByUserId: uuid('decided_by_user_id'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('quote_approval_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('quote_approval_programme_idx').on(table.tenantId, table.programmeId),
+    index('quote_approval_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -1951,6 +2013,8 @@ export const TENANT_SCOPED_TABLES = [
   'tax_profile',
   'quote',
   'quote_line',
+  'approval_rule',
+  'quote_approval',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

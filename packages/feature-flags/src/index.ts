@@ -290,6 +290,16 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0166 (M05 P0): in-app discount approvals for quotes above a programme
+   * threshold. Off by default until P21 screens land (T-0171).
+   */
+  quote_approvals: {
+    description: 'In-app discount approval requests and decisions for programme quotes (T-0166).',
+    defaultValue: false,
+    owner: 'T-0166',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the

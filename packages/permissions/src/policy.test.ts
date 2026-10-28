@@ -70,7 +70,8 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         action === 'contact.claim_and_set_status' ||
           action === 'activity.write' ||
           action === 'script.run' ||
-          action === 'deal.write',
+          action === 'deal.write' ||
+          action === 'quotes.write',
       );
     }
   });
@@ -79,7 +80,13 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
   it.each([
     [
       AGENT_PERMISSION_SET_KEY,
-      ['contact.claim_and_set_status', 'activity.write', 'script.run', 'deal.write'],
+      [
+        'contact.claim_and_set_status',
+        'activity.write',
+        'script.run',
+        'deal.write',
+        'quotes.write',
+      ],
     ],
     [
       'team_lead',
@@ -91,6 +98,8 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write',
         'deal.write_any',
         'deal.reassign',
+        'quotes.write',
+        'quotes.approve',
       ],
     ],
     [
@@ -103,6 +112,8 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.write',
         'deal.write_any',
         'deal.reassign',
+        'quotes.write',
+        'quotes.approve',
       ],
     ],
   ])('gives the %s set exactly %j', (key, expected) => {

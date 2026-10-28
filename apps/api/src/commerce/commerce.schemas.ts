@@ -69,3 +69,9 @@ export const UpdateQuoteBody = z.strictObject({
 export const SetQuoteStatusBody = z.strictObject({
   status: z.enum(['draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled']),
 });
+
+export const ApprovalIdParam = z.object({ approvalId: z.uuid() });
+
+export const DecideApprovalBody = z.strictObject({
+  decision: z.enum(['approved', 'rejected']),
+});

@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
 import {
+  ApprovalsController,
+  ApprovalsProgrammeController,
+  ApprovalsQuoteController,
+} from './approvals.controller';
+import {
   CataloguePriceBookController,
   CatalogueProductController,
   CatalogueProgrammeController,
@@ -13,6 +18,9 @@ import { QuotesController, QuotesProgrammeController } from './quotes.controller
     CataloguePriceBookController,
     QuotesProgrammeController,
     QuotesController,
+    ApprovalsProgrammeController,
+    ApprovalsQuoteController,
+    ApprovalsController,
   ],
 })
 export class CommerceModule {}

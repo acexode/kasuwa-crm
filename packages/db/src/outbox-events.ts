@@ -95,6 +95,18 @@ export const ImportFinishedPayload = z.strictObject({ importId: Uuid });
 
 export type ImportFinishedPayload = z.infer<typeof ImportFinishedPayload>;
 
+/**
+ * `quote.approval_requested` (T-0166): ids only (D-P29). The notifications
+ * consumer skips this until notification kinds expand; the outbox still
+ * records the request so a later consumer can deliver in-app / WhatsApp.
+ */
+export const QuoteApprovalRequestedPayload = z.strictObject({
+  approvalId: Uuid,
+  quoteId: Uuid,
+});
+
+export type QuoteApprovalRequestedPayload = z.infer<typeof QuoteApprovalRequestedPayload>;
+
 /** Everything the outbox needs to know about one event type. */
 export interface OutboxEventDefinition {
   /** The strict payload schema. */
@@ -164,6 +176,13 @@ export const OUTBOX_EVENT_TYPES: Readonly<Record<string, OutboxEventDefinition>>
     schemaVersion: 1,
     aggregateType: 'import',
     aggregateKey: 'importId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'quote.approval_requested': Object.freeze({
+    schema: QuoteApprovalRequestedPayload,
+    schemaVersion: 1,
+    aggregateType: 'quote_approval',
+    aggregateKey: 'approvalId',
     queue: OUTBOX_QUEUES.notifications,
   }),
 });

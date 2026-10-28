@@ -26,6 +26,7 @@
  *                  0000001c   price book entry
  *                  0000001d   quote
  *                  0000001e   quote line
+ *                  0000001f   approval rule
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -725,6 +726,25 @@ export const SEED_QUOTE_LINES: readonly SeedQuoteLine[] = [
     variantId: `${A}0000001b0001`,
     quantity: 1,
     unitAmountMinor: '25000000',
+  },
+];
+
+export interface SeedApprovalRule {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  thresholdBps: number;
+  approverPermissionSetKey: 'admin' | 'team_lead' | 'programme_manager';
+}
+
+/** 15% threshold; programme managers (or admin) approve (T-0166). */
+export const SEED_APPROVAL_RULES: readonly SeedApprovalRule[] = [
+  {
+    id: `${A}0000001f0001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    thresholdBps: 1500,
+    approverPermissionSetKey: 'programme_manager',
   },
 ];
 
