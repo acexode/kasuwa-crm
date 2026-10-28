@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0169 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M05 |
 | **owner** | Phase 3 W1 A1 |
 | **priority** | P0 |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0018 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M19 + all UIs |
 | **owner** | Agent 11 — Frontend & Design System |
 | **priority** | P0 |

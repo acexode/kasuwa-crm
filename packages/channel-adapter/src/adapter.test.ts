@@ -29,7 +29,7 @@ function request(overrides: Partial<SendRequest> = {}): SendRequest {
     to: TO,
     body: BODY,
     purpose: 'transactional',
-    idempotencyKey: 'idem-unit-adapter-0001',
+    idempotencyKey: 'unit-idem-adapter-1',
     ...overrides,
   };
 }
@@ -288,7 +288,7 @@ describe('FakeChannelProvider', () => {
   it('keeps only the most recent FAKE_SENT_LIMIT accepted requests', async () => {
     const provider = new FakeChannelProvider();
     for (let i = 0; i < FAKE_SENT_LIMIT + 5; i += 1) {
-      await provider.send(request({ idempotencyKey: `idem-limit-${String(i)}` }));
+      await provider.send(request({ idempotencyKey: `unit-idem-limit-${String(i)}` }));
     }
     expect(provider.sent).toHaveLength(FAKE_SENT_LIMIT);
   });
@@ -312,7 +312,7 @@ describe('the email channel (D-L49)', () => {
       to: ADDRESS,
       body: 'Accept your invitation: /portal?token=UNIT-PROBE',
       purpose: 'transactional',
-      idempotencyKey: 'idem-unit-email-0001',
+      idempotencyKey: 'unit-idem-email-1',
       ...overrides,
     }) as SendRequest;
 

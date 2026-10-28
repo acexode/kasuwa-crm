@@ -32,7 +32,7 @@ function baseSend(overrides: Partial<SendRequest> = {}): SendRequest {
     to: '+2348090000999',
     body: 'Acceptance probe OTP UNIT-0186',
     purpose: 'transactional',
-    idempotencyKey: 'idem-accept-0186-0001',
+    idempotencyKey: 'unit-idem-accept-186',
     ...overrides,
   };
 }

@@ -15,7 +15,7 @@ const REQUEST: SendRequest = {
   to: 'unit.null-probe@client.example',
   body: 'Accept: /portal?token=UNIT-NULL-PROBE',
   purpose: 'transactional',
-  idempotencyKey: 'idem-null-probe-0001',
+  idempotencyKey: 'unit-idem-null-1',
 };
 
 describe('NullChannelProvider (D-L52)', () => {

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0185 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M08 |
 | **owner** | Phase 3 W1 A3 |
 | **priority** | P0 |
