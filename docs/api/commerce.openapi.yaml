@@ -219,9 +219,6 @@ components:
           type: string
           enum: [NGN, GHS, KES, ZAR]
 
-security:
-  - bearerAuth: []
-
     QuoteLine:
       type: object
       additionalProperties: false
@@ -239,6 +236,7 @@ security:
       required:
         - id
         - programmeId
+        - priceBookId
         - dealId
         - contactId
         - currency
@@ -255,6 +253,7 @@ security:
       properties:
         id: { type: string, format: uuid }
         programmeId: { type: string, format: uuid }
+        priceBookId: { type: string, format: uuid }
         dealId: { type: string, format: uuid, nullable: true }
         contactId: { type: string, format: uuid, nullable: true }
         currency: { type: string, enum: [NGN, GHS, KES, ZAR] }
@@ -275,9 +274,9 @@ security:
     CreateQuoteRequest:
       type: object
       additionalProperties: false
-      required: [currency, lines]
+      required: [priceBookId, lines]
       properties:
-        currency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        priceBookId: { type: string, format: uuid }
         dealId: { type: string, format: uuid, nullable: true }
         contactId: { type: string, format: uuid, nullable: true }
         discountBps: { type: integer, minimum: 0, maximum: 10000 }
@@ -289,12 +288,11 @@ security:
           items:
             type: object
             additionalProperties: false
-            required: [productId, quantity, unitAmountMinor]
+            required: [productId, quantity]
             properties:
               productId: { type: string, format: uuid }
               variantId: { type: string, format: uuid }
               quantity: { type: integer, minimum: 1, maximum: 999999 }
-              unitAmountMinor: { type: string, pattern: '^\\d{1,18}$' }
               discountBps: { type: integer, minimum: 0, maximum: 10000 }
     UpdateQuoteRequest:
       type: object
@@ -311,12 +309,11 @@ security:
           items:
             type: object
             additionalProperties: false
-            required: [productId, quantity, unitAmountMinor]
+            required: [productId, quantity]
             properties:
               productId: { type: string, format: uuid }
               variantId: { type: string, format: uuid }
               quantity: { type: integer, minimum: 1, maximum: 999999 }
-              unitAmountMinor: { type: string, pattern: '^\\d{1,18}$' }
               discountBps: { type: integer, minimum: 0, maximum: 10000 }
     SetQuoteStatusRequest:
       type: object
@@ -326,6 +323,9 @@ security:
         status:
           type: string
           enum: [draft, sent, accepted, rejected, expired, cancelled]
+
+security:
+  - bearerAuth: []
 
 paths:
   /api/v1/programmes/{programmeId}/products:

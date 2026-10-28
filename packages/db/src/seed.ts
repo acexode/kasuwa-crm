@@ -412,12 +412,13 @@ export async function runSeed(options: SeedOptions): Promise<void> {
     for (const quote of SEED_QUOTES) {
       await client.query(
         `INSERT INTO quote
-           (id, tenant_id, programme_id, deal_id, contact_id, currency, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'draft')`,
+           (id, tenant_id, programme_id, price_book_id, deal_id, contact_id, currency, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft')`,
         [
           quote.id,
           quote.tenantId,
           quote.programmeId,
+          quote.priceBookId,
           quote.dealId,
           quote.contactId,
           quote.currency,

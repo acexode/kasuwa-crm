@@ -23,18 +23,18 @@ export const QUOTE_TRANSITIONS: Readonly<Record<QuoteStatus, readonly QuoteStatu
 
 export const AmountMinorSchema = z.string().regex(/^\d{1,18}$/);
 
+/** Client line input (D-L211): no price — the server reads it from the quote's book. */
 export const QuoteLineInputSchema = z.strictObject({
   productId: z.uuid(),
   variantId: z.uuid().optional(),
   quantity: z.number().int().min(1).max(999999),
-  unitAmountMinor: AmountMinorSchema,
   discountBps: z.number().int().min(0).max(10000).optional(),
 });
 
 export type QuoteLineInput = z.infer<typeof QuoteLineInputSchema>;
 
 export const CreateQuoteInputSchema = z.strictObject({
-  currency: CommerceCurrencySchema,
+  priceBookId: z.uuid(),
   dealId: z.uuid().nullable().optional(),
   contactId: z.uuid().nullable().optional(),
   discountBps: z.number().int().min(0).max(10000).optional(),
@@ -73,6 +73,7 @@ export interface QuoteLine {
 export interface Quote {
   id: string;
   programmeId: string;
+  priceBookId: string;
   dealId: string | null;
   contactId: string | null;
   currency: CommerceCurrency;
