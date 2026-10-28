@@ -123,7 +123,7 @@ export async function listProducts(
 ): Promise<RecordsResult<readonly Product[]>> {
   const result = await requestRecords(programmePath(programmeId, 'products'), ProductList, {
     method: 'GET',
-    signal,
+    ...(signal === undefined ? {} : { signal }),
   });
   return result.ok ? { ok: true, value: result.value.data } : result;
 }
@@ -134,7 +134,7 @@ export async function listPriceBooks(
 ): Promise<RecordsResult<readonly PriceBook[]>> {
   const result = await requestRecords(programmePath(programmeId, 'price-books'), PriceBookList, {
     method: 'GET',
-    signal,
+    ...(signal === undefined ? {} : { signal }),
   });
   return result.ok ? { ok: true, value: result.value.data } : result;
 }
@@ -145,7 +145,7 @@ export async function listTaxProfiles(
 ): Promise<RecordsResult<readonly TaxProfile[]>> {
   const result = await requestRecords(programmePath(programmeId, 'tax-profiles'), TaxProfileList, {
     method: 'GET',
-    signal,
+    ...(signal === undefined ? {} : { signal }),
   });
   return result.ok ? { ok: true, value: result.value.data } : result;
 }
@@ -156,7 +156,7 @@ export async function listQuotes(
 ): Promise<RecordsResult<readonly Quote[]>> {
   const result = await requestRecords(programmePath(programmeId, 'quotes'), QuoteList, {
     method: 'GET',
-    signal,
+    ...(signal === undefined ? {} : { signal }),
   });
   return result.ok ? { ok: true, value: result.value.data } : result;
 }
