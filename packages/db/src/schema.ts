@@ -1862,8 +1862,8 @@ export const quote = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    // No quote_programme_idx: prefix of quote_tenant_programme_id_key.
     uniqueIndex('quote_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
-    index('quote_programme_idx').on(table.tenantId, table.programmeId),
   ],
 );
 
