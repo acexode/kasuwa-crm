@@ -33,3 +33,8 @@ aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:ge
 # service accepts it. gitleaks scans every ref, so this one commit on the T-0160
 # branch failed the Secret scan on every open PR.
 284d13d9a45b3dac7e0dab49bab1e1ba6d8255e5:apps/realtime/src/handshake.test.ts:generic-api-key:6
+
+# Invented idempotency keys in the T-0168 payments-adapter acceptance fixture
+# (field name ends in Key; value is invented, not a credential). fetch-depth 0
+# scans every branch, so this blocked unrelated PRs including T-0165.
+721d79aabffdc22de0f88ff5ce49ba2a5d72b7f3:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207
