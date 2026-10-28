@@ -1,6 +1,6 @@
 # S1 Commerce — lead roster (phase lead: Cursor)
 
-Integration branch: `cursor/s1-commerce-dev-e3f2` (rebased onto `main` after #244).
+Integration branch: `cursor/s1-commerce-dev-e3f2` (rebased onto `main` after #244 + #247; tip `3ce9779`). Migrations left on the PR: **0049**, **0050**.
 
 | Agent | Task | Branch | Migration | Status |
 |---|---|---|---|---|
