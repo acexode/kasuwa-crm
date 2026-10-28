@@ -536,7 +536,7 @@ describe('listCapabilities (T-0158)', () => {
     expect(result.programmes).toEqual([
       {
         id: P1,
-        can: ['activity.write', 'contact.claim_and_set_status', 'deal.write', 'script.run'],
+        can: ['activity.write', 'contact.claim_and_set_status', 'deal.write', 'quotes.write', 'script.run'],
       },
       { id: P2, can: [] },
     ]);
