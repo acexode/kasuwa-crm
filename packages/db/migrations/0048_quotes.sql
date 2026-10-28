@@ -44,8 +44,8 @@ CREATE TABLE quote (
   CONSTRAINT quote_version_check CHECK (version >= 1)
 );
 
-CREATE INDEX quote_programme_idx
-  ON quote (tenant_id, programme_id);
+-- No quote_programme_idx: (tenant_id, programme_id) is a column-prefix of
+-- UNIQUE quote_tenant_programme_id_key (tenant_id, programme_id, id).
 
 CREATE TABLE quote_line (
   id                 uuid        PRIMARY KEY,
