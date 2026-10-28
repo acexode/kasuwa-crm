@@ -5,6 +5,7 @@ import type { Quote } from './quotes.types';
 const quote: Quote = {
   id: '11111111-0000-4000-8000-0000001d0001',
   programmeId: '11111111-0000-4000-8000-0000000c0001',
+  priceBookId: '11111111-0000-4000-8000-0000001b0001',
   dealId: null,
   contactId: null,
   currency: 'NGN',
