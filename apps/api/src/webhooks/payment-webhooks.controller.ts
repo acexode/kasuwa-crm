@@ -12,7 +12,9 @@ import { nodeEnv } from '@kasuwa/config';
 import { withAuthTransaction, withTenantTransaction } from '@kasuwa/db';
 import {
   defaultPaymentProvider,
+  isStoredPaymentProviderId,
   type PaymentProvider,
+  type StoredPaymentProviderId,
 } from '@kasuwa/payments-adapter';
 import type { Pool } from 'pg';
 import type { Response } from 'express';
@@ -45,10 +47,11 @@ export class PaymentWebhooksController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<unknown> {
     return withWebhookTimingClass(TIMING_FLOOR_MS, async () => {
-      if (provider !== 'paystack' && provider !== 'flutterwave' && provider !== 'fake') {
+      if (!isStoredPaymentProviderId(provider)) {
         res.status(WEBHOOK_REJECT_STATUS);
         return WEBHOOK_REJECT_BODY;
       }
+      const storedProvider: StoredPaymentProviderId = provider;
 
       const rawBody: string =
         req.rawBody !== undefined
@@ -101,7 +104,7 @@ export class PaymentWebhooksController {
           { tenantId: authTx.tenantId, userId: adminId },
           async (tx) => {
             await applyPaymentWebhookEvent(tx, {
-              provider: provider === 'fake' ? 'fake' : provider,
+              provider: storedProvider,
               providerLinkId: event.providerLinkId,
               providerEventId: event.eventId,
               eventType: event.type,

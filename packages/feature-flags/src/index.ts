@@ -316,7 +316,7 @@ export const FLAGS = {
    * Refunds/partials are flagged empty (D-L212).
    */
   payment_links: {
-    description: 'Paystack/Flutterwave payment links for quotes; paid and expired only at P0 (T-0169).',
+    description: 'Payment-provider links for quotes; paid and expired only at P0 (T-0169).',
     defaultValue: false,
     owner: 'T-0169',
     productionReady: false,

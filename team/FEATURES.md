@@ -274,7 +274,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_quotes` | Programme-scoped quotes with line items, discounts, validity and gated status changes (T-0165). | flagged-off | `crm_quotes` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_approvals` | In-app discount approval requests and decisions for programme quotes (T-0166). | flagged-off | `quote_approvals` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_send` | Quote PDF template and send by email through the email channel kind (T-0167). | flagged-off | `quote_send` | — | packages/feature-flags/src/index.ts |
-| flag | `payment_links` | Paystack/Flutterwave payment links for quotes; paid and expired only at P0 (T-0169). | flagged-off | `payment_links` | — | packages/feature-flags/src/index.ts |
+| flag | `payment_links` | Payment-provider links for quotes; paid and expired only at P0 (T-0169). | flagged-off | `payment_links` | — | packages/feature-flags/src/index.ts |
 | flag | `invoices` | Invoices from accepted quotes (T-0172). | flagged-off | `invoices` | — | packages/feature-flags/src/index.ts |
 | flag | `vat_multitax` | VAT and multi-tax lines (T-0173). | flagged-off | `vat_multitax` | — | packages/feature-flags/src/index.ts |
 | flag | `mbs_einvoicing` | Fake MBS e-invoicing (provisional B4) (T-0174). | flagged-off | `mbs_einvoicing` | — | packages/feature-flags/src/index.ts |

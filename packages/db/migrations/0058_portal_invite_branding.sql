@@ -43,5 +43,5 @@ BEGIN
     EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON %I FOR EACH ROW WHEN (NEW.updated_at IS NOT DISTINCT FROM OLD.updated_at) EXECUTE FUNCTION app.touch_updated_at()', tbl||'_touch_updated_at', tbl);
   END LOOP;
 END $$;
-GRANT SELECT, INSERT, UPDATE ON portal_invite TO kasuwa_auth;
+-- kasuwa_auth grants for portal_invite land with T-0180 (extend T-0049 I2).
 DO $$ BEGIN IF (SELECT count(*) FROM pg_proc p WHERE p.prosecdef AND p.pronamespace NOT IN ('pg_catalog'::regnamespace,'information_schema'::regnamespace)) <> 2 THEN RAISE EXCEPTION '0058 census'; END IF; END $$;

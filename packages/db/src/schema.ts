@@ -1990,8 +1990,8 @@ export const quoteSend = pgTable(
 /** Payment link statuses at P0 (T-0169 / D-L212): paid + expired only paths. */
 export const PAYMENT_LINK_STATUSES = ['pending', 'paid', 'expired', 'cancelled'] as const;
 export type PaymentLinkStatus = (typeof PAYMENT_LINK_STATUSES)[number];
-export const PAYMENT_LINK_PROVIDERS = ['paystack', 'flutterwave', 'fake'] as const;
-export type PaymentLinkProvider = (typeof PAYMENT_LINK_PROVIDERS)[number];
+/** Provider id strings live only in `@kasuwa/payments-adapter` (CLAUDE.md 2.8). */
+export type PaymentLinkProvider = string;
 export const PAYMENT_EVENT_TYPES = ['payment.paid', 'payment.expired', 'payment.failed'] as const;
 export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
 
@@ -2002,7 +2002,7 @@ export const paymentLink = pgTable(
     tenantId: uuid('tenant_id').notNull(),
     programmeId: uuid('programme_id').notNull(),
     quoteId: uuid('quote_id').notNull(),
-    provider: text('provider', { enum: PAYMENT_LINK_PROVIDERS }).notNull(),
+    provider: text('provider').notNull(),
     providerLinkId: text('provider_link_id').notNull(),
     url: text('url').notNull(),
     status: text('status', { enum: PAYMENT_LINK_STATUSES }).notNull().default('pending'),

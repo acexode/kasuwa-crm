@@ -340,9 +340,16 @@ const PLANTS: Record<string, Plant> = {
          (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
           status, amount_minor, currency, reference, idempotency_key,
           created_by_user_id, updated_at)
-       VALUES ($1, $2, $3, $4, 'fake', 'fake-link-plant', 'https://pay.example/plant',
-               'pending', 10000, 'NGN', $4, 'idem-plant-0169', $5, ${PAST})`,
-      [PLANT_PAYMENT_LINK, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+       VALUES ($1, $2, $3, $4::uuid, 'fake', 'fake-link-plant', 'https://pay.example/plant',
+               'pending', 10000, 'NGN', $5, 'idem-plant-0169', $6, ${PAST})`,
+      [
+        PLANT_PAYMENT_LINK,
+        TENANT_A,
+        PROGRAMME_A1,
+        SEED_QUOTE_A1,
+        SEED_QUOTE_A1,
+        USER_A_SUPERVISOR,
+      ],
     );
   },
   /** T-0169: append-only payment event on the planted link. */
@@ -352,9 +359,16 @@ const PLANTS: Record<string, Plant> = {
          (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
           status, amount_minor, currency, reference, idempotency_key,
           created_by_user_id, updated_at)
-       VALUES ($1, $2, $3, $4, 'fake', 'fake-link-plant-evt', 'https://pay.example/plant-evt',
-               'pending', 10000, 'NGN', $4, 'idem-plant-0169-evt', $5, ${PAST})`,
-      [PLANT_PAYMENT_LINK, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
+       VALUES ($1, $2, $3, $4::uuid, 'fake', 'fake-link-plant-evt', 'https://pay.example/plant-evt',
+               'pending', 10000, 'NGN', $5, 'idem-plant-0169-evt', $6, ${PAST})`,
+      [
+        PLANT_PAYMENT_LINK,
+        TENANT_A,
+        PROGRAMME_A1,
+        SEED_QUOTE_A1,
+        SEED_QUOTE_A1,
+        USER_A_SUPERVISOR,
+      ],
     );
     await client.query(
       `INSERT INTO payment_event
@@ -401,18 +415,18 @@ const PLANTS: Record<string, Plant> = {
   portal_identity: async (client) => {
     await client.query(
       `INSERT INTO portal_identity
-         (id, tenant_id, email, email_masked, display_name, status, updated_at)
-       VALUES ($1, $2, 'plant.portal@client.example', 'p***@client.example', 'Plant', 'active', ${PAST})`,
-      [PLANT_PORTAL_IDENTITY, TENANT_A],
+         (id, tenant_id, programme_id, email, email_masked, display_name, status, updated_at)
+       VALUES ($1, $2, $3, 'plant.portal@client.example', 'p***@client.example', 'Plant', 'active', ${PAST})`,
+      [PLANT_PORTAL_IDENTITY, TENANT_A, PROGRAMME_A1],
     );
   },
   portal_session: async (client) => {
     await (PLANTS.portal_identity as Plant)(client);
     await client.query(
       `INSERT INTO portal_session
-         (id, tenant_id, portal_identity_id, token_hash, expires_at, updated_at)
-       VALUES ($1, $2, $3, $4, now() + interval '1 day', ${PAST})`,
-      [PLANT_PORTAL_SESSION, TENANT_A, PLANT_PORTAL_IDENTITY, HASH64_A],
+         (id, tenant_id, programme_id, portal_identity_id, token_hash, expires_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now() + interval '1 day', ${PAST})`,
+      [PLANT_PORTAL_SESSION, TENANT_A, PROGRAMME_A1, PLANT_PORTAL_IDENTITY, HASH64_A],
     );
   },
   portal_programme: async (client) => {

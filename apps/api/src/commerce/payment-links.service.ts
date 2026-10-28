@@ -12,8 +12,11 @@ import {
 } from '@kasuwa/domain-core';
 import {
   defaultPaymentProvider,
+  PaymentProviderIdSchema,
+  PAYMENT_PROVIDER_IDS,
   type PaymentProvider,
   type PaymentProviderId,
+  type StoredPaymentProviderId,
 } from '@kasuwa/payments-adapter';
 import { nodeEnv } from '@kasuwa/config';
 import { canProgramme, loadGrants } from '@kasuwa/permissions';
@@ -27,7 +30,7 @@ import { QuoteIdParam } from './commerce.schemas';
 
 const CreatePaymentLinkBody = z
   .object({
-    provider: z.enum(['paystack', 'flutterwave']).default('paystack'),
+    provider: PaymentProviderIdSchema.default(PAYMENT_PROVIDER_IDS[0]),
     idempotencyKey: z.string().min(1).max(128),
     successUrl: z.url().optional(),
     cancelUrl: z.url().optional(),
@@ -140,7 +143,7 @@ export async function getPaymentLinkFor(
 export async function applyPaymentWebhookEvent(
   tx: TenantTx,
   input: {
-    provider: 'paystack' | 'flutterwave' | 'fake';
+    provider: StoredPaymentProviderId;
     providerLinkId: string;
     providerEventId: string;
     eventType: 'payment.paid' | 'payment.expired' | 'payment.failed';

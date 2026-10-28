@@ -3,7 +3,8 @@ import { findQuoteById, setQuoteStatus } from './quotes.repository';
 import type { Quote } from './quotes.types';
 
 export type PaymentLinkStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
-export type PaymentLinkProvider = 'paystack' | 'flutterwave' | 'fake';
+/** Opaque provider id; concrete vendor names live only in `@kasuwa/payments-adapter`. */
+export type PaymentLinkProvider = string;
 
 export interface PaymentLink {
   id: string;

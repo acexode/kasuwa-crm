@@ -27,6 +27,16 @@ export const PAYMENT_PROVIDER_IDS = ['paystack', 'flutterwave'] as const;
 export type PaymentProviderId = (typeof PAYMENT_PROVIDER_IDS)[number];
 export const PaymentProviderIdSchema = z.enum(PAYMENT_PROVIDER_IDS);
 
+/** Ids persisted on payment_link.provider (real vendors + in-memory fake). */
+export const STORED_PAYMENT_PROVIDER_IDS = [...PAYMENT_PROVIDER_IDS, 'fake'] as const;
+export type StoredPaymentProviderId = (typeof STORED_PAYMENT_PROVIDER_IDS)[number];
+export const StoredPaymentProviderIdSchema = z.enum(STORED_PAYMENT_PROVIDER_IDS);
+
+/** True when a webhook path segment is a known stored provider id. */
+export function isStoredPaymentProviderId(value: string): value is StoredPaymentProviderId {
+  return (STORED_PAYMENT_PROVIDER_IDS as readonly string[]).includes(value);
+}
+
 /** Currencies payment links may collect in at P0 (B6 / commerce catalogue). */
 export const PAYMENT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR'] as const;
 export type PaymentCurrency = (typeof PAYMENT_CURRENCIES)[number];

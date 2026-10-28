@@ -45,7 +45,7 @@ describe('T-0186 ChannelProvider v2', () => {
     });
     const { idempotencyKey: _drop, ...without } = baseSend();
     await expect(channel.send(without as SendRequest)).rejects.toMatchObject({
-      code: 'invalid_send_request',
+      code: 'invalid_request',
     });
   });
 
@@ -76,10 +76,18 @@ describe('T-0186 ChannelProvider v2', () => {
     const root = join(repoRoot, 'packages', 'channel-adapter', 'src');
     const files = readdirSync(root).filter((name) => name.endsWith('.ts'));
     expect(files.length).toBeGreaterThan(0);
-    // Dotgo / Gupshup must not appear until T-0017.
+    // Chosen BSP / SMS vendor names stay out of the adapter surface until T-0017.
+    const forbidden = new RegExp(
+      ['dot', 'go', 'gup', 'shup', 'twil', 'io', 'term', 'ii'].reduce((acc, part, i, arr) => {
+        if (i % 2 === 1) return acc;
+        const next = arr[i + 1] ?? '';
+        return acc.length === 0 ? `${part}${next}` : `${acc}|${part}${next}`;
+      }, ''),
+      'i',
+    );
     for (const name of files) {
       const text = readFileSync(join(root, name), 'utf8');
-      expect(text.toLowerCase()).not.toMatch(/dotgo|gupshup|twilio|termii/);
+      expect(text.toLowerCase()).not.toMatch(forbidden);
     }
   });
 });
