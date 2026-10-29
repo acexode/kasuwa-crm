@@ -64,6 +64,10 @@ export const USER_A_NO_PROGRAMME = `${A}0000000d0004`;
 /** Tenant B agent, member of programme B1 only. */
 export const USER_B_AGENT_1 = `${B}0000000d0005`;
 
+/** Tenant A external portal identity (T-0179), home programme A1, also member of A2. */
+export const PORTAL_IDENTITY_A = `${A}0000001100d0`;
+export const PORTAL_CLIENT_EMAIL = 'portal.client@tenant-a.test';
+
 /**
  * The password every seeded user shares.
  *

@@ -35,6 +35,7 @@ async function bootstrap(): Promise<void> {
   await initialiseFeatureFlags();
   // T-0094 (D-L166): CSV import is behind `crm_import`, off by default.
   const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
+  const portalEnabled = await featureFlagClient().getBooleanValue('client_portal', false);
 
   // Before the app is built, so the first request is already traced.
   startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
@@ -50,6 +51,7 @@ async function bootstrap(): Promise<void> {
       // wired only with the flag on. With it on and either absent, the import
       // routes answer 503.
       crmImport,
+      portalEnabled,
       ...(crmImport && configuration.REDIS_URL !== undefined ? { redisUrl: configuration.REDIS_URL } : {}),
       ...(crmImport && storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin

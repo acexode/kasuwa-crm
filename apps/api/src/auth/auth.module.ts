@@ -3,6 +3,11 @@ import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-cry
 import { AuthDatabaseModule, type AuthDatabaseOptions } from './auth-database.module';
 import { AuthTenantTransactionInterceptor } from './auth-tenant-transaction.interceptor';
 import { AuthController } from './auth.controller';
+import { PortalController } from './portal/portal.controller';
+import { PortalService } from './portal/portal.service';
+import { PortalAuthGuard } from './portal/portal-auth.guard';
+import { PortalEnabledGuard, PORTAL_ENABLED_TOKEN } from './portal/portal-enabled.guard';
+import { PortalTransactionInterceptor } from './portal/portal-transaction.interceptor';
 import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth.policy';
 import { AuthService } from './auth.service';
 import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
@@ -16,6 +21,8 @@ export interface AuthModuleOptions extends AuthDatabaseOptions {
   authPolicy?: Partial<AuthPolicy>;
   /** See `AppModuleOptions.keyProvider`. */
   keyProvider?: KeyProvider;
+  /** `client_portal` flag (T-0179). Off, portal routes answer 404. */
+  portalEnabled?: boolean;
 }
 
 /**
@@ -47,9 +54,17 @@ export class AuthModule {
             : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
         }),
       ],
-      controllers: [AuthController],
+      controllers: [AuthController, PortalController],
       providers: [
         AuthService,
+        PortalService,
+        PortalAuthGuard,
+        PortalEnabledGuard,
+        PortalTransactionInterceptor,
+        {
+          provide: PORTAL_ENABLED_TOKEN,
+          useValue: options.portalEnabled === true,
+        },
         MfaService,
         CommitThenFailInterceptor,
         SignInThrottleGuard,

@@ -358,9 +358,9 @@ export const FLAGS = {
     productionReady: false,
   },
   client_portal: {
-    description: 'BPO client portal screens (T-0184).',
+    description: 'BPO client portal API and screens (T-0179, T-0184).',
     defaultValue: false,
-    owner: 'T-0184',
+    owner: 'T-0179',
     productionReady: false,
   },
   inbox_templates: {

@@ -29,6 +29,11 @@ import {
   SEED_SCRIPTS,
   SEED_TAX_PROFILES,
   SEED_TENANTS,
+  PORTAL_CLIENT_EMAIL,
+  PORTAL_IDENTITY_A,
+  PROGRAMME_A1,
+  PROGRAMME_A2,
+  TENANT_A,
   seedTotpSecret,
 } from './fixtures';
 import { newId } from './ids';
@@ -255,6 +260,28 @@ export async function runSeed(options: SeedOptions): Promise<void> {
           );
         }
       }
+    }
+
+    await client.query(
+      `INSERT INTO portal_identity
+         (id, tenant_id, programme_id, email, email_masked, display_name, status, password_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)`,
+      [
+        PORTAL_IDENTITY_A,
+        TENANT_A,
+        PROGRAMME_A1,
+        PORTAL_CLIENT_EMAIL,
+        'p***@tenant-a.test',
+        'Portal Client',
+        seededPasswordHash,
+      ],
+    );
+    for (const programmeId of [PROGRAMME_A1, PROGRAMME_A2]) {
+      await client.query(
+        `INSERT INTO portal_programme (id, tenant_id, portal_identity_id, programme_id)
+         VALUES ($1, $2, $3, $4)`,
+        [newId(), TENANT_A, PORTAL_IDENTITY_A, programmeId],
+      );
     }
 
     for (const account of SEED_ACCOUNTS) {
