@@ -63,3 +63,6 @@ See `team/reports/phase3-depth-decisions.md` (product table + engineering + wave
 - Isolation/integration acceptance only proven in CI (no Docker in this cloud VM).
 - Light UI ≠ full design fidelity.
 - Provisional OTPs and Fake MBS/MoMo must not ship as production behaviour without B1–B5 resolution.
+- Portal OTP `000000` is now production-refused (W2-11); production portal MFA still needs a real channel (B1).
+- Commerce `mobile_money` HTTP is not yet flag-gated (W2-13); create fail-closes in production via Null provider.
+- Portal session cookie is set but API auth reads Bearer only (security review MAJOR #4 — align before production portal UI).
