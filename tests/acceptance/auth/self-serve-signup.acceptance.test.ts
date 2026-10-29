@@ -71,10 +71,12 @@ describe('acceptance: self-serve sign-up (T-0016)', () => {
     expect(FLAGS.self_serve_signup?.defaultValue).toBe(false);
   });
 
-  it('answers 501 when the flag is off', async () => {
+  // Lead-approved (D-L213): flag-off answers 404, not 501 — existence non-leak
+  // matches the rest of the surface (route looks absent when self-serve is off).
+  it('answers 404 when the flag is off', async () => {
     const response = await request(appOff.getHttpServer()).post(SIGN_UP).send(SIGNUP_BODY);
-    expect(response.status).toBe(501);
-    expect(response.body).toMatchObject({ code: 'not_implemented' });
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({ code: 'not_found' });
   });
 
   it('returns identical 202 bodies for a new and an existing email', async () => {

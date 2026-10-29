@@ -1359,10 +1359,11 @@ paths:
       summary: Paginated portal invitations for this programme (T-0180)
       operationId: listPortalInvitations
       x-kasuwa-implemented: true
-      x-kasuwa-audited: true
+      x-kasuwa-audited: false
       description: |
         Newest first. Never returns the invite token or the full email address
         (D-L49) — only `emailMasked`. Out of scope programmes are 404.
+        Read-only list; invite creation (`invitePortalUser`) remains audited.
       parameters:
         - $ref: '#/components/parameters/ProgrammeId'
         - name: cursor

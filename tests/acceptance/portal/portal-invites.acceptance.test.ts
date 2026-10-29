@@ -68,7 +68,12 @@ describe('acceptance: portal invites (T-0180)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         AppModule.forRoot(
-          withAuthDatabase({ databaseUrl: inject('databaseUrl'), poolMax: 5, channelProvider: fake }),
+          withAuthDatabase({
+            databaseUrl: inject('databaseUrl'),
+            poolMax: 5,
+            portalEnabled: true,
+            channelProvider: fake,
+          }),
         ),
       ],
     }).compile();

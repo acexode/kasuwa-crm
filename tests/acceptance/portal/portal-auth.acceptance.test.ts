@@ -165,17 +165,19 @@ describe('acceptance: portal auth (T-0179)', () => {
         await client.query('BEGIN');
         await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [TENANT_A]);
         await client.query(`SELECT set_config('app.programme_ids', $1, true)`, [`{${PROGRAMME_A1}}`]);
-        const without = await client.query(`SELECT id FROM portal_session WHERE token_hash = $1`, [hash]);
-        expect(without.rows, 'without GUC: hash lookup must not bypass tenant isolation').toHaveLength(0);
+        // kasuwa_app cannot reference token_hash (0061 column revoke); resolve uses
+        // presented-token RLS on a plain SELECT, same as resolvePortalSessionIdentity.
+        const without = await client.query(`SELECT id FROM portal_session`);
+        expect(without.rows, 'without GUC: presented-token policy admits nothing').toHaveLength(0);
 
         await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [hash]);
-        const withGuc = await client.query(`SELECT id FROM portal_session WHERE token_hash = $1`, [hash]);
+        const withGuc = await client.query(`SELECT id FROM portal_session`);
         expect(withGuc.rows, 'with GUC: own session row').toHaveLength(1);
 
         await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [
           'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
         ]);
-        const wrong = await client.query(`SELECT id FROM portal_session WHERE token_hash = $1`, [hash]);
+        const wrong = await client.query(`SELECT id FROM portal_session`);
         expect(wrong.rows, 'wrong hash must not return the row').toHaveLength(0);
         await client.query('ROLLBACK');
       } finally {
