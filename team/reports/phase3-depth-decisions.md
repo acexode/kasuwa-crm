@@ -43,7 +43,7 @@
 |---|---|
 | 1 Non-blocked slices behind flags | Met on branch (provisionals listed) |
 | 2 Acceptance suites unmodified | Suites present; Docker CI must run them |
-| 3 lint / typecheck / unit / integration | CI after FEATURES + lockfile + gitleaks fix |
+| 3 lint / typecheck / unit / integration | Wave 2 unit alignment pushed; **full CI must go green** |
 | 4 Isolation green | Needs Docker CI |
 | 5–6 E2e + byte budgets | Full gate / nightly (D-L207) |
 | 7 features / i18n / icons / tasks / boundaries | FEATURES regenerated |
