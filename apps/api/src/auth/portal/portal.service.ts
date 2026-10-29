@@ -20,6 +20,7 @@ import {
   type PortalTenantTx,
   type ResolvedAuthTx,
 } from '@kasuwa/db';
+import { nodeEnv } from '@kasuwa/config';
 import { inviteTokenHashHex } from '@kasuwa/domain-core';
 import type { Pool } from 'pg';
 import { AUTH_PG_POOL } from '../auth-database.module';
@@ -44,8 +45,18 @@ import type {
 } from './portal.schemas';
 import { currentPortalTx } from './portal-context';
 
-/** Provisional portal MFA (D-L213 / B1). */
+/**
+ * Provisional portal MFA (D-L213 / B1). Accepted only outside production —
+ * production must fail closed until a real OTP channel exists.
+ */
 const PORTAL_PROVISIONAL_OTP = '000000';
+
+export function portalProvisionalOtpAccepted(
+  code: string,
+  environment: ReturnType<typeof nodeEnv> = nodeEnv(),
+): boolean {
+  return environment !== 'production' && code === PORTAL_PROVISIONAL_OTP;
+}
 
 @Injectable()
 export class PortalService implements OnModuleInit {
@@ -121,7 +132,7 @@ export class PortalService implements OnModuleInit {
           return locked;
         }
 
-        if (input.code === PORTAL_PROVISIONAL_OTP) {
+        if (portalProvisionalOtpAccepted(input.code)) {
           await clearAuthFailures(tx, mfaKey);
           const claimed = await tx.query<{ id: string }>(
             `UPDATE portal_auth_challenge

@@ -65,6 +65,9 @@ Decisions taken while aligning the branch with commitlint and unit expectations 
 | W2-8 | **S6 (T-0195/T-0196) and T-0191/T-0193 do not block Phase 3 exit** | Outbox missing (CLAUDE.md); portal P1 needs S2+S5 green + demo; honest deferral over fake `x-kasuwa-implemented` |
 | W2-9 | **Light screen fidelity (T-0171/0184/0192) satisfies §6 for depth close** | Full design polish is §6.10 demo; B9 designs not blocking API depth under D-L213 |
 | W2-10 | **Phase engineering complete when PR #250 CI is green**; merge + demo remain human | Agents do not self-merge; PLAN §6.8/§6.10 are @acexode gates |
+| W2-11 | **Portal provisional OTP `000000` refused when `nodeEnv() === 'production'`** | Security review CRITICAL; docs already claimed non-prod-only |
+| W2-12 | **Invite email drops legacy `&token=` line** | Fragment-only per ADR-0021; removes Referer/log leakage seam |
+| W2-13 | **Defer HTTP `mobile_money` flag guard** | Commerce HTTP surfaces are not flag-gated yet; create already fail-closes via Null provider in production; acceptance has no flag-off case |
 | W2-5 | **`OnboardingController` + inbox controllers in no-store middleware expectations** | Cache-control census must include Phase 3 HTTP surfaces that carry session or PII-adjacent reads |
 | W2-6 | **`PortalBrandingController` in `admin.module.test` census** | Admin module route inventory matches landed portal branding API |
 | W2-7 | **Portal invite audit test mocks tenant slug query** | Audit assertion path resolves tenant context without an unscoped slug lookup in the suite |

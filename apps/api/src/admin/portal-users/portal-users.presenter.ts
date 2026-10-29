@@ -27,15 +27,14 @@ export function toPortalUserResponse(user: PortalUser): PortalUserResponse {
 
 /**
  * The invitation the provider receives (T-0180 / ADR-0021): tenant slug in the
- * path, token in the URL fragment — never `?token=`. A second line keeps the
- * T-0030 acceptance seam (`&token=`).
+ * path, token in the URL fragment — never a query-string token (Referer /
+ * access-log leakage).
  */
 export function invitationBody(token: string, tenantSlug: string): string {
   return [
     'You have been invited to view a programme on Kasuwa.',
     '',
     `Accept the invitation: /portal/invitations/accept/${tenantSlug}#token=${token}`,
-    `Legacy link (tests): /portal/accept?step=1&token=${token}`,
     '',
     'If you were not expecting this invitation, you can ignore this message.',
   ].join('\n');

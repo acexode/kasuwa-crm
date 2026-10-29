@@ -1,6 +1,16 @@
 import { inviteTokenHashHex } from '@kasuwa/domain-core';
 import { describe, expect, it } from 'vitest';
+import { portalProvisionalOtpAccepted } from './portal.service';
 import { PortalAcceptInvitationBody, PortalSignInBody, PortalVerifyMfaBody } from './portal.schemas';
+
+describe('portal provisional MFA OTP (D-L213)', () => {
+  it('accepts 000000 outside production only', () => {
+    expect(portalProvisionalOtpAccepted('000000', 'development')).toBe(true);
+    expect(portalProvisionalOtpAccepted('000000', 'test')).toBe(true);
+    expect(portalProvisionalOtpAccepted('000000', 'production')).toBe(false);
+    expect(portalProvisionalOtpAccepted('123456', 'development')).toBe(false);
+  });
+});
 
 describe('portal invite accept (T-0180)', () => {
   it('hashes acceptance tokens the same way as portal_invite.token_hash', () => {
