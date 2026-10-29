@@ -61,7 +61,10 @@ Decisions taken while aligning the branch with commitlint and unit expectations 
 | W2-1 | **`invoices.write` held by agent / team_lead / programme_manager** (same set as `quotes.write`) | Update unit tests to match policy; do not widen the permission surface for Phase 3 |
 | W2-2 | **Export `DND_REGISTER` from `AppModule`** for `InboxModule` DI | Inbox consent/DND paths need the register token without bypassing module boundaries |
 | W2-3 | **Wire `en-NG.passthrough.json` into catalogues** | File existed but was unused; catalogue i18n validation expects it on the path |
-| W2-4 | **Rewrite commit subjects `T-XXXX` → `t-xxxx`** for commitlint `subject-case` | Branch history kept; new/amended subjects follow lowercase task id in scope line |
+| W2-4 | **Rewrite commit subjects `T-XXXX` → `t-xxxx`** for commitlint `subject-case` | Force-pushed filter-branch on PR branch only; patch content unchanged |
+| W2-8 | **S6 (T-0195/T-0196) and T-0191/T-0193 do not block Phase 3 exit** | Outbox missing (CLAUDE.md); portal P1 needs S2+S5 green + demo; honest deferral over fake `x-kasuwa-implemented` |
+| W2-9 | **Light screen fidelity (T-0171/0184/0192) satisfies §6 for depth close** | Full design polish is §6.10 demo; B9 designs not blocking API depth under D-L213 |
+| W2-10 | **Phase engineering complete when PR #250 CI is green**; merge + demo remain human | Agents do not self-merge; PLAN §6.8/§6.10 are @acexode gates |
 | W2-5 | **`OnboardingController` + inbox controllers in no-store middleware expectations** | Cache-control census must include Phase 3 HTTP surfaces that carry session or PII-adjacent reads |
 | W2-6 | **`PortalBrandingController` in `admin.module.test` census** | Admin module route inventory matches landed portal branding API |
 | W2-7 | **Portal invite audit test mocks tenant slug query** | Audit assertion path resolves tenant context without an unscoped slug lookup in the suite |
