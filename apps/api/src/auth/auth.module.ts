@@ -14,15 +14,28 @@ import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
 import { KEY_PROVIDER } from './key-provider.token';
 import { MfaService } from './mfa.service';
 import { PoolIdentityCheck } from './pool-identity';
+import { OnboardingPersistenceGuard } from './onboarding-persistence.guard';
+import { SelfServeSignupService } from './self-serve-signup.service';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
+import {
+  ONBOARDING_PERSISTENCE_ENABLED,
+  SELF_SERVE_PROVISIONING_CONNECTION,
+  SELF_SERVE_SIGNUP_ENABLED,
+} from './self-serve.tokens';
 
 export interface AuthModuleOptions extends AuthDatabaseOptions {
   /** Lockout, challenge and session numbers; see `AppModuleOptions.authPolicy`. */
   authPolicy?: Partial<AuthPolicy>;
   /** See `AppModuleOptions.keyProvider`. */
   keyProvider?: KeyProvider;
+<<<<<<< HEAD
   /** `client_portal` flag (T-0179). Off, portal routes answer 404. */
   portalEnabled?: boolean;
+=======
+  selfServeSignup?: boolean;
+  onboardingPersistence?: boolean;
+  selfServeProvisioningConnection?: string;
+>>>>>>> cf49e02 (feat(api): T-0018 onboarding persistence and T-0016 self-serve signup)
 }
 
 /**
@@ -78,7 +91,22 @@ export class AuthModule {
           provide: KEY_PROVIDER,
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
         },
+        SelfServeSignupService,
+        OnboardingPersistenceGuard,
+        {
+          provide: SELF_SERVE_SIGNUP_ENABLED,
+          useValue: options.selfServeSignup ?? false,
+        },
+        {
+          provide: ONBOARDING_PERSISTENCE_ENABLED,
+          useValue: options.onboardingPersistence ?? false,
+        },
+        {
+          provide: SELF_SERVE_PROVISIONING_CONNECTION,
+          useValue: options.selfServeProvisioningConnection ?? null,
+        },
       ],
+      exports: [OnboardingPersistenceGuard, ONBOARDING_PERSISTENCE_ENABLED],
     };
   }
 }

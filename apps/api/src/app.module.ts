@@ -43,6 +43,7 @@ import {
   DuplicatesController,
 } from './merges/merges.controller';
 import { HomeLayoutController } from './me/home-layout.controller';
+import { OnboardingController } from './me/onboarding.controller';
 import { MeController } from './me/me.controller';
 import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
 import { NotificationsController } from './notifications/notifications.controller';
@@ -91,6 +92,7 @@ export const RECORDS_CONTROLLERS = [
   ActivitiesController,
   MeController,
   HomeLayoutController,
+  OnboardingController,
   MyActivitiesController,
   PipelinesController,
   // The deals API (T-0108): listDeals and createDeal under a pipeline, and
@@ -247,6 +249,9 @@ export interface AppModuleOptions {
   crmImport?: boolean;
   /** `client_portal` (T-0179). Off, portal API routes answer 404. */
   portalEnabled?: boolean;
+  selfServeSignup?: boolean;
+  onboardingPersistence?: boolean;
+  selfServeProvisioningConnection?: string;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -328,6 +333,15 @@ export class AppModule implements NestModule {
           ...(options.portalEnabled === undefined
             ? {}
             : { portalEnabled: options.portalEnabled }),
+          ...(options.selfServeSignup === undefined
+            ? {}
+            : { selfServeSignup: options.selfServeSignup }),
+          ...(options.onboardingPersistence === undefined
+            ? {}
+            : { onboardingPersistence: options.onboardingPersistence }),
+          ...(options.selfServeProvisioningConnection === undefined
+            ? {}
+            : { selfServeProvisioningConnection: options.selfServeProvisioningConnection }),
         }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,

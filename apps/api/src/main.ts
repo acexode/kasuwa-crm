@@ -3,7 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import { createKeyProvider } from '@kasuwa/auth-crypto';
 import { apiEnv, loadWorkspaceEnv, storageConfigured, storageEnv } from '@kasuwa/config';
 import { S3ObjectStore } from '@kasuwa/storage-adapter';
-import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
+import {
+  featureFlagClient,
+  initialiseFeatureFlags,
+  toEvaluationContext,
+} from '@kasuwa/feature-flags';
 import { AppModule } from './app.module';
 import { installProcessErrorHandlers } from './common/process-errors';
 import { startTelemetry } from './telemetry/sdk';
@@ -33,9 +37,21 @@ async function bootstrap(): Promise<void> {
   const configuration = apiEnv();
 
   await initialiseFeatureFlags();
+<<<<<<< HEAD
   // T-0094 (D-L166): CSV import is behind `crm_import`, off by default.
   const crmImport = await featureFlagClient().getBooleanValue('crm_import', false);
   const portalEnabled = await featureFlagClient().getBooleanValue('client_portal', false);
+=======
+  const flagClient = featureFlagClient();
+  const preTenant = toEvaluationContext({ tenantId: 'pre-tenant:self-serve-sign-up' });
+  const crmImport = await flagClient.getBooleanValue('crm_import', false, preTenant);
+  const selfServeSignup = await flagClient.getBooleanValue('self_serve_signup', false, preTenant);
+  const onboardingPersistence = await flagClient.getBooleanValue(
+    'onboarding_persistence',
+    false,
+    preTenant,
+  );
+>>>>>>> cf49e02 (feat(api): T-0018 onboarding persistence and T-0016 self-serve signup)
 
   // Before the app is built, so the first request is already traced.
   startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
@@ -51,7 +67,12 @@ async function bootstrap(): Promise<void> {
       // wired only with the flag on. With it on and either absent, the import
       // routes answer 503.
       crmImport,
+<<<<<<< HEAD
       portalEnabled,
+=======
+      selfServeSignup,
+      onboardingPersistence,
+>>>>>>> cf49e02 (feat(api): T-0018 onboarding persistence and T-0016 self-serve signup)
       ...(crmImport && configuration.REDIS_URL !== undefined ? { redisUrl: configuration.REDIS_URL } : {}),
       ...(crmImport && storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin

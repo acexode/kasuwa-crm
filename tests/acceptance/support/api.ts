@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import type { ChannelProvider } from '@kasuwa/channel-adapter';
 import { AppModule, STUB_TENANT_HEADER, STUB_USER_HEADER } from '@kasuwa/api';
 import { inject } from 'vitest';
 
@@ -31,6 +32,13 @@ export function withAuthDatabase<T extends object>(options: T): T & { authDataba
   return { ...options, authDatabaseUrl: authDatabaseUrl() };
 }
 
+export interface CreateApiOptions {
+  selfServeSignup?: boolean;
+  onboardingPersistence?: boolean;
+  selfServeProvisioningConnection?: string;
+  channelProvider?: ChannelProvider;
+}
+
 /**
  * Boots the real API against the Testcontainers database.
  *
@@ -38,9 +46,31 @@ export function withAuthDatabase<T extends object>(options: T): T & { authDataba
  * Postgres, real RLS policies. Nothing is stubbed. An isolation suite that
  * mocks the database proves only that the mock agrees with itself.
  */
-export async function createApi(databaseUrl: string): Promise<INestApplication> {
+export async function createApi(
+  databaseUrl: string,
+  options: CreateApiOptions = {},
+): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.forRoot(withAuthDatabase({ databaseUrl, poolMax: 5 }))],
+    imports: [
+      AppModule.forRoot(
+        withAuthDatabase({
+          databaseUrl,
+          poolMax: 5,
+          ...(options.selfServeSignup === undefined
+            ? {}
+            : { selfServeSignup: options.selfServeSignup }),
+          ...(options.onboardingPersistence === undefined
+            ? {}
+            : { onboardingPersistence: options.onboardingPersistence }),
+          ...(options.selfServeProvisioningConnection === undefined
+            ? {}
+            : { selfServeProvisioningConnection: options.selfServeProvisioningConnection }),
+          ...(options.channelProvider === undefined
+            ? {}
+            : { channelProvider: options.channelProvider }),
+        }),
+      ),
+    ],
   }).compile();
 
   const app = moduleRef.createNestApplication({ logger: false });

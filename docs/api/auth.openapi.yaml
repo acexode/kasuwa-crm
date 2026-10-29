@@ -531,7 +531,7 @@ paths:
       tags: [onboarding]
       summary: Start a self-serve sign-up
       operationId: signUp
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/3']
       description: |
         **Contract only in T-0001 — do not wire this screen yet.**
@@ -584,12 +584,11 @@ paths:
       tags: [onboarding]
       summary: Verify an email or phone one-time code
       operationId: verifyOtp
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/4']
       description: |
-        **Contract only in T-0001 — do not wire this screen yet.** It depends on
-        sign-up above, and delivering an SMS code needs a channel provider that
-        does not exist (Agent 5, M8).
+        Self-serve verification (T-0016). SMS OTP is delivered through the channel
+        adapter (fake in development/test until B1 is resolved).
 
         Codes last ten minutes and allow five attempts. `otp_expired` and
         `otp_invalid` are separate codes because the caller has already proved
@@ -625,7 +624,7 @@ paths:
       tags: [onboarding]
       summary: Re-send a verification code
       operationId: resendOtp
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/4']
       security: []
       requestBody:
@@ -642,6 +641,61 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/ResendTooSoon' }
         '501': { $ref: '#/components/responses/NotImplemented' }
+
+  /api/v1/me/onboarding:
+    get:
+      tags: [me]
+      summary: Read the caller's first-admin onboarding wizard state
+      operationId: getOnboarding
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/5.2', 'P01/5.3', 'P01/5.4', 'P01/5.5', 'P01/6']
+      description: |
+        Returns the resumable onboarding step and payload (T-0018), behind
+        `onboarding_persistence`. `404 not_found` when the flag is off or
+        nothing is saved yet.
+      security:
+        - sessionToken: []
+      responses:
+        '200':
+          description: Saved onboarding state.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: ['no-store'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingState' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/me/onboarding/step:
+    put:
+      tags: [me]
+      summary: Save an onboarding wizard step
+      operationId: putOnboardingStep
+      x-kasuwa-implemented: true
+      x-kasuwa-screens: ['P01/5.2', 'P01/5.3', 'P01/5.4', 'P01/5.5', 'P01/6']
+      description: |
+        Upserts the caller's onboarding step and JSON payload (T-0018). Behind
+        `onboarding_persistence`; when off, answers `404 not_found`.
+      security:
+        - sessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OnboardingStepRequest' }
+      responses:
+        '200':
+          description: The saved state.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: ['no-store'] }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingState' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
 components:
   headers:
@@ -995,6 +1049,44 @@ components:
         emailVerified: { type: boolean }
         phoneVerified: { type: boolean }
         nextStep: { type: string, enum: [verify_email, verify_phone, onboarding] }
+
+    OnboardingStepRequest:
+      type: object
+      additionalProperties: false
+      required: [step, payload]
+      properties:
+        step:
+          type: string
+          enum:
+            - currency_language
+            - whatsapp
+            - import
+            - invite
+            - checklist
+            - done
+        payload:
+          type: object
+          additionalProperties: true
+
+    OnboardingState:
+      type: object
+      required: [step, payload, completedAt]
+      properties:
+        step:
+          type: string
+          enum:
+            - currency_language
+            - whatsapp
+            - import
+            - invite
+            - checklist
+            - done
+        payload:
+          type: object
+          additionalProperties: true
+        completedAt:
+          type: [string, 'null']
+          format: date-time
 
     # --- the error envelope ----------------------------------------------
     Error:

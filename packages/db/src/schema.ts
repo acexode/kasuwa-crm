@@ -2172,6 +2172,8 @@ export const NON_TENANT_SCOPED_TABLES = [
    * (T-0004 FINDING-3).
    */
   'auth_rate_limit',
+  /** Pre-tenant self-serve verification (T-0016); auth pool only. */
+  'signup_attempt',
 ] as const;
 
 export type NonTenantScopedTable = (typeof NON_TENANT_SCOPED_TABLES)[number];
