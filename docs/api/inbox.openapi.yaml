@@ -2,13 +2,133 @@ openapi: 3.1.0
 info:
   title: Kasuwa Inbox API
   version: 0.1.0-T-0185
-  description: Programme-scoped conversations (T-0185). Pipelines and routing follow in later tasks.
+  description: |
+    Programme-scoped conversations (T-0185). Pipelines and routing follow in later tasks.
+
+    Scope is resolved from the session. A programme the caller cannot reach, a
+    conversation in another programme, and a missing id all answer `404 not_found`
+    with one body. Every response is `Cache-Control: no-store`.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  schemas:
+    Error:
+      $ref: './admin.openapi.yaml#/components/schemas/Error'
+    ConversationParticipant:
+      type: object
+      additionalProperties: false
+      required: [id, userId, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [assignee, watcher, transfer_target]
+    Conversation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - contactId
+        - channel
+        - status
+        - subject
+        - lastMessageAt
+        - participants
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        contactId:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [sms, whatsapp, email]
+        status:
+          type: string
+          enum: [open, pending, closed]
+        subject:
+          type: string
+          nullable: true
+        lastMessageAt:
+          type: string
+          format: date-time
+          nullable: true
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationParticipant'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Message:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - conversationId
+        - direction
+        - bodyRedacted
+        - providerMessageId
+        - sentByUserId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        direction:
+          type: string
+          enum: [inbound, outbound, note]
+        bodyRedacted:
+          type: string
+          description: Redacted message body safe for agents (never raw PII).
+        providerMessageId:
+          type: string
+          nullable: true
+        sentByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
 paths:
   /api/v1/programmes/{programmeId}/conversations:
     get:
       operationId: listConversations
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       summary: List conversations in a programme
+      security: [{ bearerAuth: [] }]
       parameters:
         - name: programmeId
           in: path
@@ -17,11 +137,33 @@ paths:
       responses:
         '200':
           description: Conversation list
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Conversation' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
   /api/v1/conversations/{conversationId}:
     get:
       operationId: getConversation
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       summary: Get a conversation
+      security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
           in: path
@@ -30,11 +172,27 @@ paths:
       responses:
         '200':
           description: Conversation
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Conversation not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
   /api/v1/conversations/{conversationId}/messages:
     get:
       operationId: listMessages
-      x-kasuwa-implemented: false
+      x-kasuwa-implemented: true
       summary: List messages in a conversation
+      security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
           in: path
@@ -43,3 +201,24 @@ paths:
       responses:
         '200':
           description: Message list
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Message' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Conversation not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }

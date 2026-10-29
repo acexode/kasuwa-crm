@@ -16,6 +16,7 @@ import { ActivitiesController } from './activities/activities.controller';
 import { MyActivitiesController } from './activities/my-activities.controller';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
+import { PortalController } from './auth/portal/portal.controller';
 import { AuthModule } from './auth/auth.module';
 import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
@@ -57,6 +58,11 @@ import {
 } from './commerce/catalogue.controller';
 import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
+import { InboxModule } from './inbox/inbox.module';
+import {
+  ConversationsController,
+  InboxProgrammeController,
+} from './inbox/conversations.controller';
 import { SearchController } from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
@@ -124,6 +130,9 @@ export const COMMERCE_CONTROLLERS = [
   QuotesController,
 ];
 
+/** Programme-scoped inbox reads (inbox.openapi.yaml, T-0185). */
+export const INBOX_CONTROLLERS = [InboxProgrammeController, ConversationsController];
+
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 
@@ -137,8 +146,10 @@ const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 const TELEMETRY_CONTROLLERS = [
   ...CONTROLLERS,
   AuthController,
+  PortalController,
   ...SCRIPTING_CONTROLLERS,
   ...COMMERCE_CONTROLLERS,
+  ...INBOX_CONTROLLERS,
   ...ADMIN_CONTROLLERS,
 ];
 
@@ -232,6 +243,8 @@ export interface AppModuleOptions {
    * `redisUrl` and `objectStore` are given (an in-process boot opting in).
    */
   crmImport?: boolean;
+  /** `client_portal` (T-0179). Off, portal API routes answer 404. */
+  portalEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -271,7 +284,12 @@ export class AppModule implements NestModule {
     // And every scripting answer (T-0113, scripting.openapi.yaml's NoStore header).
     consumer
       .apply(NoStoreMiddleware)
-      .forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS, ...COMMERCE_CONTROLLERS);
+      .forRoutes(
+        ...RECORDS_CONTROLLERS,
+        ...SCRIPTING_CONTROLLERS,
+        ...COMMERCE_CONTROLLERS,
+        ...INBOX_CONTROLLERS,
+      );
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {
@@ -305,6 +323,9 @@ export class AppModule implements NestModule {
             : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
           ...(options.authPolicy === undefined ? {} : { authPolicy: options.authPolicy }),
           ...(options.keyProvider === undefined ? {} : { keyProvider: options.keyProvider }),
+          ...(options.portalEnabled === undefined
+            ? {}
+            : { portalEnabled: options.portalEnabled }),
         }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
@@ -312,6 +333,7 @@ export class AppModule implements NestModule {
         // middleware, like the audit area.
         ScriptsModule,
         CommerceModule,
+        InboxModule,
       ],
       controllers: CONTROLLERS,
       providers: [
