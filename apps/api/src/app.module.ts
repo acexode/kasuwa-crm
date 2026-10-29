@@ -59,10 +59,35 @@ import { ContactScriptsController, ScriptRunsController } from './scripts/script
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
 import {
+  ApprovalsController,
+  ApprovalsProgrammeController,
+  ApprovalsQuoteController,
+} from './commerce/approvals.controller';
+import {
+  BillingScheduleController,
+  BillingScheduleInvoiceController,
+  BillingScheduleProgrammeController,
+} from './commerce/billing-schedule.controller';
+import {
   CataloguePriceBookController,
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './commerce/catalogue.controller';
+import { EinvoiceController } from './commerce/einvoice.controller';
+import { FxDealController, FxProgrammeController } from './commerce/fx.controller';
+import {
+  InvoicesController,
+  InvoicesProgrammeController,
+  InvoicesQuoteController,
+} from './commerce/invoices.controller';
+import {
+  MobilePaymentController,
+  MobilePaymentInvoiceController,
+} from './commerce/mobile-payment.controller';
+import {
+  PaymentLinksController,
+  PaymentLinksQuoteController,
+} from './commerce/payment-links.controller';
 import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
 import { InboxModule } from './inbox/inbox.module';
@@ -136,6 +161,22 @@ export const COMMERCE_CONTROLLERS = [
   CataloguePriceBookController,
   QuotesProgrammeController,
   QuotesController,
+  ApprovalsProgrammeController,
+  ApprovalsQuoteController,
+  ApprovalsController,
+  PaymentLinksQuoteController,
+  PaymentLinksController,
+  InvoicesProgrammeController,
+  InvoicesQuoteController,
+  InvoicesController,
+  EinvoiceController,
+  FxProgrammeController,
+  FxDealController,
+  BillingScheduleProgrammeController,
+  BillingScheduleInvoiceController,
+  BillingScheduleController,
+  MobilePaymentInvoiceController,
+  MobilePaymentController,
 ];
 
 /** Programme-scoped inbox reads (inbox.openapi.yaml, T-0185). */
