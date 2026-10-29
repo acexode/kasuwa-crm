@@ -9,6 +9,7 @@ import {
   TENANT_SCOPED_TABLES,
   USER_A_AGENT_1,
   USER_A_NO_PROGRAMME,
+  USER_A_SUPERVISOR,
   USER_B_AGENT_1,
 } from '@kasuwa/db';
 import { FLAGS } from '@kasuwa/feature-flags';
@@ -128,7 +129,14 @@ describe('acceptance: invoices (T-0172)', () => {
     expect(
       (await request(server()).get(INVOICE(invoiceId)).set(asUser(TENANT_B, USER_B_AGENT_1))).status,
     ).toBe(404);
-    expect((await request(server()).get(INVOICES(PROGRAMME_A2)).set(writer())).status).toBe(200);
+    // Lead-approved (D-L213): USER_A_AGENT_1 only reaches PROGRAMME_A1, so list
+    // A2 as writer is correctly 404. Use SUPERVISOR (A1+A2) to prove A1 invoices
+    // do not leak into the A2 list.
+    const listA2 = await request(server())
+      .get(INVOICES(PROGRAMME_A2))
+      .set(asUser(TENANT_A, USER_A_SUPERVISOR));
+    expect(listA2.status).toBe(200);
+    expect(listA2.body.data.map((row: { id: string }) => row.id)).not.toContain(invoiceId);
   });
 
   it('issues an invoice through gated status transitions', async () => {

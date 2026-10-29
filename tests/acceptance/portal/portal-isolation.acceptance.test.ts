@@ -7,12 +7,13 @@ import {
   PROGRAMME_A2,
   PROGRAMME_B1,
   SEED_CONTACTS,
+  seedSignIn,
   TENANT_A,
   TENANT_SCOPED_TABLES,
   USER_A_AGENT_1,
   USER_A_SUPERVISOR,
 } from '@kasuwa/db';
-import { readTableSecurity } from '@kasuwa/testing';
+import { freshSeededTotpCode, readTableSecurity } from '@kasuwa/testing';
 import type { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -61,21 +62,29 @@ async function portalBearer(server: ReturnType<typeof request>): Promise<string>
 }
 
 async function staffBearer(server: ReturnType<typeof request>): Promise<string> {
+  // Lead-approved (D-L213): staff MFA rejects provisional 000000 (portal-only).
+  // Use seeded TOTP via freshSeededTotpCode; staff session wire uses accessToken.
+  const credentials = seedSignIn(USER_A_AGENT_1);
+  if (credentials === undefined) {
+    throw new Error('seed drift: USER_A_AGENT_1 has no sign-in fixture');
+  }
   const started = await server.post(STAFF_SIGN_IN).send({
-    tenantSlug: 'sahel-bpo',
-    email: 'tunde.agent@tenant-a.test',
-    password: 'correct-horse-battery-staple',
+    tenantSlug: credentials.tenantSlug,
+    email: credentials.email,
+    password: credentials.password,
   });
   expect(started.status).toBe(200);
   if (started.body.mfaRequired === true) {
     const finished = await server.post(STAFF_MFA).send({
       challengeId: started.body.challengeId,
-      code: '000000',
+      code: freshSeededTotpCode(USER_A_AGENT_1),
     });
     expect(finished.status).toBe(200);
-    return finished.body.token as string;
+    expect(finished.body.accessToken).toEqual(expect.any(String));
+    return finished.body.accessToken as string;
   }
-  return started.body.token as string;
+  expect(started.body.accessToken).toEqual(expect.any(String));
+  return started.body.accessToken as string;
 }
 
 describe('acceptance: portal isolation (T-0183)', () => {

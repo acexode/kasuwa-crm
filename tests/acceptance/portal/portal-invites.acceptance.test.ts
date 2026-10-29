@@ -140,10 +140,18 @@ describe('acceptance: portal invites (T-0180)', () => {
     it('paginates listPortalInvitations and never returns token material', async () => {
       const list = await request(server()).get(`${ADMIN_LIST(PROGRAMME_A1)}?limit=10`).set(SUPERVISOR);
       expect(list.status).toBe(200);
-      expect(list.body).toMatchObject({ data: expect.any(Array), nextCursor: expect.anything });
+      // Lead-approved (D-L213): expect.anything (no call) crashes vitest
+      // pretty-format (anything.$$typeof); expect.anything() also rejects a
+      // null nextCursor on a single page — assert the page shape explicitly.
+      expect(Array.isArray(list.body.data)).toBe(true);
+      expect(list.body.nextCursor === null || typeof list.body.nextCursor === 'string').toBe(
+        true,
+      );
       const raw = JSON.stringify(list.body);
-      expect(raw).not.toMatch(/token/i);
-      expect(raw).not.toMatch(/@/);
+      // D-L213: emailMasked intentionally contains `@` (seed `a***@client.example`).
+      // Forbid token material and the plaintext invite address, not the mask.
+      expect(raw).not.toMatch(/tokenHash|"token"|invite_token/i);
+      expect(raw).not.toMatch(/accept\.seed@client\.example/);
     });
 
     it('rate-limits repeated invites to the same address', async () => {
