@@ -4,6 +4,8 @@ import {
   type DndRegister,
 } from '@kasuwa/channel-adapter';
 
+export type { DndRegister };
+
 /**
  * The API's one way to send a message: the compliance wrapper from
  * `@kasuwa/channel-adapter`, never a provider directly (T-0030 seam S1).
@@ -27,6 +29,9 @@ export const unconfiguredDndRegister: DndRegister = {
 };
 
 /** Wraps `provider` in the adapter. Logs nothing: the adapter's own log fields are codes and ids. */
-export function createApiChannel(provider: ChannelProvider): ChannelProvider {
-  return createChannelAdapter({ provider, dnd: unconfiguredDndRegister });
+export function createApiChannel(
+  provider: ChannelProvider,
+  dnd: DndRegister = unconfiguredDndRegister,
+): ChannelProvider {
+  return createChannelAdapter({ provider, dnd });
 }

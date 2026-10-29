@@ -60,7 +60,7 @@ function toConversationWire(conversation: Conversation): ConversationWire {
   };
 }
 
-function toMessageWire(message: Message): MessageWire {
+export function toMessageWire(message: Message): MessageWire {
   return {
     id: message.id,
     programmeId: message.programmeId,

@@ -47,7 +47,7 @@ import { MeController } from './me/me.controller';
 import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
 import { NotificationsController } from './notifications/notifications.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
-import { CHANNEL, createApiChannel } from './messaging/channel';
+import { CHANNEL, createApiChannel, type DndRegister } from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
@@ -211,6 +211,8 @@ export interface AppModuleOptions {
    * fake to read what was sent.
    */
   channelProvider?: ChannelProvider;
+  /** Override for tests; production uses the fail-closed unconfigured register. */
+  dndRegister?: DndRegister;
   /**
    * The `cell` attribute on every API span (T-0005). Defaults to `local`;
    * `main.ts` passes KASUWA_CELL.
@@ -367,7 +369,10 @@ export class AppModule implements NestModule {
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
           provide: CHANNEL,
-          useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),
+          useValue: createApiChannel(
+            options.channelProvider ?? defaultChannelProvider(nodeEnv()),
+            options.dndRegister,
+          ),
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         // The catch-all (T-0036, D-L42): replaces Nest's default handler, which

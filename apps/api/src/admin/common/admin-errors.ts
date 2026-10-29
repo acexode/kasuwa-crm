@@ -83,6 +83,12 @@ export type AdminErrorCode =
   | 'too_many_requests'
   | 'not_implemented'
   | 'service_unavailable'
+  /** inbox.openapi.yaml (T-0187): promotional send blocked by DND. */
+  | 'dnd_refused'
+  /** inbox.openapi.yaml (T-0187): the provider permanently rejected the send. */
+  | 'provider_rejected'
+  /** inbox.openapi.yaml (T-0187): contact has no address/number for the channel. */
+  | 'no_destination'
   | 'internal_error';
 
 export interface AdminErrorDetail {

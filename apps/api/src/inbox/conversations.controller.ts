@@ -1,13 +1,20 @@
 import {
+  Body,
   Controller,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Post,
   UseFilters,
   UseGuards,
   UseInterceptors,
-  Param,
 } from '@nestjs/common';
+import type { ChannelProvider } from '@kasuwa/channel-adapter';
 import { AdminErrorFilter } from '../admin/common/admin-errors';
+import { CHANNEL } from '../messaging/channel';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
@@ -16,6 +23,7 @@ import {
   listConversationsFor,
   listMessagesFor,
 } from './conversations.service';
+import { sendMessageFor } from './send-message.service';
 
 const CACHE_CONTROL = 'Cache-Control';
 const NO_STORE = 'no-store';
@@ -38,6 +46,16 @@ export class InboxProgrammeController {
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class ConversationsController {
+  constructor(@Inject(CHANNEL) private readonly channel: ChannelProvider) {}
+
+  /** operationId sendMessage */
+  @Post(':conversationId/messages')
+  @HttpCode(HttpStatus.CREATED)
+  @Header(CACHE_CONTROL, NO_STORE)
+  async sendMessage(@Param() params: unknown, @Body() body: unknown) {
+    return sendMessageFor(currentTx(), this.channel, params, body);
+  }
+
   /** operationId listMessages */
   @Get(':conversationId/messages')
   @Header(CACHE_CONTROL, NO_STORE)

@@ -61,3 +61,5 @@ export * from './commerce/quote-send.repository';
 export * from './commerce/payment-links.repository';
 export * from './inbox/conversations.types';
 export * from './inbox/conversations.repository';
+export * from './inbox/message-body-redact';
+export * from './inbox/send-message.repository';

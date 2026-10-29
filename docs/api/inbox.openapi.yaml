@@ -1,9 +1,11 @@
 openapi: 3.1.0
 info:
   title: Kasuwa Inbox API
-  version: 0.1.0-T-0185
+  version: 0.1.0-T-0187
   description: |
-    Programme-scoped conversations (T-0185). Pipelines and routing follow in later tasks.
+    Programme-scoped conversations (T-0185) and outbound send (T-0187) through
+    `@kasuwa/channel-adapter` (DND + required `idempotencyKey`). Inbound webhooks
+    and routing follow in later tasks.
 
     Scope is resolved from the session. A programme the caller cannot reach, a
     conversation in another programme, and a missing id all answer `404 not_found`
@@ -79,6 +81,53 @@ components:
         updatedAt:
           type: string
           format: date-time
+    SendMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [body, purpose, idempotencyKey]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        purpose:
+          type: string
+          enum: [transactional, promotional]
+        idempotencyKey:
+          type: string
+          minLength: 1
+          maxLength: 128
+    MessageDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, messageId, state, providerMessageId, attempt, lastErrorCode]
+      properties:
+        id:
+          type: string
+          format: uuid
+        messageId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [queued, sent, delivered, failed, dead]
+        providerMessageId:
+          type: string
+          nullable: true
+        attempt:
+          type: integer
+        lastErrorCode:
+          type: string
+          nullable: true
+    SendMessageResponse:
+      type: object
+      additionalProperties: false
+      required: [message, delivery]
+      properties:
+        message:
+          $ref: '#/components/schemas/Message'
+        delivery:
+          $ref: '#/components/schemas/MessageDelivery'
     Message:
       type: object
       additionalProperties: false
@@ -188,6 +237,54 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
   /api/v1/conversations/{conversationId}/messages:
+    post:
+      operationId: sendMessage
+      x-kasuwa-implemented: true
+      summary: Send an outbound message in a conversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+      responses:
+        '201':
+          description: Message accepted for delivery
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendMessageResponse' }
+        '400':
+          description: Validation failed, no destination, or provider rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Promotional send refused (dnd_refused)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Conversation not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Channel unavailable (service_unavailable)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
     get:
       operationId: listMessages
       x-kasuwa-implemented: true
