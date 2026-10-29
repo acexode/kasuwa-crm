@@ -98,6 +98,9 @@ importers:
       '@kasuwa/storage-adapter':
         specifier: workspace:*
         version: link:../../packages/storage-adapter
+      '@kasuwa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)

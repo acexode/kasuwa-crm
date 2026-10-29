@@ -4,6 +4,8 @@ import { AuthDatabaseModule, type AuthDatabaseOptions } from './auth-database.mo
 import { AuthTenantTransactionInterceptor } from './auth-tenant-transaction.interceptor';
 import { AuthController } from './auth.controller';
 import { PortalController } from './portal/portal.controller';
+import { PortalReadsController } from './portal/portal-reads.controller';
+import { PortalReadsService } from './portal/portal-reads.service';
 import { PortalService } from './portal/portal.service';
 import { PortalAuthGuard } from './portal/portal-auth.guard';
 import { PortalEnabledGuard, PORTAL_ENABLED_TOKEN } from './portal/portal-enabled.guard';
@@ -28,14 +30,14 @@ export interface AuthModuleOptions extends AuthDatabaseOptions {
   authPolicy?: Partial<AuthPolicy>;
   /** See `AppModuleOptions.keyProvider`. */
   keyProvider?: KeyProvider;
-<<<<<<< HEAD
   /** `client_portal` flag (T-0179). Off, portal routes answer 404. */
   portalEnabled?: boolean;
-=======
+  /** `self_serve_signup` (T-0016). Off, sign-up routes answer 404. */
   selfServeSignup?: boolean;
+  /** `onboarding_persistence` (T-0018). Off, onboarding routes answer 404. */
   onboardingPersistence?: boolean;
+  /** Migrator connection for self-serve provision (operator boundary). */
   selfServeProvisioningConnection?: string;
->>>>>>> cf49e02 (feat(api): T-0018 onboarding persistence and T-0016 self-serve signup)
 }
 
 /**
@@ -67,10 +69,11 @@ export class AuthModule {
             : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
         }),
       ],
-      controllers: [AuthController, PortalController],
+      controllers: [AuthController, PortalController, PortalReadsController],
       providers: [
         AuthService,
         PortalService,
+        PortalReadsService,
         PortalAuthGuard,
         PortalEnabledGuard,
         PortalTransactionInterceptor,
