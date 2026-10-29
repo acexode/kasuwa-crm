@@ -5,6 +5,7 @@ import {
   listTaxLines,
   replaceTaxLines,
   taxAmountFromBase,
+  type ComputedTaxBucket,
 } from './tax.repository';
 import type { Invoice, InvoiceLine, InvoiceStatus } from './invoices.types';
 import { INVOICE_TRANSITIONS } from './invoices.types';
@@ -227,16 +228,16 @@ export async function createInvoiceFromQuote(
   const id = newId();
   const number = await nextInvoiceNumber(tx, quote.programmeId);
   let totalMinor = BigInt(quote.totalMinor);
+  let taxBuckets: ComputedTaxBucket[] | null = null;
   if (options.includeTax) {
-    const buckets = await computeTaxBucketsForLines(
+    taxBuckets = await computeTaxBucketsForLines(
       tx,
       quote.programmeId,
       quote.lines,
       quote.discountBps,
     );
-    await replaceTaxLines(tx, quote.programmeId, 'quote', quote.id, buckets);
-    await replaceTaxLines(tx, quote.programmeId, 'invoice', id, buckets);
-    for (const bucket of buckets) {
+    await replaceTaxLines(tx, quote.programmeId, 'quote', quote.id, taxBuckets);
+    for (const bucket of taxBuckets) {
       totalMinor += bucket.amountMinor;
     }
   }
@@ -277,6 +278,10 @@ export async function createInvoiceFromQuote(
         line.unitAmountMinor,
       ],
     );
+  }
+
+  if (taxBuckets !== null) {
+    await replaceTaxLines(tx, quote.programmeId, 'invoice', id, taxBuckets);
   }
 
   return findInvoiceById(tx, id);
