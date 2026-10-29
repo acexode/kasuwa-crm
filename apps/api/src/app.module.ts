@@ -316,7 +316,7 @@ export class AppModule implements NestModule {
       // Every admin area relies on this (D-L39); do not remove it while
       // AdminModule exists.
       global: true,
-      exports: [AUTH_MODE, CHANNEL],
+      exports: [AUTH_MODE, CHANNEL, DND_REGISTER],
       imports: [
         DatabaseModule.forRoot({
           databaseUrl: options.databaseUrl,

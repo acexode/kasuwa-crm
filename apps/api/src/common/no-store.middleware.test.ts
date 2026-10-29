@@ -5,12 +5,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { AccountsController } from '../accounts/accounts.controller';
 import { ActivitiesController } from '../activities/activities.controller';
 import { MyActivitiesController } from '../activities/my-activities.controller';
-import { AppModule, COMMERCE_CONTROLLERS, RECORDS_CONTROLLERS, SCRIPTING_CONTROLLERS } from '../app.module';
+import {
+  AppModule,
+  COMMERCE_CONTROLLERS,
+  INBOX_CONTROLLERS,
+  RECORDS_CONTROLLERS,
+  SCRIPTING_CONTROLLERS,
+} from '../app.module';
 import { ContactsController } from '../contacts/contacts.controller';
 import { DealsController, PipelineDealsController } from '../deals/deals.controller';
 import { ImportsController } from '../imports/imports.controller';
+import {
+  ConversationsController,
+  InboxProgrammeController,
+} from '../inbox/conversations.controller';
 import { LeadsController } from '../leads/leads.controller';
 import { HomeLayoutController } from '../me/home-layout.controller';
+import { OnboardingController } from '../me/onboarding.controller';
 import { MeController } from '../me/me.controller';
 import { NotificationsController } from '../notifications/notifications.controller';
 import {
@@ -52,6 +63,7 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
       ActivitiesController,
       MeController,
       HomeLayoutController,
+      OnboardingController,
       MyActivitiesController,
       PipelinesController,
       PipelineDealsController,
@@ -83,11 +95,14 @@ describe('AppModule applies it to every records controller (T-0080, D-L90)', () 
     expect(noStore).toHaveLength(1);
     expect(noStore[0]?.middleware).toEqual([NoStoreMiddleware]);
     // T-0113: and every scripting controller, in the same one application.
+    // T-0185: inbox reads share the same no-store application.
     expect(noStore[0]?.routes).toEqual([
       ...RECORDS_CONTROLLERS,
       ...SCRIPTING_CONTROLLERS,
       ...COMMERCE_CONTROLLERS,
+      ...INBOX_CONTROLLERS,
     ]);
+    expect(INBOX_CONTROLLERS).toEqual([InboxProgrammeController, ConversationsController]);
   });
 
   it('names the scripting controllers: authoring (T-0113) and runs (T-0114)', () => {

@@ -4,6 +4,7 @@ import arReview from './locales/ar.review.json';
 import en from './locales/en.json';
 import enReview from './locales/en.review.json';
 import enNG from './locales/en-NG.json';
+import enNGPassthrough from './locales/en-NG.passthrough.json';
 import enNGReview from './locales/en-NG.review.json';
 import fr from './locales/fr.json';
 import frPassthrough from './locales/fr.passthrough.json';
@@ -130,7 +131,7 @@ function source(
 /** Every registered catalogue, keyed by locale tag. */
 export const LOCALE_SOURCES: Readonly<Record<string, LocaleSource>> = {
   en: source('en', en, [], enReview),
-  'en-NG': source('en-NG', enNG, [], enNGReview),
+  'en-NG': source('en-NG', enNG, enNGPassthrough, enNGReview),
   fr: source('fr', fr, frPassthrough, frReview),
   ha: source('ha', ha, haPassthrough, haReview),
   ig: source('ig', ig, igPassthrough, igReview),

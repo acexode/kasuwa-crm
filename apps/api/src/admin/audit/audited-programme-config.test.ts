@@ -41,6 +41,10 @@ const tx: TenantTx = {
     if (text.includes('SELECT is_tenant_admin')) {
       return Promise.resolve([{ is_tenant_admin: true }] as T[]);
     }
+    // Portal invite email body needs the tenant slug (T-0180).
+    if (text.includes('SELECT slug FROM tenant')) {
+      return Promise.resolve([{ slug: 'invented-tenant' }] as T[]);
+    }
     return Promise.resolve([] as T[]);
   },
 };
