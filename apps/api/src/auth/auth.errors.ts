@@ -40,6 +40,7 @@ interface AuthErrorDetail {
   attemptsRemaining?: number | null;
   retryAt?: string;
   timeZone?: string;
+  details?: readonly { path: string; code: string }[];
 }
 
 export class AuthError extends HttpException {
@@ -51,6 +52,15 @@ export class AuthError extends HttpException {
   ) {
     super({ statusCode: status, error: reasonPhrase(status), code, message, ...detail }, status);
   }
+}
+
+/** Field paths and reason codes only — never submitted values. */
+export function validationFailed(
+  details: readonly { path: string; code: string }[] = [],
+): AuthError {
+  return new AuthError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', {
+    details,
+  });
 }
 
 /**

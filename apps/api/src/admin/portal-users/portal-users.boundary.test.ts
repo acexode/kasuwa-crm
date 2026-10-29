@@ -58,9 +58,11 @@ describe('portal users boundary (T-0030)', () => {
     ).toBe(true);
   });
 
-  it('puts the token in the body as a `token` query parameter, intact', () => {
+  it('puts the token in the body as a fragment (and legacy query seam), intact', () => {
     const { token } = generateInviteToken();
-    const match = /[?&]token=([A-Za-z0-9._~%-]+)/.exec(invitationBody(token));
+    const body = invitationBody(token, 'sahel-bpo');
+    expect(body).toContain(`/portal/invitations/accept/sahel-bpo#token=${token}`);
+    const match = /[?&]token=([A-Za-z0-9._~%-]+)/.exec(body);
     expect(match?.[1]).toBe(token);
   });
 

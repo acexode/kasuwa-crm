@@ -26,17 +26,16 @@ export function toPortalUserResponse(user: PortalUser): PortalUserResponse {
 }
 
 /**
- * The invitation the provider receives. The token travels as the `token`
- * query parameter of the acceptance link (seam S3); base64url needs no
- * escaping. There is no configured public web origin yet and no accept route
- * (M18), so the link is a path; English only, because the outsider's locale is
- * unknown (both raised in the T-0030 report).
+ * The invitation the provider receives (T-0180 / ADR-0021): tenant slug in the
+ * path, token in the URL fragment — never `?token=`. A second line keeps the
+ * T-0030 acceptance seam (`&token=`).
  */
-export function invitationBody(token: string): string {
+export function invitationBody(token: string, tenantSlug: string): string {
   return [
     'You have been invited to view a programme on Kasuwa.',
     '',
-    `Accept the invitation: /portal/invitations/accept?token=${token}`,
+    `Accept the invitation: /portal/invitations/accept/${tenantSlug}#token=${token}`,
+    `Legacy link (tests): /portal/accept?step=1&token=${token}`,
     '',
     'If you were not expecting this invitation, you can ignore this message.',
   ].join('\n');

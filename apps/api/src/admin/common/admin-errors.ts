@@ -88,10 +88,16 @@ export type AdminErrorCode =
   | 'already_merged'
   | 'undo_expired'
   | 'too_many_requests'
+  | 'rate_limited'
   | 'not_implemented'
   | 'service_unavailable'
+  /** commerce.openapi.yaml (T-0176): billing schedule already exists for invoice. */
+  | 'schedule_exists'
+  /** commerce.openapi.yaml (T-0177): mobile-money provider unavailable. */
+  | 'provider_unavailable'
   /** inbox.openapi.yaml (T-0187): promotional send blocked by DND. */
   | 'dnd_refused'
+  | 'window_closed'
   /** inbox.openapi.yaml (T-0187): the provider permanently rejected the send. */
   | 'provider_rejected'
   /** inbox.openapi.yaml (T-0187): contact has no address/number for the channel. */
@@ -154,6 +160,13 @@ export const notFound = (): AdminError =>
  */
 export const notPermitted = (): AdminError =>
   new AdminError(HttpStatus.FORBIDDEN, 'not_permitted', 'You do not have permission to do that.');
+
+export const rateLimited = (): AdminError =>
+  new AdminError(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'rate_limited',
+    'Too many invitations to this address. Try again later.',
+  );
 
 export const staleWrite = (): AdminError =>
   new AdminError(

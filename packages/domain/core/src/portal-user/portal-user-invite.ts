@@ -33,6 +33,11 @@ export function hashInviteToken(token: string): Buffer {
   return createHash('sha256').update(token, 'utf8').digest();
 }
 
+/** Hex-encoded digest for lookups against `invite_token_hash` (portal accept, T-0179). */
+export function inviteTokenHashHex(token: string): string {
+  return hashInviteToken(token).toString('hex');
+}
+
 /**
  * `PortalUser.emailMasked` - what the row renders, e.g. `p•••e@client.example`.
  *

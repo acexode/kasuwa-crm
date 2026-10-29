@@ -10,27 +10,42 @@ import {
 } from '@kasuwa/auth-crypto';
 import {
   clearAuthFailures,
+  formatProgrammeIds,
   hasTenant,
+  lookupPortalAuthChallenge,
   readAuthLock,
   registerAuthFailure,
-  formatProgrammeIds,
   withAuthTransaction,
   type AuthTx,
+  type PortalTenantTx,
   type ResolvedAuthTx,
 } from '@kasuwa/db';
+import { inviteTokenHashHex } from '@kasuwa/domain-core';
 import type { Pool } from 'pg';
 import { AUTH_PG_POOL } from '../auth-database.module';
-import { accountLocked, invalidCredentials, notImplemented, signInUnavailable } from '../auth.errors';
-import type { AuthError } from '../auth.errors';
+import {
+  accountLocked,
+  invalidCredentials,
+  mfaChallengeExpired,
+  mfaChallengeInvalid,
+  mfaCodeInvalid,
+  signInUnavailable,
+} from '../auth.errors';
+import { AuthError } from '../auth.errors';
 import { AUTH_POLICY, type AuthPolicy } from '../auth.policy';
-import type { PortalTenantTx } from '@kasuwa/db';
+import { formatChallengeId, parseChallengeId } from '../challenge-id';
 import type {
+  PortalAcceptInvitationInput,
   PortalMeResponse,
-  PortalSessionResponse,
+  PortalMfaChallengeResponse,
   PortalSignInInput,
+  PortalTokenResponse,
   PortalVerifyMfaInput,
 } from './portal.schemas';
 import { currentPortalTx } from './portal-context';
+
+/** Provisional portal MFA (D-L213 / B1). */
+const PORTAL_PROVISIONAL_OTP = '000000';
 
 @Injectable()
 export class PortalService implements OnModuleInit {
@@ -43,19 +58,14 @@ export class PortalService implements OnModuleInit {
     await dummyPasswordHash().catch(() => undefined);
   }
 
-  /** MFA is not enrolled for portal identities in P0; verify stays contract-only. */
-  verifyMfa(_input: PortalVerifyMfaInput): never {
-    throw notImplemented();
-  }
-
-  async signIn(input: PortalSignInInput): Promise<PortalSessionResponse> {
+  async signIn(input: PortalSignInInput): Promise<PortalMfaChallengeResponse> {
     const rateKey = hashRateLimitKey('portal-signin', input.tenantSlug, input.email);
 
     const prepared = await withAuthTransaction(
       this.authPool,
       { tenantSlug: input.tenantSlug },
       async (tx) => ({
-        locked: await this.activeLock(tx, rateKey),
+        locked: await this.activeLock(tx, rateKey, this.signInLimits()),
         identity: hasTenant(tx) ? await this.findIdentity(tx, input.email) : null,
       }),
     );
@@ -69,17 +79,70 @@ export class PortalService implements OnModuleInit {
       input.password,
     );
 
-    return withAuthTransaction(this.authPool, { tenantSlug: input.tenantSlug }, async (tx) => {
-      const identity = prepared.identity;
-      if (!passwordMatches || identity === null || identity.status !== 'active') {
-        throw await this.failFirstFactor(tx, rateKey);
-      }
-      if (!hasTenant(tx)) {
-        throw invalidCredentials(null);
-      }
-      await clearAuthFailures(tx, rateKey);
-      return this.issueSession(tx, identity.id, identity.programmeId);
-    });
+    return this.commitThenFail(
+      withAuthTransaction(this.authPool, { tenantSlug: input.tenantSlug }, async (tx) => {
+        const identity = prepared.identity;
+        if (!passwordMatches || identity === null || identity.status !== 'active') {
+          return this.failFirstFactor(tx, rateKey);
+        }
+        if (!hasTenant(tx)) {
+          return invalidCredentials(null);
+        }
+        await clearAuthFailures(tx, rateKey);
+        return this.openPortalChallenge(tx, identity.id, identity.programmeId);
+      }),
+    );
+  }
+
+  async verifyMfa(input: PortalVerifyMfaInput): Promise<PortalTokenResponse> {
+    const reference = await this.resolvePortalChallengeReference(input.challengeId);
+    if (reference === null) {
+      throw mfaChallengeInvalid();
+    }
+
+    return this.commitThenFail(
+      withAuthTransaction(this.authPool, { tenantId: reference.tenantId }, async (tx) => {
+        if (!hasTenant(tx)) {
+          return mfaChallengeInvalid();
+        }
+
+        const challenge = await this.findOpenPortalChallenge(tx, reference.challengeId);
+        if (challenge instanceof AuthError) {
+          return challenge;
+        }
+
+        const mfaKey = hashRateLimitKey(
+          'portal-mfa',
+          tx.tenantId,
+          challenge.portalIdentityId,
+        );
+        const locked = await this.activeLock(tx, mfaKey, this.mfaLimits());
+        if (locked !== null) {
+          return locked;
+        }
+
+        if (input.code === PORTAL_PROVISIONAL_OTP) {
+          await clearAuthFailures(tx, mfaKey);
+          const claimed = await tx.query<{ id: string }>(
+            `UPDATE portal_auth_challenge
+                SET consumed_at = now()
+              WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL
+          RETURNING id`,
+            [tx.tenantId, reference.challengeId],
+          );
+          if (claimed.length === 0) {
+            return mfaChallengeInvalid();
+          }
+          return this.issueToken(
+            tx,
+            challenge.portalIdentityId,
+            challenge.programmeId,
+          );
+        }
+
+        return this.failPortalMfa(tx, reference.challengeId, mfaKey);
+      }),
+    );
   }
 
   async me(): Promise<PortalMeResponse> {
@@ -126,6 +189,92 @@ export class PortalService implements OnModuleInit {
     };
   }
 
+  /** Accept a programme invitation (T-0180, ADR-0021). Token lookup on kasuwa_auth under RLS. */
+  async acceptInvitation(input: PortalAcceptInvitationInput): Promise<{ accepted: true }> {
+    const tokenHashHex = inviteTokenHashHex(input.token);
+    return withAuthTransaction(this.authPool, { tenantSlug: input.tenantSlug }, async (tx) => {
+      if (!hasTenant(tx)) {
+        throw invalidCredentials(null);
+      }
+
+      const invites = await tx.query<{
+        id: string;
+        programme_id: string;
+        email: string;
+        email_masked: string;
+      }>(
+        `SELECT id, programme_id, email, email_masked
+           FROM portal_invite
+          WHERE token_hash = $1
+            AND status = 'pending'
+            AND expires_at > now()`,
+        [tokenHashHex],
+      );
+      const invite = invites[0];
+      if (invite === undefined) {
+        throw invalidCredentials(null);
+      }
+
+      const burned = await tx.query<{ id: string }>(
+        `UPDATE portal_invite
+            SET status = 'accepted', updated_at = now()
+          WHERE id = $1
+            AND tenant_id = $2
+            AND status = 'pending'
+          RETURNING id`,
+        [invite.id, tx.tenantId],
+      );
+      if (burned[0] === undefined) {
+        throw invalidCredentials(null);
+      }
+
+      const existing = await tx.query<{ id: string }>(
+        `SELECT id FROM portal_identity
+          WHERE tenant_id = $1 AND lower(email) = lower($2)`,
+        [tx.tenantId, invite.email],
+      );
+      let identityId = existing[0]?.id;
+      if (identityId === undefined) {
+        identityId = randomUUID();
+        await tx.query(
+          `INSERT INTO portal_identity
+             (id, tenant_id, programme_id, email, email_masked, display_name, status)
+           VALUES ($1, $2, $3, $4, $5, $6, 'invited')`,
+          [
+            identityId,
+            tx.tenantId,
+            invite.programme_id,
+            invite.email,
+            invite.email_masked,
+            invite.email_masked,
+          ],
+        );
+      }
+
+      await tx.query(
+        `INSERT INTO portal_programme (id, tenant_id, portal_identity_id, programme_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT ON CONSTRAINT portal_programme_membership_key DO NOTHING`,
+        [randomUUID(), tx.tenantId, identityId, invite.programme_id],
+      );
+
+      return { accepted: true };
+    });
+  }
+
+  private async resolvePortalChallengeReference(
+    value: string,
+  ): Promise<{ tenantId: string; challengeId: string } | null> {
+    const composite = parseChallengeId(value);
+    if (composite !== null) {
+      return composite;
+    }
+    const lookedUp = await lookupPortalAuthChallenge(this.authPool, value);
+    return lookedUp === null
+      ? null
+      : { tenantId: lookedUp.tenantId, challengeId: value };
+  }
+
   private async verify(hash: string | null, password: string): Promise<boolean> {
     try {
       return await verifyPassword(hash ?? (await dummyPasswordHash()), password);
@@ -145,8 +294,20 @@ export class PortalService implements OnModuleInit {
     };
   }
 
-  private async activeLock(tx: AuthTx, rateKey: Buffer): Promise<AuthError | null> {
-    if (this.policy.lockoutMaxAttempts === 0) {
+  private mfaLimits() {
+    return {
+      maxAttempts: this.policy.mfaMaxAttempts,
+      windowMinutes: this.policy.lockoutWindowMinutes,
+      lockMinutes: this.policy.lockoutMinutes,
+    };
+  }
+
+  private async activeLock(
+    tx: AuthTx,
+    rateKey: Buffer,
+    limits: { maxAttempts: number; windowMinutes: number; lockMinutes: number },
+  ): Promise<AuthError | null> {
+    if (limits.maxAttempts === 0) {
       return null;
     }
     const state = await readAuthLock(tx, rateKey);
@@ -165,6 +326,46 @@ export class PortalService implements OnModuleInit {
     }
     return invalidCredentials(
       Math.max(this.policy.lockoutMaxAttempts - state.failedCount, 0),
+    );
+  }
+
+  private async failPortalMfa(
+    tx: ResolvedAuthTx,
+    challengeId: string,
+    mfaKey: Buffer,
+  ): Promise<AuthError> {
+    const mfaState = await registerAuthFailure(tx, mfaKey, this.mfaLimits());
+
+    const bumped = await tx.query<{ attempt_count: number }>(
+      `UPDATE portal_auth_challenge
+          SET attempt_count = attempt_count + 1
+        WHERE tenant_id = $1 AND id = $2 AND consumed_at IS NULL
+    RETURNING attempt_count`,
+      [tx.tenantId, challengeId],
+    );
+
+    const attempts = bumped[0]?.attempt_count;
+    if (attempts === undefined) {
+      return mfaChallengeInvalid();
+    }
+
+    if (mfaState.lockedUntil !== null && mfaState.lockedUntil.getTime() > Date.now()) {
+      await this.burnPortalChallenge(tx, challengeId);
+      return accountLocked(mfaState.lockedUntil, this.policy.cellTimeZone);
+    }
+
+    if (attempts >= this.policy.challengeMaxAttempts) {
+      await this.burnPortalChallenge(tx, challengeId);
+      return mfaChallengeInvalid();
+    }
+
+    return mfaCodeInvalid(Math.max(this.policy.challengeMaxAttempts - attempts, 0));
+  }
+
+  private async burnPortalChallenge(tx: ResolvedAuthTx, challengeId: string): Promise<void> {
+    await tx.query(
+      `UPDATE portal_auth_challenge SET consumed_at = now() WHERE tenant_id = $1 AND id = $2`,
+      [tx.tenantId, challengeId],
     );
   }
 
@@ -195,11 +396,91 @@ export class PortalService implements OnModuleInit {
         };
   }
 
-  private async issueSession(
+  private async openPortalChallenge(
     tx: ResolvedAuthTx,
     portalIdentityId: string,
     programmeId: string,
-  ): Promise<PortalSessionResponse> {
+  ): Promise<PortalMfaChallengeResponse> {
+    await tx.query(
+      `UPDATE portal_auth_challenge
+          SET consumed_at = now()
+        WHERE tenant_id = $1
+          AND portal_identity_id = $2
+          AND consumed_at IS NULL
+          AND id IN (
+            SELECT id
+              FROM portal_auth_challenge
+             WHERE tenant_id = $1
+               AND portal_identity_id = $2
+               AND consumed_at IS NULL
+               AND expires_at > now()
+             ORDER BY created_at DESC
+            OFFSET $3
+          )`,
+      [
+        tx.tenantId,
+        portalIdentityId,
+        Math.max(this.policy.maxOpenChallenges - 1, 0),
+      ],
+    );
+
+    const challengeId = randomUUID();
+    const expiresAt = new Date(Date.now() + this.policy.challengeMinutes * 60_000);
+
+    await tx.query(
+      `INSERT INTO portal_auth_challenge
+         (id, tenant_id, programme_id, portal_identity_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [challengeId, tx.tenantId, programmeId, portalIdentityId, expiresAt],
+    );
+
+    return {
+      mfaRequired: true,
+      challengeId: formatChallengeId({ tenantId: tx.tenantId, challengeId }),
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  private async findOpenPortalChallenge(
+    tx: ResolvedAuthTx,
+    challengeId: string,
+  ): Promise<
+    | { portalIdentityId: string; programmeId: string; attemptCount: number; expiresAt: Date }
+    | AuthError
+  > {
+    const rows = await tx.query<{
+      portal_identity_id: string;
+      programme_id: string;
+      attempt_count: number;
+      expires_at: Date;
+      consumed_at: Date | null;
+    }>(
+      `SELECT portal_identity_id, programme_id, attempt_count, expires_at, consumed_at
+         FROM portal_auth_challenge
+        WHERE tenant_id = $1 AND id = $2`,
+      [tx.tenantId, challengeId],
+    );
+
+    const row = rows[0];
+    if (row === undefined || row.consumed_at !== null) {
+      return mfaChallengeInvalid();
+    }
+    if (row.expires_at.getTime() <= Date.now()) {
+      return mfaChallengeExpired();
+    }
+    return {
+      portalIdentityId: row.portal_identity_id,
+      programmeId: row.programme_id,
+      attemptCount: row.attempt_count,
+      expiresAt: row.expires_at,
+    };
+  }
+
+  private async issueToken(
+    tx: ResolvedAuthTx,
+    portalIdentityId: string,
+    programmeId: string,
+  ): Promise<PortalTokenResponse> {
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + this.policy.sessionHours * 3_600_000);
     const sessionId = randomUUID();
@@ -219,9 +500,17 @@ export class PortalService implements OnModuleInit {
     );
 
     return {
-      accessToken: token,
+      token,
       tokenType: 'Bearer',
       expiresAt: expiresAt.toISOString(),
     };
+  }
+
+  private async commitThenFail<T>(outcome: Promise<T | AuthError>): Promise<T> {
+    const value = await outcome;
+    if (value instanceof AuthError) {
+      throw value;
+    }
+    return value;
   }
 }

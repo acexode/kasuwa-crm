@@ -29,11 +29,19 @@ import {
   SEED_SCRIPTS,
   SEED_TAX_PROFILES,
   SEED_TENANTS,
+  PORTAL_ACCEPT_INVITE,
+  PORTAL_ACCEPT_INVITE_TOKEN_HASH,
   PORTAL_CLIENT_EMAIL,
+  PORTAL_COOKIE_CHALLENGE_ID,
   PORTAL_IDENTITY_A,
+  PORTAL_IDENTITY_ISOLATION,
+  PORTAL_IDENTITY_READS,
+  PORTAL_ISOLATION_EMAIL,
+  PORTAL_READS_EMAIL,
   PROGRAMME_A1,
   PROGRAMME_A2,
   TENANT_A,
+  USER_A_SUPERVISOR,
   seedTotpSecret,
 } from './fixtures';
 import { newId } from './ids';
@@ -271,7 +279,7 @@ export async function runSeed(options: SeedOptions): Promise<void> {
         TENANT_A,
         PROGRAMME_A1,
         PORTAL_CLIENT_EMAIL,
-        'p***@tenant-a.test',
+        'p***@client.example',
         'Portal Client',
         seededPasswordHash,
       ],
@@ -282,6 +290,69 @@ export async function runSeed(options: SeedOptions): Promise<void> {
          VALUES ($1, $2, $3, $4)`,
         [newId(), TENANT_A, PORTAL_IDENTITY_A, programmeId],
       );
+    }
+
+    await client.query(
+      `INSERT INTO portal_auth_challenge
+         (id, tenant_id, programme_id, portal_identity_id, expires_at)
+       VALUES ($1, $2, $3, $4, now() + interval '1 day')`,
+      [PORTAL_COOKIE_CHALLENGE_ID, TENANT_A, PROGRAMME_A1, PORTAL_IDENTITY_A],
+    );
+
+    await client.query(
+      `INSERT INTO portal_invite
+         (id, tenant_id, programme_id, email, email_masked, token_hash, status,
+          invited_by_user_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, now() + interval '7 days')`,
+      [
+        PORTAL_ACCEPT_INVITE,
+        TENANT_A,
+        PROGRAMME_A1,
+        'accept.seed@client.example',
+        'a***@client.example',
+        PORTAL_ACCEPT_INVITE_TOKEN_HASH,
+        USER_A_SUPERVISOR,
+      ],
+    );
+
+    const portalFixtures = [
+      {
+        id: PORTAL_IDENTITY_READS,
+        email: PORTAL_READS_EMAIL,
+        masked: 'p***@client.example',
+        name: 'Portal Reads',
+        programmes: [PROGRAMME_A1],
+      },
+      {
+        id: PORTAL_IDENTITY_ISOLATION,
+        email: PORTAL_ISOLATION_EMAIL,
+        masked: 'p***@client.example',
+        name: 'Portal Isolation',
+        programmes: [PROGRAMME_A1],
+      },
+    ] as const;
+    for (const fixture of portalFixtures) {
+      await client.query(
+        `INSERT INTO portal_identity
+           (id, tenant_id, programme_id, email, email_masked, display_name, status, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)`,
+        [
+          fixture.id,
+          TENANT_A,
+          PROGRAMME_A1,
+          fixture.email,
+          fixture.masked,
+          fixture.name,
+          seededPasswordHash,
+        ],
+      );
+      for (const programmeId of fixture.programmes) {
+        await client.query(
+          `INSERT INTO portal_programme (id, tenant_id, portal_identity_id, programme_id)
+           VALUES ($1, $2, $3, $4)`,
+          [newId(), TENANT_A, fixture.id, programmeId],
+        );
+      }
     }
 
     for (const account of SEED_ACCOUNTS) {
