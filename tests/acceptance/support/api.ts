@@ -60,9 +60,9 @@ export async function createApi(
         withAuthDatabase({
           databaseUrl,
           poolMax: 5,
-          ...(options.portalEnabled === undefined
-            ? {}
-            : { portalEnabled: options.portalEnabled }),
+          // Portal depth is Phase 3 default-on for acceptance (D-L213). Suites
+          // that assert the flag-off 404 pass `portalEnabled: false`.
+          portalEnabled: options.portalEnabled ?? true,
           ...(options.selfServeSignup === undefined
             ? {}
             : { selfServeSignup: options.selfServeSignup }),

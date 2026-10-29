@@ -147,12 +147,14 @@ export async function assignConversationToUser(
   if (conversation === null) return false;
 
   await tx.query(
-    `DELETE FROM conversation_participant
+    `UPDATE conversation_participant
+        SET role = 'watcher', updated_at = now()
       WHERE tenant_id = $1::uuid
         AND programme_id = $2::uuid
         AND conversation_id = $3::uuid
-        AND role = 'assignee'`,
-    [tx.session.tenantId, conversation.programmeId, conversationId],
+        AND role = 'assignee'
+        AND user_id <> $4::uuid`,
+    [tx.session.tenantId, conversation.programmeId, conversationId, userId],
   );
 
   const id = newId();

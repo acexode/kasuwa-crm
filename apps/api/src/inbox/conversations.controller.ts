@@ -13,7 +13,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { ChannelProvider, DndRegister } from '@kasuwa/channel-adapter';
+import type { Pool } from 'pg';
 import { AdminErrorFilter } from '../admin/common/admin-errors';
+import { PG_POOL } from '../database/database.module';
 import { CHANNEL, DND_REGISTER } from '../messaging/channel';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
@@ -114,6 +116,7 @@ export class ConversationsController {
   constructor(
     @Inject(CHANNEL) private readonly channel: ChannelProvider,
     @Inject(DND_REGISTER) private readonly dnd: DndRegister,
+    @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(INBOX_TEMPLATES_ENABLED_TOKEN) private readonly inboxTemplatesEnabled: boolean,
   ) {}
 
@@ -122,7 +125,7 @@ export class ConversationsController {
   @HttpCode(HttpStatus.CREATED)
   @Header(CACHE_CONTROL, NO_STORE)
   async sendMessage(@Param() params: unknown, @Body() body: unknown) {
-    return sendMessageFor(currentTx(), this.channel, this.dnd, params, body, {
+    return sendMessageFor(currentTx(), this.pool, this.channel, this.dnd, params, body, {
       inboxTemplatesEnabled: this.inboxTemplatesEnabled,
     });
   }

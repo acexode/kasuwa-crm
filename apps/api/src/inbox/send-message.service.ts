@@ -17,9 +17,11 @@ import {
   hashE164ForConsent,
   isWhatsappWindowOpen,
   recordConsentCheck,
+  recordConsentCheckAutocommit,
   recordOutboundMessage,
   resolveConversationDestination,
 } from '@kasuwa/domain-core';
+import type { Pool } from 'pg';
 import { HttpStatus } from '@nestjs/common';
 import type { z } from 'zod';
 import {
@@ -126,6 +128,7 @@ async function resolveSendBody(
 
 async function auditConsentForSend(
   tx: TenantTx,
+  pool: Pool,
   dnd: DndRegister,
   programmeId: string,
   channel: string,
@@ -143,11 +146,11 @@ async function auditConsentForSend(
   try {
     answer = await dnd.isRegistered(to);
   } catch {
-    await recordConsentCheck(tx, programmeId, hash, purpose, 'unavailable');
+    await recordConsentCheckAutocommit(pool, tx.session, programmeId, hash, purpose, 'unavailable');
     throw sendUnavailable();
   }
   if (answer !== false) {
-    await recordConsentCheck(tx, programmeId, hash, purpose, 'dnd_refused');
+    await recordConsentCheckAutocommit(pool, tx.session, programmeId, hash, purpose, 'dnd_refused');
     throw dndRefused();
   }
   await recordConsentCheck(tx, programmeId, hash, purpose, 'allowed');
@@ -155,6 +158,7 @@ async function auditConsentForSend(
 
 export async function sendMessageFor(
   tx: TenantTx,
+  pool: Pool,
   channel: ChannelProvider,
   dnd: DndRegister,
   params: unknown,
@@ -185,6 +189,7 @@ export async function sendMessageFor(
 
   await auditConsentForSend(
     tx,
+    pool,
     dnd,
     destination.programmeId,
     destination.channel,

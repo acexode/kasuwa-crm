@@ -5,8 +5,20 @@ import {
   createChannelAdapter,
 } from '@kasuwa/channel-adapter';
 import type { TenantTx } from '@kasuwa/db';
+import type * as DomainCore from '@kasuwa/domain-core';
 import type { HttpException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import type { Pool } from 'pg';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@kasuwa/domain-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof DomainCore>();
+  return {
+    ...actual,
+    recordConsentCheck: vi.fn().mockResolvedValue(undefined),
+    recordConsentCheckAutocommit: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 import { sendMessageFor } from './send-message.service';
 
 async function outcome(fn: () => Promise<unknown>): Promise<Record<string, unknown>> {
@@ -25,6 +37,8 @@ const TENANT = '11111111-0000-4000-8000-000000000001';
 const PROGRAMME = '11111111-0000-4000-8000-0000000c0001';
 const CONVERSATION = '11111111-0000-4000-8000-0000001100bb';
 const CONTACT = '11111111-0000-4000-8000-0000000e0001';
+
+const fakePool = {} as Pool;
 
 function fakeTx(): TenantTx {
   return {
@@ -85,6 +99,10 @@ function fakeTx(): TenantTx {
 }
 
 describe('sendMessageFor channel errors', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('maps DND refusal to 403 dnd_refused', async () => {
     const provider = createChannelAdapter({
       provider: new FakeChannelProvider(),
@@ -95,6 +113,7 @@ describe('sendMessageFor channel errors', () => {
       await outcome(() =>
         sendMessageFor(
           fakeTx(),
+          fakePool,
           provider,
           dnd,
           { conversationId: CONVERSATION },
@@ -118,6 +137,7 @@ describe('sendMessageFor channel errors', () => {
       await outcome(() =>
         sendMessageFor(
           fakeTx(),
+          fakePool,
           provider,
           dnd,
           { conversationId: CONVERSATION },

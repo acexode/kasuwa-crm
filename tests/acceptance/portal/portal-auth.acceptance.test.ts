@@ -52,11 +52,14 @@ describe('acceptance: portal auth (T-0179)', () => {
   let app: INestApplication;
   let observer: Pool;
   let migrator: Pool;
+  /** kasuwa_app pool — presented-token probe must run as the serving role. */
+  let appPool: Pool;
 
   beforeAll(async () => {
     app = await createApi(inject('databaseUrl'));
     observer = createPool({ connectionString: inject('migrationUrl'), max: 2 });
     migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
+    appPool = createPool({ connectionString: inject('databaseUrl'), max: 2 });
   });
 
   afterEach(async () => {
@@ -67,6 +70,7 @@ describe('acceptance: portal auth (T-0179)', () => {
     await app?.close();
     await observer?.end();
     await migrator?.end();
+    await appPool?.end();
   });
 
   const server = () => app.getHttpServer();
@@ -155,10 +159,10 @@ describe('acceptance: portal auth (T-0179)', () => {
         ],
       );
 
-      const client = await observer.connect();
+      // Connect as kasuwa_app directly — migrator cannot SET ROLE to kasuwa_app.
+      const client = await appPool.connect();
       try {
         await client.query('BEGIN');
-        await client.query(`SET LOCAL ROLE kasuwa_app`);
         await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [TENANT_A]);
         await client.query(`SELECT set_config('app.programme_ids', $1, true)`, [`{${PROGRAMME_A1}}`]);
         const without = await client.query(`SELECT id FROM portal_session WHERE token_hash = $1`, [hash]);
