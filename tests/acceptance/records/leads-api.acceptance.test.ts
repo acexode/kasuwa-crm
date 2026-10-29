@@ -21,6 +21,7 @@ import {
   SEED_TENANTS,
   TENANT_A,
   TENANT_B,
+  NON_TENANT_SCOPED_TABLES,
   TENANT_SCOPED_TABLES,
   USER_A_AGENT_1,
   USER_A_AGENT_2,
@@ -3801,6 +3802,9 @@ describe('acceptance: company_name over tenants that pre-date it (T-0076)', () =
     for (const table of after.filter(
       (name) => !tablesBefore.includes(name) && !name.startsWith('_'),
     )) {
+      if ((NON_TENANT_SCOPED_TABLES as readonly string[]).includes(table)) {
+        continue;
+      }
       if (!(TENANT_SCOPED_TABLES as readonly string[]).includes(table)) {
         problems.push(`${table}: not in TENANT_SCOPED_TABLES`);
       }

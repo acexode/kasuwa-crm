@@ -54,7 +54,9 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 /** Columns that must be unreadable by the app role. */
 const SECRET_COLUMNS: Record<string, readonly string[]> = {
   portal_identity: ['password_hash'],
+  portal_invite: ['token_hash'],
   portal_session: ['token_hash'],
+  signup_attempt: ['password_hash'],
   user_credential: ['password_hash'],
   user_mfa_factor: [
     'secret',
@@ -85,6 +87,18 @@ const READABLE_COLUMNS: Record<string, readonly string[]> = {
     'tenant_id',
     'updated_at',
   ],
+  portal_invite: [
+    'created_at',
+    'email',
+    'email_masked',
+    'expires_at',
+    'id',
+    'invited_by_user_id',
+    'programme_id',
+    'status',
+    'tenant_id',
+    'updated_at',
+  ],
   portal_session: [
     'created_at',
     'expires_at',
@@ -95,6 +109,7 @@ const READABLE_COLUMNS: Record<string, readonly string[]> = {
     'tenant_id',
     'updated_at',
   ],
+  signup_attempt: [],
   user_credential: [],
   user_mfa_factor: ['confirmed_at', 'id', 'tenant_id', 'type', 'user_id'],
   user_mfa_backup_code: ['id', 'tenant_id', 'used_at', 'user_id'],
@@ -250,7 +265,9 @@ describe('acceptance: sign-in reads leave the app pool (T-0157)', () => {
       ['the backup-code hash', 'SELECT code_hash FROM user_mfa_backup_code'],
       ['SELECT * on user_mfa_backup_code', 'SELECT * FROM user_mfa_backup_code'],
       ['the portal password hash', 'SELECT password_hash FROM portal_identity'],
+      ['the portal invite digest', 'SELECT token_hash FROM portal_invite'],
       ['the portal session digest', 'SELECT token_hash FROM portal_session'],
+      ['the signup password hash', 'SELECT password_hash FROM signup_attempt'],
     ];
     for (const [label, sql] of refused) {
       it(`refuses ${label} with 42501`, async () => {
@@ -315,7 +332,7 @@ describe('acceptance: sign-in reads leave the app pool (T-0157)', () => {
   // =========================================================================
 
   describe('4. a new auth table cannot skip the revoke', () => {
-    it('every public table with a credential or secret column is one of the three listed', async () => {
+    it('every public table with a credential or secret column is one of the listed auth tables', async () => {
       const result = await catalogue.query<{ table_name: string; column_name: string }>(
         `SELECT c.table_name, c.column_name
            FROM information_schema.columns c
