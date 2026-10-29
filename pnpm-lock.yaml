@@ -86,6 +86,9 @@ importers:
       '@kasuwa/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../packages/mbs-adapter
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
@@ -358,6 +361,9 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../db
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../mbs-adapter
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../metadata-engine
@@ -399,6 +405,12 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.15
+
+  packages/mbs-adapter:
+    dependencies:
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.7
 
   packages/metadata-engine:
     dependencies:
@@ -532,6 +544,12 @@ importers:
       '@kasuwa/domain-core':
         specifier: workspace:*
         version: link:../../packages/domain/core
+      '@kasuwa/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../packages/mbs-adapter
       '@kasuwa/payments-adapter':
         specifier: workspace:*
         version: link:../../packages/payments-adapter

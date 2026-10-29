@@ -74,6 +74,13 @@ export type AdminErrorCode =
   | 'already_pending'
   | 'not_pending'
   | 'not_draft'
+  /** commerce.openapi.yaml (T-0172): invoice from quote. */
+  | 'quote_not_accepted'
+  | 'already_invoiced'
+  /** commerce.openapi.yaml (T-0174): e-invoice submit / retry. */
+  | 'not_submittable'
+  /** commerce.openapi.yaml (T-0175): FX rate missing for pair. */
+  | 'no_rate'
   /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
   | 'import_status_conflict'
   | 'upload_mismatch'

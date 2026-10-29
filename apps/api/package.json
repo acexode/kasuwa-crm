@@ -17,6 +17,7 @@
     "@kasuwa/config": "workspace:*",
     "@kasuwa/db": "workspace:*",
     "@kasuwa/domain-core": "workspace:*",
+    "@kasuwa/mbs-adapter": "workspace:*",
     "@kasuwa/feature-flags": "workspace:*",
     "@kasuwa/metadata-engine": "workspace:*",
     "@kasuwa/permissions": "workspace:*",

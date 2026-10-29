@@ -18,3 +18,4 @@ export {
   STUB_USER_HEADER,
   type AuthContext,
 } from './tenancy/auth-context';
+export { setMbsProviderForTests } from './commerce/einvoice.service';

@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Commerce API
-  version: 0.1.0-T-0167
+  version: 0.1.0-T-0175
   description: |
     Programme-scoped product catalogue (T-0164), quotes (T-0165 / D-L211),
     discount approvals (T-0166), and quote PDF / email send (T-0167). Currencies
@@ -406,6 +406,111 @@ components:
       required: [decision]
       properties:
         decision: { type: string, enum: [approved, rejected] }
+    TaxLine:
+      type: object
+      additionalProperties: false
+      required: [id, code, rateBps, amountMinor]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        rateBps: { type: integer, minimum: 0, maximum: 10000 }
+        amountMinor: { type: string, pattern: '^\\d{1,18}$' }
+    InvoiceLine:
+      type: object
+      additionalProperties: false
+      required: [id, description, quantity, unitAmountMinor]
+      properties:
+        id: { type: string, format: uuid }
+        description: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitAmountMinor: { type: string, pattern: '^\\d{1,18}$' }
+    Invoice:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - programmeId
+        - quoteId
+        - number
+        - status
+        - currency
+        - totalMinor
+        - taxMinor
+        - lines
+        - taxLines
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        quoteId: { type: string, format: uuid, nullable: true }
+        number: { type: string }
+        status: { type: string, enum: [draft, issued, paid, void, overdue] }
+        currency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        totalMinor: { type: string, pattern: '^\\d{1,18}$' }
+        taxMinor: { type: string, pattern: '^\\d{1,18}$' }
+        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLine' } }
+        taxLines: { type: array, items: { $ref: '#/components/schemas/TaxLine' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SetInvoiceStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [draft, issued, paid, void, overdue] }
+    Einvoice:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, invoiceId, irn, status, qrPayload, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        invoiceId: { type: string, format: uuid }
+        irn: { type: string, nullable: true }
+        status: { type: string, enum: [draft, submitted, cleared, failed] }
+        qrPayload: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FxRate:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, baseCurrency, quoteCurrency, rateMicros, effectiveAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        baseCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        quoteCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        rateMicros: { type: string, pattern: '^\\d{1,18}$' }
+        effectiveAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    CreateFxRateRequest:
+      type: object
+      additionalProperties: false
+      required: [baseCurrency, quoteCurrency, rateMicros]
+      properties:
+        baseCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        quoteCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        rateMicros: { type: string, pattern: '^\\d{1,18}$' }
+        effectiveAt: { type: string, format: date-time }
+    FxLock:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, dealId, rateMicros, expiresAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        dealId: { type: string, format: uuid }
+        rateMicros: { type: string, pattern: '^\\d{1,18}$' }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    CreateFxLockRequest:
+      type: object
+      additionalProperties: false
+      required: [baseCurrency, quoteCurrency]
+      properties:
+        baseCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        quoteCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
 
 
 security:
@@ -1122,4 +1227,250 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/programmes/{programmeId}/invoices:
+    get:
+      operationId: listInvoices
+      x-kasuwa-implemented: true
+      summary: List invoices in a programme
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Invoice' }
+        '404':
+          description: Programme not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/quotes/{quoteId}/invoices:
+    post:
+      operationId: createInvoiceFromQuote
+      x-kasuwa-implemented: true
+      summary: Create a draft invoice from an accepted quote
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '400':
+          description: Quote not accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Already invoiced
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/invoices/{invoiceId}:
+    get:
+      operationId: getInvoice
+      x-kasuwa-implemented: true
+      summary: Get an invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Invoice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/invoices/{invoiceId}/status:
+    post:
+      operationId: setInvoiceStatus
+      x-kasuwa-implemented: true
+      summary: Change invoice status
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetInvoiceStatusRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+  /api/v1/invoices/{invoiceId}/einvoice:
+    get:
+      operationId: getEinvoice
+      x-kasuwa-implemented: true
+      summary: Get e-invoice submission state
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: E-invoice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Einvoice' }
+  /api/v1/invoices/{invoiceId}/einvoice/submit:
+    post:
+      operationId: submitEinvoice
+      x-kasuwa-implemented: true
+      summary: Submit invoice to Fake MBS
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Einvoice' }
+  /api/v1/invoices/{invoiceId}/einvoice/retry:
+    post:
+      operationId: retryEinvoice
+      x-kasuwa-implemented: true
+      summary: Retry a failed e-invoice submission
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Retried
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Einvoice' }
+  /api/v1/programmes/{programmeId}/fx-rates:
+    get:
+      operationId: listFxRates
+      x-kasuwa-implemented: true
+      summary: List FX rates
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Rates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/FxRate' }
+    post:
+      operationId: createFxRate
+      x-kasuwa-implemented: true
+      summary: Admin-entered FX rate
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFxRateRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FxRate' }
+  /api/v1/programmes/{programmeId}/fx-rates/latest:
+    get:
+      operationId: getLatestFxRate
+      x-kasuwa-implemented: true
+      summary: Latest FX rate for a pair
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: baseCurrency
+          in: query
+          required: true
+          schema: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        - name: quoteCurrency
+          in: query
+          required: true
+          schema: { type: string, enum: [NGN, GHS, KES, ZAR] }
+      responses:
+        '200':
+          description: Rate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FxRate' }
+  /api/v1/deals/{dealId}/fx-lock:
+    get:
+      operationId: getFxLock
+      x-kasuwa-implemented: true
+      summary: Active FX lock on a deal
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lock
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FxLock' }
+    post:
+      operationId: createFxLock
+      x-kasuwa-implemented: true
+      summary: Lock the latest FX rate for 24h
+      parameters:
+        - name: dealId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFxLockRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FxLock' }
 

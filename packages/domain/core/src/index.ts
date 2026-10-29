@@ -50,6 +50,12 @@ export * from './notification/owner-events';
 export * from './notification/notification-handler';
 export * from './notification/notification.repository';
 export * from './home/home-layout.repository';
+export * from './onboarding/onboarding.repository';
+export {
+  organisationToSlug,
+  provisionSelfServeTenant,
+  type SelfServeProvisionInput,
+} from './self-serve/provision-from-signup';
 export * from './commerce/catalogue.types';
 export * from './commerce/catalogue.repository';
 export * from './commerce/quotes.types';
@@ -59,6 +65,12 @@ export * from './commerce/approvals.repository';
 export * from './commerce/quote-pdf';
 export * from './commerce/quote-send.repository';
 export * from './commerce/payment-links.repository';
+export * from './commerce/invoices.types';
+export * from './commerce/invoices.repository';
+export * from './commerce/tax.types';
+export * from './commerce/tax.repository';
+export * from './commerce/einvoice.repository';
+export * from './commerce/fx.repository';
 export * from './inbox/conversations.types';
 export * from './inbox/conversations.repository';
 export * from './inbox/message-body-redact';

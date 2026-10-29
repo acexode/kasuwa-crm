@@ -15,6 +15,13 @@ import {
   PaymentLinksQuoteController,
 } from './payment-links.controller';
 import { PaymentWebhooksController } from '../webhooks/payment-webhooks.controller';
+import {
+  InvoicesController,
+  InvoicesProgrammeController,
+  InvoicesQuoteController,
+} from './invoices.controller';
+import { EinvoiceController } from './einvoice.controller';
+import { FxDealController, FxProgrammeController } from './fx.controller';
 
 @Module({
   controllers: [
@@ -29,6 +36,12 @@ import { PaymentWebhooksController } from '../webhooks/payment-webhooks.controll
     PaymentLinksQuoteController,
     PaymentLinksController,
     PaymentWebhooksController,
+    InvoicesProgrammeController,
+    InvoicesQuoteController,
+    InvoicesController,
+    EinvoiceController,
+    FxProgrammeController,
+    FxDealController,
   ],
 })
 export class CommerceModule {}
