@@ -13,4 +13,13 @@ describe('portal invite repository helpers (T-0180)', () => {
     expect(portalInviteRateLimited(4)).toBe(false);
     expect(portalInviteRateLimited(5)).toBe(true);
   });
+
+  it('treats each resend row as a countable attempt (W3-13)', () => {
+    // countRecentPortalInvites counts portal_invite rows; revoke+insert must
+    // leave five rows after five invites so the sixth is refused.
+    expect(portalInviteRateLimited(0)).toBe(false);
+    expect(portalInviteRateLimited(1)).toBe(false);
+    expect(portalInviteRateLimited(5)).toBe(true);
+    expect(portalInviteRateLimited(6)).toBe(true);
+  });
 });

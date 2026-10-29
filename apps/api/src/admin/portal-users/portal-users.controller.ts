@@ -13,7 +13,7 @@ import {
   newPortalInviteId,
   portalInviteRateLimited,
   PortalUserNotInvitableError,
-  rotatePortalInviteToken,
+  revokePendingPortalInvites,
   upsertPortalInvitation,
 } from '@kasuwa/domain-core';
 import type { TenantTx } from '@kasuwa/db';
@@ -111,24 +111,19 @@ export class PortalUsersController {
       throw notFound();
     }
 
-    const rotatedId = await rotatePortalInviteToken(
-      tx,
+    // W3-13 / T-0180: each invite attempt inserts a new portal_invite row.
+    // Revoke prior pending for this address first so only one live token remains
+    // and countRecentPortalInvites can enforce the 5/hour per-address cap.
+    await revokePendingPortalInvites(tx, programmeId, input.email);
+    await insertPortalInvite(tx, {
+      id: newPortalInviteId(),
       programmeId,
-      input.email,
+      email: input.email,
+      emailMasked,
       tokenHashHex,
+      invitedByUserId: tx.session.userId,
       expiresAt,
-    );
-    if (rotatedId === null) {
-      await insertPortalInvite(tx, {
-        id: newPortalInviteId(),
-        programmeId,
-        email: input.email,
-        emailMasked,
-        tokenHashHex,
-        invitedByUserId: tx.session.userId,
-        expiresAt,
-      });
-    }
+    });
 
     await auditPortalUserInvited(tx, programmeId, {
       portalUserId: result.user.id,

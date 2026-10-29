@@ -77,6 +77,32 @@ export async function insertPortalInvite(
   );
 }
 
+/**
+ * Revoke every pending invite for an address so a resend inserts a new row.
+ * Rate limiting counts `portal_invite` rows in the window (T-0180); in-place
+ * token rotation left the count at 1 and never tripped the 5/hour cap.
+ */
+export async function revokePendingPortalInvites(
+  tx: TenantTx,
+  programmeId: string,
+  email: string,
+): Promise<number> {
+  const rows = await tx.query<{ id: string }>(
+    `UPDATE portal_invite AS pi
+        SET status = 'revoked',
+            updated_at = now()
+      WHERE pi.tenant_id = $1
+        AND pi.programme_id = $2
+        AND pi.programme_id = ANY($4::uuid[])
+        AND lower(pi.email) = lower($3)
+        AND pi.status = 'pending'
+      RETURNING pi.id`,
+    [tx.session.tenantId, programmeId, email, tx.session.programmeIds],
+  );
+  return rows.length;
+}
+
+/** @deprecated Prefer revokePendingPortalInvites + insertPortalInvite (W3-13). */
 export async function rotatePortalInviteToken(
   tx: TenantTx,
   programmeId: string,
