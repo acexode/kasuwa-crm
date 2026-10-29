@@ -81,6 +81,10 @@ const LIVE_PORTAL_SESSION_SQL = `
 /**
  * Resolves a portal bearer token to identifiers, without a third SECURITY DEFINER.
  * Presents the token hash in a transaction-local GUC; RLS admits the matching row.
+ *
+ * Must run as `kasuwa_auth` (AUTH_PG_POOL). The presented-token policy references
+ * `token_hash`, which `kasuwa_app` cannot SELECT (0061/0068); policy expressions
+ * evaluate with the invoking role's privileges.
  */
 export async function resolvePortalSessionIdentity(
   pool: Pool,

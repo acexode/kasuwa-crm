@@ -8,7 +8,7 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, inject, it } from 'vitest';
 import { parse } from 'yaml';
-import { createApi } from '../support/api';
+import { authDatabaseUrl, createApi } from '../support/api';
 
 /**
  * ACCEPTANCE — T-0179 (M18 P0, Phase 3 S2): portal identity, session and MFA.
@@ -52,13 +52,19 @@ describe('acceptance: portal auth (T-0179)', () => {
   let app: INestApplication;
   let observer: Pool;
   let migrator: Pool;
-  /** kasuwa_app pool — presented-token probe must run as the serving role. */
+  /**
+   * kasuwa_auth pool — presented-token policy is TO kasuwa_auth only (0068);
+   * kasuwa_app cannot evaluate a policy that names token_hash.
+   */
+  let authPool: Pool;
+  /** kasuwa_app — proves in-session isolation SELECT still works without token_hash. */
   let appPool: Pool;
 
   beforeAll(async () => {
     app = await createApi(inject('databaseUrl'));
     observer = createPool({ connectionString: inject('migrationUrl'), max: 2 });
     migrator = createPool({ connectionString: inject('migrationUrl'), max: 2 });
+    authPool = createPool({ connectionString: authDatabaseUrl(), max: 2 });
     appPool = createPool({ connectionString: inject('databaseUrl'), max: 2 });
   });
 
@@ -70,6 +76,7 @@ describe('acceptance: portal auth (T-0179)', () => {
     await app?.close();
     await observer?.end();
     await migrator?.end();
+    await authPool?.end();
     await appPool?.end();
   });
 
@@ -159,30 +166,46 @@ describe('acceptance: portal auth (T-0179)', () => {
         ],
       );
 
-      // Connect as kasuwa_app directly — migrator cannot SET ROLE to kasuwa_app.
-      // Match resolvePortalSessionIdentity (ADR-0021 §4): present the token hash
-      // alone — no tenant GUC. Tenant isolation still ORs for in-session work, so
-      // setting app.tenant_id here would admit the row without the token GUC.
-      const client = await appPool.connect();
+      // Resolve path: kasuwa_auth, token GUC only — same as resolvePortalSessionIdentity.
+      // Do not set app.tenant_id: isolation ORs and would admit the row without the token.
+      const authClient = await authPool.connect();
       try {
-        await client.query('BEGIN');
-        const without = await client.query(`SELECT id FROM portal_session`);
+        await authClient.query('BEGIN');
+        const without = await authClient.query(`SELECT id FROM portal_session`);
         expect(without.rows, 'without token GUC: presented-token policy admits nothing').toHaveLength(
           0,
         );
 
-        await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [hash]);
-        const withGuc = await client.query(`SELECT id FROM portal_session`);
+        await authClient.query(`SELECT set_config('app.portal_session_token', $1, true)`, [hash]);
+        const withGuc = await authClient.query(`SELECT id FROM portal_session`);
         expect(withGuc.rows, 'with token GUC: own session row').toHaveLength(1);
 
-        await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [
+        await authClient.query(`SELECT set_config('app.portal_session_token', $1, true)`, [
           'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
         ]);
-        const wrong = await client.query(`SELECT id FROM portal_session`);
+        const wrong = await authClient.query(`SELECT id FROM portal_session`);
         expect(wrong.rows, 'wrong hash must not return the row').toHaveLength(0);
-        await client.query('ROLLBACK');
+        await authClient.query('ROLLBACK');
       } finally {
-        client.release();
+        authClient.release();
+      }
+
+      // In-session path: kasuwa_app under tenant isolation must SELECT without
+      // evaluating a policy that names token_hash (0068).
+      const appClient = await appPool.connect();
+      try {
+        await appClient.query('BEGIN');
+        await appClient.query(`SELECT set_config('app.tenant_id', $1, true)`, [TENANT_A]);
+        await appClient.query(`SELECT set_config('app.programme_ids', $1, true)`, [
+          `{${PROGRAMME_A1}}`,
+        ]);
+        const live = await appClient.query(`SELECT id FROM portal_session`);
+        expect(live.rows, 'kasuwa_app isolation SELECT must not 42501 on token_hash').toHaveLength(
+          1,
+        );
+        await appClient.query('ROLLBACK');
+      } finally {
+        appClient.release();
       }
     });
   });
