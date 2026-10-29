@@ -71,10 +71,9 @@ function requireRealSession(request: Request): string {
  * see the comment there. `/me` is an ordinary authenticated route and carries
  * both decorators like any other.
  *
- * The 501 routes are in the published contract and deliberately not built:
- * sign-up provisions a tenant, and OTP delivery needs a channel provider. Both
- * are decisions T-0001 does not own. They answer rather than 404 so that a
- * screen built against the contract gets a clear, documented refusal.
+ * Self-serve sign-up / OTP (T-0016) sit behind `self_serve_signup` and answer
+ * `404 not_found` when the flag is off (D-L213). MFA `method: sms` reissue
+ * remains `501 not_implemented` until a production channel provider lands.
  */
 @Controller('api/v1/auth')
 export class AuthController {

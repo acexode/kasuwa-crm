@@ -534,15 +534,11 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/3']
       description: |
-        **Contract only in T-0001 — do not wire this screen yet.**
+        Self-serve workspace sign-up (T-0016), behind `self_serve_signup`
+        (default off). When the flag is off, answers `404 not_found` so the
+        route looks absent (D-L213 / W3-1) — never `501`.
 
-        Creating a workspace means creating a tenant, and where that tenant's
-        data lives (`P01/5.1`: South Africa, Nigeria, Kenya) is a regulatory and
-        architectural decision, not an implementation detail. T-0001 does not
-        provision tenants. The shape below is published so `P01/3` can be built
-        against a mock; the lead must settle tenant provisioning before it is
-        wired.
-
+        ZA is the only self-serve region in MVP (D-P2); NG/KE remain sales-led.
         Note the response: **always `202`, with the same body, whether or not an
         account already exists for that email.** An account-already-exists error
         on a public sign-up form is a user-enumeration oracle. The existing
@@ -556,9 +552,9 @@ paths:
             example:
               fullName: Amina Bello
               email: amina@example.test
-              phoneE164: '+2348030000000'
+              phoneE164: '+27820000001'
               organisationName: Example Contact Services
-              country: NG
+              country: ZA
               employeeSize: '51-200'
               isBpo: true
               password: '<the password, never logged and never echoed>'
@@ -572,12 +568,12 @@ paths:
               example:
                 verificationId: 4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44
                 emailHint: 'a•••a@example.test'
-                phoneHint: '+234 ••• ••• 0000'
+                phoneHint: '+278 ••• ••• 0001'
                 expiresAt: '2026-09-27T10:08:00.000Z'
                 resendAvailableAt: '2026-09-27T09:59:00.000Z'
         '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/ResendTooSoon' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
 
   /api/v1/auth/verify-otp:
     post:
@@ -587,8 +583,9 @@ paths:
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/4']
       description: |
-        Self-serve verification (T-0016). SMS OTP is delivered through the channel
-        adapter (fake in development/test until B1 is resolved).
+        Self-serve verification (T-0016), behind `self_serve_signup`. When the
+        flag is off, answers `404 not_found`. SMS OTP is delivered through the
+        channel adapter (fake in development/test until B1 is resolved).
 
         Codes last ten minutes and allow five attempts. `otp_expired` and
         `otp_invalid` are separate codes because the caller has already proved
@@ -616,8 +613,8 @@ paths:
                 nextStep: onboarding
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/OtpRejected' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/OtpTooManyAttempts' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
 
   /api/v1/auth/verify-otp/resend:
     post:
@@ -626,6 +623,9 @@ paths:
       operationId: resendOtp
       x-kasuwa-implemented: true
       x-kasuwa-screens: ['P01/4']
+      description: |
+        Re-sends the self-serve OTP (T-0016), behind `self_serve_signup`. When
+        the flag is off, answers `404 not_found`.
       security: []
       requestBody:
         required: true
@@ -638,9 +638,15 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VerificationStarted' }
+              example:
+                verificationId: 4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44
+                emailHint: 'a•••a@example.test'
+                phoneHint: '+278 ••• ••• 0001'
+                expiresAt: '2026-09-27T10:08:00.000Z'
+                resendAvailableAt: '2026-09-27T09:59:00.000Z'
         '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/ResendTooSoon' }
-        '501': { $ref: '#/components/responses/NotImplemented' }
 
   /api/v1/me/onboarding:
     get:
@@ -1131,6 +1137,7 @@ components:
             - otp_expired
             - otp_too_many_attempts
             - not_authenticated
+            - not_found
             - not_implemented
             - service_unavailable
             - internal_error
@@ -1412,10 +1419,26 @@ components:
           description: Seconds to wait before retrying. A constant, not a measure of load.
           schema: { type: integer, minimum: 1 }
 
+    NotFound:
+      description: |
+        The resource is absent, or a flag-gated route is off so the surface
+        looks absent (`self_serve_signup`, `onboarding_persistence`). Same
+        `404 not_found` body either way — never an existence leak.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            statusCode: 404
+            error: Not Found
+            code: not_found
+            message: Not found
+
     NotImplemented:
       description: |
         Specified but not built in T-0001. The `code` is `not_implemented` and
-        the screen should stay on its mock.
+        the screen should stay on its mock. Kept for partial MFA methods
+        (`reissueMfaChallenge` with `method: sms`) — not for self-serve
+        sign-up (flag-off is `404`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

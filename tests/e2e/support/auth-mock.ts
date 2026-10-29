@@ -55,14 +55,10 @@ export interface MockOptions {
   /** Force the next MFA verify to this outcome. */
   readonly forceMfa?: 'expired' | 'unusable';
   /**
-   * Answer the self-serve operations (`signUp`, `verifyOtp`) from the
-   * contract's own examples instead of its 501. They are
-   * `x-kasuwa-implemented: false` — T-0016 builds them — and their screens sit
-   * behind `self_serve_signup`, so only the flag-on specs set this.
-   *
-   * `resendOtp` stays 501 even then: the contract publishes no 202 example
-   * for it, and inventing one here is exactly the drift this mock exists to
-   * prevent. Reported in team/reports/T-0007b.md.
+   * Answer the self-serve operations (`signUp`, `verifyOtp`, `resendOtp`) from
+   * the contract's success examples. They are built (T-0016) behind
+   * `self_serve_signup`; when this option is omitted they answer `404
+   * not_found` like the live API with the flag off (D-L213 / W3-1).
    */
   readonly selfServe?: boolean;
   /** Force the next one-time-code verify (P01/4) to this outcome. */
@@ -148,12 +144,24 @@ export async function installAuthMock(page: Page, options: MockOptions = {}): Pr
     const body: Record<string, unknown> =
       raw === null ? {} : (JSON.parse(raw) as Record<string, unknown>);
 
-    if (options.selfServe === true && operation.operationId === 'signUp') {
-      await handleSignUp(route);
-      return;
-    }
-    if (options.selfServe === true && operation.operationId === 'verifyOtp') {
-      await handleVerifyOtp(route, body, options);
+    if (
+      operation.operationId === 'signUp' ||
+      operation.operationId === 'verifyOtp' ||
+      operation.operationId === 'resendOtp'
+    ) {
+      if (options.selfServe !== true) {
+        await json(route, 404, contractExample(operation.operationId as AuthOperationId, 404));
+        return;
+      }
+      if (operation.operationId === 'signUp') {
+        await handleSignUp(route);
+        return;
+      }
+      if (operation.operationId === 'verifyOtp') {
+        await handleVerifyOtp(route, body, options);
+        return;
+      }
+      await json(route, 202, contractExample('resendOtp', 202));
       return;
     }
 

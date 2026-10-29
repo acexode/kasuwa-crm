@@ -207,6 +207,37 @@ export const AUTH_OPERATIONS = [
     }
   },
   {
+    "operationId": "getOnboarding",
+    "method": "GET",
+    "path": "/api/v1/me/onboarding",
+    "implemented": "true",
+    "screens": [
+      "P01/5.2",
+      "P01/5.3",
+      "P01/5.4",
+      "P01/5.5",
+      "P01/6"
+    ],
+    "responses": {
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      }
+    }
+  },
+  {
     "operationId": "lookupSso",
     "method": "POST",
     "path": "/api/v1/auth/sso/lookup",
@@ -243,6 +274,51 @@ export const AUTH_OPERATIONS = [
           "error": "Not Found",
           "code": "sso_domain_not_found",
           "message": "We could not find single sign-on for that domain."
+        }
+      }
+    }
+  },
+  {
+    "operationId": "putOnboardingStep",
+    "method": "PUT",
+    "path": "/api/v1/me/onboarding/step",
+    "implemented": "true",
+    "screens": [
+      "P01/5.2",
+      "P01/5.3",
+      "P01/5.4",
+      "P01/5.5",
+      "P01/6"
+    ],
+    "responses": {
+      "400": {
+        "default": {
+          "statusCode": 400,
+          "error": "Bad Request",
+          "code": "validation_failed",
+          "message": "Validation failed",
+          "details": [
+            {
+              "path": "email",
+              "code": "invalid_string"
+            }
+          ]
+        }
+      },
+      "401": {
+        "default": {
+          "statusCode": 401,
+          "error": "Unauthorized",
+          "code": "not_authenticated",
+          "message": "Not authenticated"
+        }
+      },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
         }
       }
     }
@@ -365,11 +441,20 @@ export const AUTH_OPERATIONS = [
     "operationId": "resendOtp",
     "method": "POST",
     "path": "/api/v1/auth/verify-otp/resend",
-    "implemented": "false",
+    "implemented": "true",
     "screens": [
       "P01/4"
     ],
     "responses": {
+      "202": {
+        "default": {
+          "verificationId": "4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44",
+          "emailHint": "a•••a@example.test",
+          "phoneHint": "+278 ••• ••• 0001",
+          "expiresAt": "2026-09-27T10:08:00.000Z",
+          "resendAvailableAt": "2026-09-27T09:59:00.000Z"
+        }
+      },
       "400": {
         "default": {
           "statusCode": 400,
@@ -384,6 +469,14 @@ export const AUTH_OPERATIONS = [
           ]
         }
       },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
       "429": {
         "default": {
           "statusCode": 429,
@@ -392,14 +485,6 @@ export const AUTH_OPERATIONS = [
           "message": "Wait a moment before asking for another code.",
           "retryAt": "2026-09-27T10:03:00.000Z",
           "timeZone": "Africa/Lagos"
-        }
-      },
-      "501": {
-        "default": {
-          "statusCode": 501,
-          "error": "Not Implemented",
-          "code": "not_implemented",
-          "message": "This endpoint is not available yet."
         }
       }
     }
@@ -494,7 +579,7 @@ export const AUTH_OPERATIONS = [
     "operationId": "signUp",
     "method": "POST",
     "path": "/api/v1/auth/sign-up",
-    "implemented": "false",
+    "implemented": "true",
     "screens": [
       "P01/3"
     ],
@@ -503,7 +588,7 @@ export const AUTH_OPERATIONS = [
         "default": {
           "verificationId": "4a1c9b60-2d77-4c55-9a3e-8f6b1d0e2c44",
           "emailHint": "a•••a@example.test",
-          "phoneHint": "+234 ••• ••• 0000",
+          "phoneHint": "+278 ••• ••• 0001",
           "expiresAt": "2026-09-27T10:08:00.000Z",
           "resendAvailableAt": "2026-09-27T09:59:00.000Z"
         }
@@ -522,6 +607,14 @@ export const AUTH_OPERATIONS = [
           ]
         }
       },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
       "429": {
         "default": {
           "statusCode": 429,
@@ -530,14 +623,6 @@ export const AUTH_OPERATIONS = [
           "message": "Wait a moment before asking for another code.",
           "retryAt": "2026-09-27T10:03:00.000Z",
           "timeZone": "Africa/Lagos"
-        }
-      },
-      "501": {
-        "default": {
-          "statusCode": 501,
-          "error": "Not Implemented",
-          "code": "not_implemented",
-          "message": "This endpoint is not available yet."
         }
       }
     }
@@ -729,7 +814,7 @@ export const AUTH_OPERATIONS = [
     "operationId": "verifyOtp",
     "method": "POST",
     "path": "/api/v1/auth/verify-otp",
-    "implemented": "false",
+    "implemented": "true",
     "screens": [
       "P01/4"
     ],
@@ -770,6 +855,14 @@ export const AUTH_OPERATIONS = [
           "message": "That code has expired. Codes last ten minutes."
         }
       },
+      "404": {
+        "default": {
+          "statusCode": 404,
+          "error": "Not Found",
+          "code": "not_found",
+          "message": "Not found"
+        }
+      },
       "429": {
         "default": {
           "statusCode": 429,
@@ -778,14 +871,6 @@ export const AUTH_OPERATIONS = [
           "message": "Too many attempts. Ask for a new code.",
           "retryAt": "2026-09-27T10:12:00.000Z",
           "timeZone": "Africa/Lagos"
-        }
-      },
-      "501": {
-        "default": {
-          "statusCode": 501,
-          "error": "Not Implemented",
-          "code": "not_implemented",
-          "message": "This endpoint is not available yet."
         }
       }
     }
