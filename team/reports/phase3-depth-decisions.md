@@ -83,6 +83,6 @@ Taken while clearing the remaining Tenant isolation failures on #250 (`b22fb75` 
 | W3-3 | **Migration `0067`: kasuwa_auth RLS on portal_identity / portal_session / portal_programme** | Grants alone are not enough under FORCE RLS; sign-in/MFA were 401 because auth could not see rows |
 | W3-4 | **Grant `DELETE` on `tax_line` to kasuwa_app** | `replaceTaxLines` deletes then inserts; without DELETE, invoice-from-quote returned 500 |
 | W3-5 | **Grant column `UPDATE` on message outbound fields + `created_at`** | 0065 revoked table UPDATE; inbox window fixtures and send paths need those columns |
-| W3-6 | **Presented-token probe selects `id` only (no `WHERE token_hash`)** | Column revoke means naming `token_hash` in the query is `permission denied`; RLS still evaluates the digest via the GUC |
+| W3-6 | **Presented-token probe selects `id` only (no `WHERE token_hash`) and sets no tenant GUC** | Column revoke means naming `token_hash` in the query is `permission denied`; probe mirrors `resolvePortalSessionIdentity` (token GUC alone). Tenant isolation still ORs for in-session re-reads per ADR-0021 |
 | W3-7 | **Acceptance extracts invite tokens from `#token=` first** | Aligns suites with W2-12 fragment-only email body without reintroducing query tokens |
 | W3-8 | **Portal invites suite boots with explicit `portalEnabled: true`** | Suite used `AppModule.forRoot` directly (not `createApi`); accept path must not 404 behind the portal guard |

@@ -160,19 +160,20 @@ describe('acceptance: portal auth (T-0179)', () => {
       );
 
       // Connect as kasuwa_app directly — migrator cannot SET ROLE to kasuwa_app.
+      // Match resolvePortalSessionIdentity (ADR-0021 §4): present the token hash
+      // alone — no tenant GUC. Tenant isolation still ORs for in-session work, so
+      // setting app.tenant_id here would admit the row without the token GUC.
       const client = await appPool.connect();
       try {
         await client.query('BEGIN');
-        await client.query(`SELECT set_config('app.tenant_id', $1, true)`, [TENANT_A]);
-        await client.query(`SELECT set_config('app.programme_ids', $1, true)`, [`{${PROGRAMME_A1}}`]);
-        // kasuwa_app cannot reference token_hash (0061 column revoke); resolve uses
-        // presented-token RLS on a plain SELECT, same as resolvePortalSessionIdentity.
         const without = await client.query(`SELECT id FROM portal_session`);
-        expect(without.rows, 'without GUC: presented-token policy admits nothing').toHaveLength(0);
+        expect(without.rows, 'without token GUC: presented-token policy admits nothing').toHaveLength(
+          0,
+        );
 
         await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [hash]);
         const withGuc = await client.query(`SELECT id FROM portal_session`);
-        expect(withGuc.rows, 'with GUC: own session row').toHaveLength(1);
+        expect(withGuc.rows, 'with token GUC: own session row').toHaveLength(1);
 
         await client.query(`SELECT set_config('app.portal_session_token', $1, true)`, [
           'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
