@@ -59,6 +59,7 @@ export class InvoicesController {
 
   /** operationId setInvoiceStatus */
   @Post(':invoiceId/status')
+  @HttpCode(HttpStatus.OK)
   async setStatus(@Param() params: unknown, @Body() body: unknown) {
     return setInvoiceStatusFor(currentTx(), params, body);
   }

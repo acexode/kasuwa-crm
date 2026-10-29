@@ -1035,11 +1035,12 @@ describe('acceptance: permissions engine (T-0032)', () => {
       // weak one costs. A new entry here is a decision for the lead, made in
       // this file — not something a migration does quietly. Restrictive
       // policies (AND-ed, they can only narrow) are not listed.
+      // Sorted to match the catalogue query ORDER BY 1.
       const ALLOWED = [
-        'programme.programme_insert_in_tenant',
         // T-0180 / 0064: kasuwa_auth links portal identities on invite accept (ADR-0021).
         'portal_identity.portal_identity_auth_insert',
         'portal_programme.portal_programme_auth_insert',
+        'programme.programme_insert_in_tenant',
       ];
 
       const policies = await observer.query<{ name: string }>(
