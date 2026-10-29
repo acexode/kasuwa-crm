@@ -7,11 +7,11 @@
 
 ## Verdict
 
-**Engineering depth for Phase 3 under D-L213 is complete on the PR branch.** Portal → inbox → screens → commerce P1 → S4 landed behind flags, with B1–B5 standing provisionals and WS5 out of phase.
+**Engineering depth for Phase 3 under D-L213 is complete on the PR branch.** Portal → inbox → screens → commerce P1 → S4 landed behind flags, with B1–B5 standing provisionals and WS5 out of phase. Wave-3 isolation fixes shipped as `730e5ef` (migration **0067** + acceptance aligns).
 
 **Phase is not closed on `main` until you:**
 
-1. Confirm CI green on #250 (unit / commitlint fixed; isolation+integration need Docker CI).
+1. Confirm **full CI green** on #250 at `730e5ef` (Guard alone is not enough).
 2. Squash-merge #250 (agents do not self-merge).
 3. Pass PLAN §6.10 hands-on `pnpm demo`.
 4. Complete D-A3 reviews where flagged (T-0157, T-0169, T-0016, T-0173, T-0174, T-0177).
@@ -57,6 +57,8 @@ See `team/reports/phase3-depth-decisions.md` (product table + engineering + wave
 | 2 | Docs | STATUS + decisions refreshed |
 | 2 | QA explore | PLAN §6 audit (`/tmp/agent-qa-phase-exit.md`) |
 | 2 | Tenancy / security / deferred honesty | Parallel reviews (see `/tmp/agent-*.md`) |
+| 3 | Isolation root-cause agents | Portal auth RLS, invoice tax DELETE, message UPDATE, OpenAPI audited, signup 404 |
+| 3 | Fixer (`bc-63b1d8dc`) | Landed migration **0067** + acceptance aligns as `730e5ef` |
 
 ## Residual risks
 

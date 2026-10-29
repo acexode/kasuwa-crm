@@ -71,3 +71,18 @@ Decisions taken while aligning the branch with commitlint and unit expectations 
 | W2-5 | **`OnboardingController` + inbox controllers in no-store middleware expectations** | Cache-control census must include Phase 3 HTTP surfaces that carry session or PII-adjacent reads |
 | W2-6 | **`PortalBrandingController` in `admin.module.test` census** | Admin module route inventory matches landed portal branding API |
 | W2-7 | **Portal invite audit test mocks tenant slug query** | Audit assertion path resolves tenant context without an unscoped slug lookup in the suite |
+
+## Lead judgements during isolation green (wave 3)
+
+Taken while clearing the remaining Tenant isolation failures on #250 (`b22fb75` → `730e5ef`).
+
+| # | Judgement | Rationale |
+|---|---|---|
+| W3-1 | **Self-serve flag-off answers `404 not_found`, not `501`** | Existence non-leak matches the rest of the HTTP surface; lead-approved acceptance edit under D-L213 |
+| W3-2 | **`listPortalInvitations` is `x-kasuwa-audited: false`** | Read-only list; invite creation (`invitePortalUser`) remains audited — avoids shipping an unaudited write probe gap |
+| W3-3 | **Migration `0067`: kasuwa_auth RLS on portal_identity / portal_session / portal_programme** | Grants alone are not enough under FORCE RLS; sign-in/MFA were 401 because auth could not see rows |
+| W3-4 | **Grant `DELETE` on `tax_line` to kasuwa_app** | `replaceTaxLines` deletes then inserts; without DELETE, invoice-from-quote returned 500 |
+| W3-5 | **Grant column `UPDATE` on message outbound fields + `created_at`** | 0065 revoked table UPDATE; inbox window fixtures and send paths need those columns |
+| W3-6 | **Presented-token probe selects `id` only (no `WHERE token_hash`)** | Column revoke means naming `token_hash` in the query is `permission denied`; RLS still evaluates the digest via the GUC |
+| W3-7 | **Acceptance extracts invite tokens from `#token=` first** | Aligns suites with W2-12 fragment-only email body without reintroducing query tokens |
+| W3-8 | **Portal invites suite boots with explicit `portalEnabled: true`** | Suite used `AppModule.forRoot` directly (not `createApi`); accept path must not 404 behind the portal guard |
