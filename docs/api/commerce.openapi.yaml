@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Commerce API
-  version: 0.1.0-T-0175
+  version: 0.1.0-T-0177
   description: |
     Programme-scoped product catalogue (T-0164), quotes (T-0165 / D-L211),
     discount approvals (T-0166), and quote PDF / email send (T-0167). Currencies
@@ -511,6 +511,66 @@ components:
       properties:
         baseCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
         quoteCurrency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+    BillingSchedule:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, invoiceId, cadence, nextRunAt, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        invoiceId: { type: string, format: uuid, nullable: true }
+        cadence: { type: string, enum: [monthly, quarterly, yearly] }
+        nextRunAt: { type: string, format: date-time }
+        status: { type: string, enum: [active, paused, ended] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateBillingScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [cadence]
+      properties:
+        cadence: { type: string, enum: [monthly, quarterly, yearly] }
+        nextRunAt: { type: string, format: date-time }
+    SetBillingScheduleStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [active, paused, ended] }
+    BillingGenerateResult:
+      type: object
+      additionalProperties: false
+      required: [schedule, invoiceGeneration]
+      properties:
+        schedule: { $ref: '#/components/schemas/BillingSchedule' }
+        invoiceGeneration: { type: string, enum: [deferred] }
+    MobilePayment:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, providerKind, status, amountMinor, currency, providerCollectionId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        providerKind: { type: string, enum: [mpesa, momo, fake] }
+        status: { type: string, enum: [pending, paid, failed, expired] }
+        amountMinor: { type: string, pattern: '^\\d{1,18}$' }
+        currency: { type: string, enum: [NGN, GHS, KES, ZAR] }
+        providerCollectionId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateMobilePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, idempotencyKey]
+      properties:
+        kind: { type: string, enum: [mpesa, momo] }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 128 }
+    SetMobilePaymentStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [paid, expired] }
 
 
 security:
@@ -1473,4 +1533,158 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FxLock' }
+  /api/v1/programmes/{programmeId}/billing-schedules:
+    get:
+      operationId: listBillingSchedules
+      x-kasuwa-implemented: true
+      summary: List recurring billing schedules
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BillingSchedule' }
+  /api/v1/invoices/{invoiceId}/billing-schedule:
+    post:
+      operationId: createBillingSchedule
+      x-kasuwa-implemented: true
+      summary: Create a billing schedule from an invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBillingScheduleRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingSchedule' }
+  /api/v1/billing-schedules/{scheduleId}:
+    get:
+      operationId: getBillingSchedule
+      x-kasuwa-implemented: true
+      summary: Get a billing schedule
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Schedule
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingSchedule' }
+  /api/v1/billing-schedules/{scheduleId}/status:
+    post:
+      operationId: setBillingScheduleStatus
+      x-kasuwa-implemented: true
+      summary: Pause, resume or end a billing schedule
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetBillingScheduleStatusRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingSchedule' }
+  /api/v1/billing-schedules/{scheduleId}/generate:
+    post:
+      operationId: generateBillingInvoice
+      x-kasuwa-implemented: true
+      summary: Advance schedule; invoice generation deferred to worker
+      parameters:
+        - name: scheduleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Advanced
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingGenerateResult' }
+  /api/v1/invoices/{invoiceId}/mobile-payments:
+    post:
+      operationId: createMobilePayment
+      x-kasuwa-implemented: true
+      summary: Start M-Pesa or MoMo collection for an invoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMobilePaymentRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobilePayment' }
+  /api/v1/mobile-payments/{paymentId}:
+    get:
+      operationId: getMobilePayment
+      x-kasuwa-implemented: true
+      summary: Get mobile payment state
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobilePayment' }
+  /api/v1/mobile-payments/{paymentId}/status:
+    post:
+      operationId: setMobilePaymentStatus
+      x-kasuwa-implemented: true
+      summary: Mark pending mobile payment paid or expired (B3 provisional)
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetMobilePaymentStatusRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobilePayment' }
 

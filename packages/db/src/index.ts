@@ -10,6 +10,7 @@ export * from './outbox-events';
 export * from './outbox-relay';
 export * from './permission-set-catalogue';
 export * from './pool';
+export * from './portal-auth-challenge';
 export * from './portal-session';
 export * from './schema';
 export * from './seed';

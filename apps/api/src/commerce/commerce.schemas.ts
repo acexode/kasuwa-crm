@@ -102,6 +102,19 @@ export const CreateFxLockBody = z.strictObject({
   quoteCurrency: CommerceCurrencySchema,
 });
 
+export const BillingScheduleIdParam = z.object({ scheduleId: z.uuid() });
+
+export const CreateBillingScheduleBody = z.strictObject({
+  cadence: z.enum(['monthly', 'quarterly', 'yearly']),
+  nextRunAt: z.string().datetime().optional(),
+});
+
+export const SetBillingScheduleStatusBody = z.strictObject({
+  status: z.enum(['active', 'paused', 'ended']),
+});
+
+export const MobilePaymentIdParam = z.object({ paymentId: z.uuid() });
+
 export const SendQuoteBody = z.strictObject({
   channel: z.literal('email'),
   to: z.email().max(320),

@@ -763,6 +763,7 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
       const FULL = new Set([...AUTH_TABLES, 'auth_rate_limit'].map((name) => `public.${name}`));
       const PORTAL_SESSION = 'public.portal_session';
       const PORTAL_IDENTITY = 'public.portal_identity';
+      const PORTAL_AUTH_CHALLENGE = 'public.portal_auth_challenge';
       const READ_ONLY = new Set([
         'public.tenant',
         'public.user_programme',
@@ -777,6 +778,10 @@ describe('acceptance: kasuwa_auth owns the auth-table writes (T-0049)', () => {
         if (tbl === PORTAL_IDENTITY) {
           if (priv === 'SELECT') return true;
           if (priv === 'UPDATE') return col === 'password_hash';
+        }
+        if (tbl === PORTAL_AUTH_CHALLENGE) {
+          if (priv === 'SELECT' || priv === 'INSERT' || priv === 'DELETE') return true;
+          if (priv === 'UPDATE') return col === 'attempt_count' || col === 'consumed_at';
         }
         if (READ_ONLY.has(tbl)) return priv === 'SELECT';
         if (tbl === 'public.user') {

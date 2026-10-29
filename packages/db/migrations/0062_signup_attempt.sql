@@ -1,4 +1,4 @@
--- 0061 - signup_attempt (T-0016): pre-tenant self-serve verification state.
+-- 0062 - signup_attempt (T-0016): pre-tenant self-serve verification state.
 SET LOCAL lock_timeout = '5s';
 
 CREATE TABLE signup_attempt (
