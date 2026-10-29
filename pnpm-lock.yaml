@@ -92,6 +92,9 @@ importers:
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
+      '@kasuwa/payments-adapter':
+        specifier: workspace:*
+        version: link:../../packages/payments-adapter
       '@kasuwa/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions

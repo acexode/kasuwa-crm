@@ -19,3 +19,4 @@ export {
   type AuthContext,
 } from './tenancy/auth-context';
 export { setMbsProviderForTests } from './commerce/einvoice.service';
+export { setMobileMoneyProviderForTests } from './commerce/mobile-payment.service';

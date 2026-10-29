@@ -22,6 +22,15 @@ import {
 } from './invoices.controller';
 import { EinvoiceController } from './einvoice.controller';
 import { FxDealController, FxProgrammeController } from './fx.controller';
+import {
+  BillingScheduleController,
+  BillingScheduleInvoiceController,
+  BillingScheduleProgrammeController,
+} from './billing-schedule.controller';
+import {
+  MobilePaymentController,
+  MobilePaymentInvoiceController,
+} from './mobile-payment.controller';
 
 @Module({
   controllers: [
@@ -42,6 +51,11 @@ import { FxDealController, FxProgrammeController } from './fx.controller';
     EinvoiceController,
     FxProgrammeController,
     FxDealController,
+    BillingScheduleProgrammeController,
+    BillingScheduleInvoiceController,
+    BillingScheduleController,
+    MobilePaymentInvoiceController,
+    MobilePaymentController,
   ],
 })
 export class CommerceModule {}
