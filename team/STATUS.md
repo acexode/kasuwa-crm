@@ -2,39 +2,23 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-29 01:17 WAT (Africa/Lagos).** Phase 3 remainder foundations **merged** via [#248](https://github.com/acexode/kasuwa-crm/pull/248) → `main` (`00674de`).
-ADR-0021 / B2 accepted (D-L212). Provisional B1/B3/B4/B5 still in force.
+**2026-10-29 ~19:30 WAT (Africa/Lagos).** Phase 3 **depth close** under way (D-L213).
+Foundations on `main` (#248). B1–B5 stay provisional. Order: portal → inbox → screens → commerce P1 → S4.
 
-## Landed on main
-| Area | Notes |
-|---|---|
-| T-0186 ChannelProvider v2 | idempotencyKey + capabilities |
-| T-0169 Payment links | mig 0051, slug webhook oracle |
-| T-0185 Conversations | mig 0052 |
-| T-0018 Onboarding state | mig 0053 |
-| T-0179 Portal identity | mig 0054 (home `programme_id`; membership via `portal_programme`) |
-| T-0187 delivery | mig 0055 |
-| T-0188 templates | mig 0056 |
-| T-0172 invoices | mig 0057 |
-| T-0180/182 invite+branding | mig 0058 |
-| T-0189/190 consent+routing | mig 0059 |
-| T-0173–177 commerce P1 tables | mig 0060 (provisional) |
-| T-0171 P21 routes | `/catalogue`, `/quotes` flag-gated stubs |
-| P08 / P23 stubs | `/inbox`, `/portal` flag-gated |
-| T-0017 | fail-closed `BspShapedProvider` |
+## Landed on main (foundations)
+Migrations 0051–0060, ChannelProvider v2, payment links, route stubs, ADR-0021.
 
-## Next (depth — not-assigned until acceptance suites)
-| | |
-|---|---|
-| **T-0195 / T-0196** | Portal script approvals + statements (W6 P1 depth) |
-| **Screen fidelity** | P21 / P23 / P08 beyond stubs |
-| **Auth depth** | Portal credential columns + `kasuwa_auth` grants with T-0049 / T-0157 allowlist |
+## Active — depth on `cursor/p3-depth-e3f2`
+| Wave | Tasks | Status |
+|---|---|---|
+| Portal P0/P1 | T-0179–T-0184, T-0195/T-0196 | In progress (multi-agent) |
+| Inbox | T-0185–T-0193, T-0017 fake | Queued |
+| Screens | T-0171, T-0184, T-0192 | Queued after API depth |
+| Commerce P1 | T-0172–T-0177 | Queued (provisionals) |
+| S4 | T-0018, T-0016 fake OTP | Queued |
+
+## Standing provisionals (not blocking exit)
+B1 Dotgo fail-closed/fake · B3 paid+expired only · B4 Fake MBS · B5 admin FX 24h · WS5 out of phase
 
 ## Waiting on you
-| | |
-|---|---|
-| **Overturn provisionals** | B1 Dotgo detail; B3 refunds; B4 NRS; B5 FX source |
-
-## Risks
-- Screen fidelity for P21/P23/P08 is stubbed; deepen in follow-ups.
-- Portal password_hash / auth-pool grants deferred until T-0179 depth extends the census allowlists.
+Hands-on `pnpm demo` pass at phase close (PLAN §6.10).
