@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
-import type { ChannelProvider } from '@kasuwa/channel-adapter';
+import type { ChannelProvider, DndRegister } from '@kasuwa/channel-adapter';
 import { AppModule, STUB_TENANT_HEADER, STUB_USER_HEADER } from '@kasuwa/api';
 import { inject } from 'vitest';
 
@@ -33,10 +33,14 @@ export function withAuthDatabase<T extends object>(options: T): T & { authDataba
 }
 
 export interface CreateApiOptions {
+  portalEnabled?: boolean;
   selfServeSignup?: boolean;
   onboardingPersistence?: boolean;
   selfServeProvisioningConnection?: string;
   channelProvider?: ChannelProvider;
+  dndRegister?: DndRegister;
+  inboxTemplatesEnabled?: boolean;
+  inboxRoutingEnabled?: boolean;
 }
 
 /**
@@ -56,6 +60,9 @@ export async function createApi(
         withAuthDatabase({
           databaseUrl,
           poolMax: 5,
+          ...(options.portalEnabled === undefined
+            ? {}
+            : { portalEnabled: options.portalEnabled }),
           ...(options.selfServeSignup === undefined
             ? {}
             : { selfServeSignup: options.selfServeSignup }),
@@ -68,6 +75,13 @@ export async function createApi(
           ...(options.channelProvider === undefined
             ? {}
             : { channelProvider: options.channelProvider }),
+          ...(options.dndRegister === undefined ? {} : { dndRegister: options.dndRegister }),
+          ...(options.inboxTemplatesEnabled === undefined
+            ? {}
+            : { inboxTemplatesEnabled: options.inboxTemplatesEnabled }),
+          ...(options.inboxRoutingEnabled === undefined
+            ? {}
+            : { inboxRoutingEnabled: options.inboxRoutingEnabled }),
         }),
       ),
     ],

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Kasuwa Inbox API
-  version: 0.1.0-T-0187
+  version: 0.1.0-T-0190
   description: |
     Programme-scoped conversations (T-0185) and outbound send (T-0187) through
     `@kasuwa/channel-adapter` (DND + required `idempotencyKey`). Inbound webhooks
@@ -84,12 +84,15 @@ components:
     SendMessageRequest:
       type: object
       additionalProperties: false
-      required: [body, purpose, idempotencyKey]
+      required: [purpose, idempotencyKey]
       properties:
         body:
           type: string
           minLength: 1
           maxLength: 4096
+        messageTemplateId:
+          type: string
+          format: uuid
         purpose:
           type: string
           enum: [transactional, promotional]
@@ -97,6 +100,42 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+    MessageTemplate:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, channel, category, body, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        name: { type: string }
+        channel: { type: string, enum: [sms, whatsapp, email] }
+        category:
+          type: string
+          enum: [utility, marketing, authentication, service]
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    InboxQueue:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, name, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CannedResponse:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, title, body, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     MessageDelivery:
       type: object
       additionalProperties: false
@@ -261,7 +300,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/SendMessageResponse' }
         '400':
-          description: Validation failed, no destination, or provider rejected
+          description: Validation failed, window closed, no destination, or provider rejected
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -316,6 +355,265 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '404':
           description: Conversation not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/programmes/{programmeId}/message-templates:
+    get:
+      operationId: listTemplates
+      x-kasuwa-implemented: true
+      summary: List message templates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/MessageTemplate' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      operationId: submitTemplate
+      x-kasuwa-implemented: true
+      summary: Create a message template
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, channel, category, body]
+              properties:
+                name: { type: string }
+                channel: { type: string, enum: [sms, whatsapp, email] }
+                category:
+                  type: string
+                  enum: [utility, marketing, authentication, service]
+                body: { type: string }
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MessageTemplate' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/programmes/{programmeId}/inbox-queues:
+    get:
+      operationId: listQueues
+      x-kasuwa-implemented: true
+      summary: List inbox queues
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Queue list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/InboxQueue' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      operationId: createInboxQueue
+      x-kasuwa-implemented: true
+      summary: Create an inbox queue
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        '201':
+          description: Queue created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/InboxQueue' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/programmes/{programmeId}/canned-responses:
+    get:
+      operationId: listCannedResponses
+      x-kasuwa-implemented: true
+      summary: List canned responses
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Canned response list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CannedResponse' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      operationId: createCannedResponse
+      x-kasuwa-implemented: true
+      summary: Create a canned response
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, body]
+              properties:
+                title: { type: string }
+                body: { type: string }
+      responses:
+        '201':
+          description: Canned response created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CannedResponse' }
+        '404':
+          description: Programme not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/conversations/{conversationId}/assign:
+    post:
+      operationId: assignConversation
+      x-kasuwa-implemented: true
+      summary: Assign a conversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId]
+              properties:
+                userId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated conversation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '404':
+          description: Conversation not reachable or feature off
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/conversations/{conversationId}/transfer:
+    post:
+      operationId: transferConversation
+      x-kasuwa-implemented: true
+      summary: Transfer a conversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [targetUserId]
+              properties:
+                targetUserId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated conversation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '404':
+          description: Conversation not reachable or feature off
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

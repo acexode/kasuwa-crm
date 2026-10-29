@@ -14,6 +14,8 @@ export type { DndRegister };
  * global, so a feature module declares no provider of its own for it.
  */
 export const CHANNEL = Symbol('CHANNEL');
+/** Raw DND register for consent audit (T-0189), shared with {@link CHANNEL}. */
+export const DND_REGISTER = Symbol('DND_REGISTER');
 
 /**
  * There is no DND register integration yet (the NCC feed is not built), so the

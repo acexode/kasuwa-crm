@@ -86,15 +86,17 @@ function fakeTx(): TenantTx {
 
 describe('sendMessageFor channel errors', () => {
   it('maps DND refusal to 403 dnd_refused', async () => {
-    const channel = createChannelAdapter({
+    const provider = createChannelAdapter({
       provider: new FakeChannelProvider(),
       dnd: new FakeDndRegister(['+2348031234001']),
     });
+    const dnd = new FakeDndRegister(['+2348031234001']);
     expect(
       await outcome(() =>
         sendMessageFor(
           fakeTx(),
-          channel,
+          provider,
+          dnd,
           { conversationId: CONVERSATION },
           {
             body: 'Promo',
@@ -107,15 +109,17 @@ describe('sendMessageFor channel errors', () => {
   });
 
   it('maps null provider to 503', async () => {
-    const channel = createChannelAdapter({
+    const provider = createChannelAdapter({
       provider: new NullChannelProvider(),
       dnd: new FakeDndRegister([]),
     });
+    const dnd = new FakeDndRegister([]);
     expect(
       await outcome(() =>
         sendMessageFor(
           fakeTx(),
-          channel,
+          provider,
+          dnd,
           { conversationId: CONVERSATION },
           {
             body: 'Hi',

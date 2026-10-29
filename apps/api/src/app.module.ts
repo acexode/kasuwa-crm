@@ -48,7 +48,13 @@ import { MeController } from './me/me.controller';
 import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
 import { NotificationsController } from './notifications/notifications.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
-import { CHANNEL, createApiChannel, type DndRegister } from './messaging/channel';
+import {
+  CHANNEL,
+  DND_REGISTER,
+  createApiChannel,
+  unconfiguredDndRegister,
+  type DndRegister,
+} from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
@@ -252,6 +258,8 @@ export interface AppModuleOptions {
   selfServeSignup?: boolean;
   onboardingPersistence?: boolean;
   selfServeProvisioningConnection?: string;
+  inboxTemplatesEnabled?: boolean;
+  inboxRoutingEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -349,7 +357,14 @@ export class AppModule implements NestModule {
         // middleware, like the audit area.
         ScriptsModule,
         CommerceModule,
-        InboxModule,
+        InboxModule.forRoot({
+          ...(options.inboxTemplatesEnabled === undefined
+            ? {}
+            : { inboxTemplatesEnabled: options.inboxTemplatesEnabled }),
+          ...(options.inboxRoutingEnabled === undefined
+            ? {}
+            : { inboxRoutingEnabled: options.inboxRoutingEnabled }),
+        }),
       ],
       controllers: CONTROLLERS,
       providers: [
@@ -382,11 +397,17 @@ export class AppModule implements NestModule {
         NotificationThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
+          provide: DND_REGISTER,
+          useValue: options.dndRegister ?? unconfiguredDndRegister,
+        },
+        {
           provide: CHANNEL,
-          useValue: createApiChannel(
-            options.channelProvider ?? defaultChannelProvider(nodeEnv()),
-            options.dndRegister,
-          ),
+          useFactory: (dnd: DndRegister) =>
+            createApiChannel(
+              options.channelProvider ?? defaultChannelProvider(nodeEnv()),
+              dnd,
+            ),
+          inject: [DND_REGISTER],
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         // The catch-all (T-0036, D-L42): replaces Nest's default handler, which
