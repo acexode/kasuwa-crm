@@ -17,6 +17,7 @@ import { KEY_PROVIDER } from './key-provider.token';
 import { MfaService } from './mfa.service';
 import { PoolIdentityCheck } from './pool-identity';
 import { OnboardingPersistenceGuard } from './onboarding-persistence.guard';
+import { SelfServeEnabledGuard } from './self-serve-enabled.guard';
 import { SelfServeSignupService } from './self-serve-signup.service';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
 import {
@@ -95,6 +96,7 @@ export class AuthModule {
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
         },
         SelfServeSignupService,
+        SelfServeEnabledGuard,
         OnboardingPersistenceGuard,
         {
           provide: SELF_SERVE_SIGNUP_ENABLED,

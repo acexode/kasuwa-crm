@@ -23,6 +23,7 @@ import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
 import { MfaService } from './mfa.service';
 import { SelfServeSignupService } from './self-serve-signup.service';
 import { ResendOtpBody, SignUpBody, VerifyOtpBody } from './self-serve.schemas';
+import { SelfServeEnabledGuard } from './self-serve-enabled.guard';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
 import {
   MfaChallengeBody,
@@ -245,7 +246,7 @@ export class AuthController {
   }
 
   @Post('sign-up')
-  @UseGuards(SignInThrottleGuard)
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   @Header('Cache-Control', 'no-store')
   async signUp(@Body() body: unknown) {
@@ -253,7 +254,7 @@ export class AuthController {
   }
 
   @Post('verify-otp')
-  @UseGuards(SignInThrottleGuard)
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   async verifyOtp(@Body() body: unknown) {
@@ -261,7 +262,7 @@ export class AuthController {
   }
 
   @Post('verify-otp/resend')
-  @UseGuards(SignInThrottleGuard)
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
   @HttpCode(HttpStatus.ACCEPTED)
   @Header('Cache-Control', 'no-store')
   async resendOtp(@Body() body: unknown) {

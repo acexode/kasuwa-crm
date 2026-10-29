@@ -10,12 +10,12 @@ import { CHANNEL } from '../messaging/channel';
 import { AUTH_PG_POOL } from './auth-database.module';
 import {
   AuthError,
-  notImplemented,
   otpExpired,
   otpInvalid,
   otpTooManyAttempts,
   resendTooSoon,
 } from './auth.errors';
+import { notFound } from '../admin/common/admin-errors';
 import { AUTH_POLICY, type AuthPolicy } from './auth.policy';
 import {
   SELF_SERVE_PROVISIONING_CONNECTION,
@@ -91,7 +91,7 @@ export class SelfServeSignupService {
 
   private assertEnabled(): void {
     if (!this.enabled) {
-      throw notImplemented();
+      throw notFound();
     }
   }
 
