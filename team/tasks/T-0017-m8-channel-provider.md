@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0017 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M8 omnichannel |
 | **owner** | Agent 5 — Messaging & Service |
 | **priority** | **P0 — T-0016 and T-0012 both need something to send through** |

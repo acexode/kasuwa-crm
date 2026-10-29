@@ -168,8 +168,40 @@ const PLANT_PORTAL_USER = '11111111-0000-4000-8000-0000001100b5';
 const PLANT_SCRIPT = '11111111-0000-4000-8000-0000001100b6';
 const PLANT_QUOTE_APPROVAL = '11111111-0000-4000-8000-0000001100b7';
 const PLANT_QUOTE_SEND = '11111111-0000-4000-8000-0000001100b8';
+const PLANT_PAYMENT_LINK = '11111111-0000-4000-8000-0000001100b9';
+const PLANT_PAYMENT_EVENT = '11111111-0000-4000-8000-0000001100ba';
+const PLANT_CONVERSATION = '11111111-0000-4000-8000-0000001100bb';
+const PLANT_MESSAGE = '11111111-0000-4000-8000-0000001100bc';
+const PLANT_CONVERSATION_PARTICIPANT = '11111111-0000-4000-8000-0000001100bd';
+const PLANT_ONBOARDING = '11111111-0000-4000-8000-0000001100be';
+const PLANT_PORTAL_IDENTITY = '11111111-0000-4000-8000-0000001100bf';
+const PLANT_PORTAL_SESSION = '11111111-0000-4000-8000-0000001100c0';
+const PLANT_PORTAL_PROGRAMME = '11111111-0000-4000-8000-0000001100c1';
+const PLANT_MESSAGE_DELIVERY = '11111111-0000-4000-8000-0000001100c2';
+const PLANT_MESSAGE_TEMPLATE = '11111111-0000-4000-8000-0000001100c3';
+const PLANT_INVOICE = '11111111-0000-4000-8000-0000001100c4';
+const PLANT_INVOICE_LINE = '11111111-0000-4000-8000-0000001100c5';
+const PLANT_PORTAL_INVITE = '11111111-0000-4000-8000-0000001100c6';
+const PLANT_PORTAL_BRANDING = '11111111-0000-4000-8000-0000001100c7';
+const PLANT_CONSENT = '11111111-0000-4000-8000-0000001100c8';
+const PLANT_INBOX_QUEUE = '11111111-0000-4000-8000-0000001100c9';
+const PLANT_CANNED = '11111111-0000-4000-8000-0000001100ca';
+const PLANT_TAX_LINE = '11111111-0000-4000-8000-0000001100cb';
+const PLANT_EINVOICE = '11111111-0000-4000-8000-0000001100cc';
+const PLANT_FX_RATE = '11111111-0000-4000-8000-0000001100cd';
+const PLANT_FX_LOCK = '11111111-0000-4000-8000-0000001100ce';
+const PLANT_BILLING = '11111111-0000-4000-8000-0000001100cf';
+const PLANT_MOBILE_PAYMENT = '11111111-0000-4000-8000-0000001100d0';
+
 /** Seeded draft quote in PROGRAMME_A1 (kind 1d) — FK target for commerce plants. */
 const SEED_QUOTE_A1 = '11111111-0000-4000-8000-0000001d0001';
+/** Seeded contact in PROGRAMME_A1 (kind 0e). */
+const SEED_CONTACT_A1 = '11111111-0000-4000-8000-0000000e0001';
+/** Seeded deal in PROGRAMME_A1 (kind 17). */
+const SEED_DEAL_A1 = '11111111-0000-4000-8000-000000170001';
+const HASH64_A = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const HASH64_B = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const HASH64_C = 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
 type Plant = (client: PoolClient) => Promise<void>;
 
@@ -301,6 +333,237 @@ const PLANTS: Record<string, Plant> = {
       [PLANT_QUOTE_SEND, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1, USER_A_SUPERVISOR],
     );
   },
+  /** T-0169: pending payment link on the seeded A1 quote. */
+  payment_link: async (client) => {
+    await client.query(
+      `INSERT INTO payment_link
+         (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
+          status, amount_minor, currency, reference, idempotency_key,
+          created_by_user_id, updated_at)
+       VALUES ($1, $2, $3, $4::uuid, 'fake', 'fake-link-plant', 'https://pay.example/plant',
+               'pending', 10000, 'NGN', $5, 'idem-plant-0169', $6, ${PAST})`,
+      [
+        PLANT_PAYMENT_LINK,
+        TENANT_A,
+        PROGRAMME_A1,
+        SEED_QUOTE_A1,
+        SEED_QUOTE_A1,
+        USER_A_SUPERVISOR,
+      ],
+    );
+  },
+  /** T-0169: append-only payment event on the planted link. */
+  payment_event: async (client) => {
+    await client.query(
+      `INSERT INTO payment_link
+         (id, tenant_id, programme_id, quote_id, provider, provider_link_id, url,
+          status, amount_minor, currency, reference, idempotency_key,
+          created_by_user_id, updated_at)
+       VALUES ($1, $2, $3, $4::uuid, 'fake', 'fake-link-plant-evt', 'https://pay.example/plant-evt',
+               'pending', 10000, 'NGN', $5, 'idem-plant-0169-evt', $6, ${PAST})`,
+      [
+        PLANT_PAYMENT_LINK,
+        TENANT_A,
+        PROGRAMME_A1,
+        SEED_QUOTE_A1,
+        SEED_QUOTE_A1,
+        USER_A_SUPERVISOR,
+      ],
+    );
+    await client.query(
+      `INSERT INTO payment_event
+         (id, tenant_id, programme_id, payment_link_id, provider_event_id,
+          event_type, occurred_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'evt-plant-0169', 'payment.paid', ${PAST}, ${PAST})`,
+      [PLANT_PAYMENT_EVENT, TENANT_A, PROGRAMME_A1, PLANT_PAYMENT_LINK],
+    );
+  },
+  conversation: async (client) => {
+    await client.query(
+      `INSERT INTO conversation
+         (id, tenant_id, programme_id, contact_id, channel, status, updated_at)
+       VALUES ($1, $2, $3, $4, 'whatsapp', 'open', ${PAST})`,
+      [PLANT_CONVERSATION, TENANT_A, PROGRAMME_A1, SEED_CONTACT_A1],
+    );
+  },
+  message: async (client) => {
+    await (PLANTS.conversation as Plant)(client);
+    await client.query(
+      `INSERT INTO message
+         (id, tenant_id, programme_id, conversation_id, direction, body_redacted, updated_at)
+       VALUES ($1, $2, $3, $4, 'inbound', '', ${PAST})`,
+      [PLANT_MESSAGE, TENANT_A, PROGRAMME_A1, PLANT_CONVERSATION],
+    );
+  },
+  conversation_participant: async (client) => {
+    await (PLANTS.conversation as Plant)(client);
+    await client.query(
+      `INSERT INTO conversation_participant
+         (id, tenant_id, programme_id, conversation_id, user_id, role, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'assignee', ${PAST})`,
+      [PLANT_CONVERSATION_PARTICIPANT, TENANT_A, PROGRAMME_A1, PLANT_CONVERSATION, USER_A_SUPERVISOR],
+    );
+  },
+  onboarding_state: async (client) => {
+    await client.query(
+      `INSERT INTO onboarding_state
+         (id, tenant_id, user_id, step, updated_at)
+       VALUES ($1, $2, $3, 'currency_language', ${PAST})`,
+      [PLANT_ONBOARDING, TENANT_A, USER_A_SUPERVISOR],
+    );
+  },
+  portal_identity: async (client) => {
+    await client.query(
+      `INSERT INTO portal_identity
+         (id, tenant_id, programme_id, email, email_masked, display_name, status, updated_at)
+       VALUES ($1, $2, $3, 'plant.portal@client.example', 'p***@client.example', 'Plant', 'active', ${PAST})`,
+      [PLANT_PORTAL_IDENTITY, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  portal_session: async (client) => {
+    await (PLANTS.portal_identity as Plant)(client);
+    await client.query(
+      `INSERT INTO portal_session
+         (id, tenant_id, programme_id, portal_identity_id, token_hash, expires_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now() + interval '1 day', ${PAST})`,
+      [PLANT_PORTAL_SESSION, TENANT_A, PROGRAMME_A1, PLANT_PORTAL_IDENTITY, HASH64_A],
+    );
+  },
+  portal_programme: async (client) => {
+    await (PLANTS.portal_identity as Plant)(client);
+    await client.query(
+      `INSERT INTO portal_programme
+         (id, tenant_id, portal_identity_id, programme_id, updated_at)
+       VALUES ($1, $2, $3, $4, ${PAST})`,
+      [PLANT_PORTAL_PROGRAMME, TENANT_A, PLANT_PORTAL_IDENTITY, PROGRAMME_A1],
+    );
+  },
+  message_delivery: async (client) => {
+    await (PLANTS.message as Plant)(client);
+    await client.query(
+      `INSERT INTO message_delivery
+         (id, tenant_id, programme_id, message_id, state, updated_at)
+       VALUES ($1, $2, $3, $4, 'queued', ${PAST})`,
+      [PLANT_MESSAGE_DELIVERY, TENANT_A, PROGRAMME_A1, PLANT_MESSAGE],
+    );
+  },
+  message_template: async (client) => {
+    await client.query(
+      `INSERT INTO message_template
+         (id, tenant_id, programme_id, name, channel, category, body, updated_at)
+       VALUES ($1, $2, $3, 'Plant', 'whatsapp', 'utility', 'hi', ${PAST})`,
+      [PLANT_MESSAGE_TEMPLATE, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  invoice: async (client) => {
+    await client.query(
+      `INSERT INTO invoice
+         (id, tenant_id, programme_id, number, status, currency, total_minor, updated_at)
+       VALUES ($1, $2, $3, 'INV-PLANT-1', 'draft', 'NGN', 1000, ${PAST})`,
+      [PLANT_INVOICE, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  invoice_line: async (client) => {
+    await (PLANTS.invoice as Plant)(client);
+    await client.query(
+      `INSERT INTO invoice_line
+         (id, tenant_id, programme_id, invoice_id, description, quantity, unit_amount_minor, updated_at)
+       VALUES ($1, $2, $3, $4, 'Plant line', 1, 1000, ${PAST})`,
+      [PLANT_INVOICE_LINE, TENANT_A, PROGRAMME_A1, PLANT_INVOICE],
+    );
+  },
+  portal_invite: async (client) => {
+    await client.query(
+      `INSERT INTO portal_invite
+         (id, tenant_id, programme_id, email, email_masked, token_hash, status,
+          invited_by_user_id, expires_at, updated_at)
+       VALUES ($1, $2, $3, 'invite.plant@client.example', 'i***@client.example', $4,
+               'pending', $5, now() + interval '7 days', ${PAST})`,
+      [PLANT_PORTAL_INVITE, TENANT_A, PROGRAMME_A1, HASH64_B, USER_A_SUPERVISOR],
+    );
+  },
+  portal_branding: async (client) => {
+    await client.query(
+      `INSERT INTO portal_branding
+         (id, tenant_id, programme_id, display_name, updated_at)
+       VALUES ($1, $2, $3, 'Plant Brand', ${PAST})`,
+      [PLANT_PORTAL_BRANDING, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  consent_check: async (client) => {
+    await client.query(
+      `INSERT INTO consent_check
+         (id, tenant_id, programme_id, e164_hash, purpose, outcome, updated_at)
+       VALUES ($1, $2, $3, $4, 'promotional', 'allowed', ${PAST})`,
+      [PLANT_CONSENT, TENANT_A, PROGRAMME_A1, HASH64_C],
+    );
+  },
+  inbox_queue: async (client) => {
+    await client.query(
+      `INSERT INTO inbox_queue
+         (id, tenant_id, programme_id, name, updated_at)
+       VALUES ($1, $2, $3, 'Plant queue', ${PAST})`,
+      [PLANT_INBOX_QUEUE, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  canned_response: async (client) => {
+    await client.query(
+      `INSERT INTO canned_response
+         (id, tenant_id, programme_id, title, body, updated_at)
+       VALUES ($1, $2, $3, 'Plant', 'body', ${PAST})`,
+      [PLANT_CANNED, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  tax_line: async (client) => {
+    await client.query(
+      `INSERT INTO tax_line
+         (id, tenant_id, programme_id, owner_kind, owner_id, code, rate_bps, amount_minor, updated_at)
+       VALUES ($1, $2, $3, 'quote', $4, 'VAT', 750, 75, ${PAST})`,
+      [PLANT_TAX_LINE, TENANT_A, PROGRAMME_A1, SEED_QUOTE_A1],
+    );
+  },
+  einvoice: async (client) => {
+    await (PLANTS.invoice as Plant)(client);
+    await client.query(
+      `INSERT INTO einvoice
+         (id, tenant_id, programme_id, invoice_id, status, updated_at)
+       VALUES ($1, $2, $3, $4, 'draft', ${PAST})`,
+      [PLANT_EINVOICE, TENANT_A, PROGRAMME_A1, PLANT_INVOICE],
+    );
+  },
+  fx_rate: async (client) => {
+    await client.query(
+      `INSERT INTO fx_rate
+         (id, tenant_id, programme_id, base_currency, quote_currency, rate_micros, updated_at)
+       VALUES ($1, $2, $3, 'NGN', 'GHS', 1000000, ${PAST})`,
+      [PLANT_FX_RATE, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  fx_lock: async (client) => {
+    await client.query(
+      `INSERT INTO fx_lock
+         (id, tenant_id, programme_id, deal_id, rate_micros, expires_at, updated_at)
+       VALUES ($1, $2, $3, $4, 1000000, now() + interval '1 day', ${PAST})`,
+      [PLANT_FX_LOCK, TENANT_A, PROGRAMME_A1, SEED_DEAL_A1],
+    );
+  },
+  billing_schedule: async (client) => {
+    await client.query(
+      `INSERT INTO billing_schedule
+         (id, tenant_id, programme_id, cadence, next_run_at, status, updated_at)
+       VALUES ($1, $2, $3, 'monthly', now() + interval '30 days', 'active', ${PAST})`,
+      [PLANT_BILLING, TENANT_A, PROGRAMME_A1],
+    );
+  },
+  mobile_payment: async (client) => {
+    await client.query(
+      `INSERT INTO mobile_payment
+         (id, tenant_id, programme_id, provider_kind, status, amount_minor, currency, updated_at)
+       VALUES ($1, $2, $3, 'fake', 'pending', 1000, 'NGN', ${PAST})`,
+      [PLANT_MOBILE_PAYMENT, TENANT_A, PROGRAMME_A1],
+    );
+  },
+
 };
 
 describe('acceptance: schema hygiene (T-0011)', () => {

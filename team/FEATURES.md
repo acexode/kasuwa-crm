@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 294 rows; built 143, partial 11, mock-only 26, flagged-off 85, deferred 10, not-started 19.
+Totals: 311 rows; built 143, partial 11, mock-only 26, flagged-off 96, deferred 10, not-started 25.
 
 ## Modules
 
@@ -172,6 +172,12 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listApprovals` | GET /api/v1/programmes/{programmeId}/approvals — List quote discount approvals in a programme | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `requestApproval` | POST /api/v1/quotes/{quoteId}/approvals — Request discount approval for a draft quote above the programme threshold | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `decideApproval` | POST /api/v1/approvals/{approvalId}/decision — Approve or reject a pending discount approval | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `listConversations` | GET /api/v1/programmes/{programmeId}/conversations — List conversations in a programme (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
+| operation | `getConversation` | GET /api/v1/conversations/{conversationId} — Get a conversation (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
+| operation | `listMessages` | GET /api/v1/conversations/{conversationId}/messages — List messages in a conversation (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
+| operation | `portalSignIn` | POST /api/v1/portal/sign-in — Portal sign-in (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
+| operation | `portalVerifyMfa` | POST /api/v1/portal/mfa — Portal MFA verify (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
+| operation | `portalMe` | GET /api/v1/portal/me — Current portal identity and programmes (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
@@ -268,6 +274,17 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_quotes` | Programme-scoped quotes with line items, discounts, validity and gated status changes (T-0165). | flagged-off | `crm_quotes` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_approvals` | In-app discount approval requests and decisions for programme quotes (T-0166). | flagged-off | `quote_approvals` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_send` | Quote PDF template and send by email through the email channel kind (T-0167). | flagged-off | `quote_send` | — | packages/feature-flags/src/index.ts |
+| flag | `payment_links` | Payment-provider links for quotes; paid and expired only at P0 (T-0169). | flagged-off | `payment_links` | — | packages/feature-flags/src/index.ts |
+| flag | `invoices` | Invoices from accepted quotes (T-0172). | flagged-off | `invoices` | — | packages/feature-flags/src/index.ts |
+| flag | `vat_multitax` | VAT and multi-tax lines (T-0173). | flagged-off | `vat_multitax` | — | packages/feature-flags/src/index.ts |
+| flag | `mbs_einvoicing` | Fake MBS e-invoicing (provisional B4) (T-0174). | flagged-off | `mbs_einvoicing` | — | packages/feature-flags/src/index.ts |
+| flag | `fx_lock` | Admin FX rates and 24h locks (provisional B5) (T-0175). | flagged-off | `fx_lock` | — | packages/feature-flags/src/index.ts |
+| flag | `recurring_billing` | Recurring billing schedules (T-0176). | flagged-off | `recurring_billing` | — | packages/feature-flags/src/index.ts |
+| flag | `mobile_money` | M-Pesa/MoMo adapter kinds (provisional B3) (T-0177). | flagged-off | `mobile_money` | — | packages/feature-flags/src/index.ts |
+| flag | `client_portal` | BPO client portal screens (T-0184). | flagged-off | `client_portal` | — | packages/feature-flags/src/index.ts |
+| flag | `inbox_templates` | WhatsApp templates and 24h window (T-0188). | flagged-off | `inbox_templates` | — | packages/feature-flags/src/index.ts |
+| flag | `inbox_routing` | Inbox queues and canned responses (T-0190). | flagged-off | `inbox_routing` | — | packages/feature-flags/src/index.ts |
+| flag | `onboarding_persistence` | Server-side resumable first-admin onboarding wizard (T-0018, D-L205). | flagged-off | `onboarding_persistence` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 | flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |

@@ -55,12 +55,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  *     type ChannelKind    = 'sms' | 'whatsapp'
  *     type DeliveryState  = 'queued' | 'sent' | 'delivered' | 'failed'
  *     interface TenantScope   { tenantId: string; programmeId: string }
- *     interface SendRequest   { scope; channel; to: string (E.164); body; purpose }
+ *     interface SendRequest   { scope; channel; to; body; purpose; idempotencyKey }
  *     interface SendResult    { messageId: string; state: DeliveryState }
  *     interface DeliveryStatus{ messageId: string; state: DeliveryState; updatedAt: Date }
  *     interface ChannelProvider {
  *       send(request: SendRequest): Promise<SendResult>;
  *       getDeliveryStatus(scope: TenantScope, messageId: string): Promise<DeliveryStatus>;
+ *       capabilities(): { channels; templates; webhooks };
+ *       templates(scope): Promise<readonly unknown[]>;
+ *       parseWebhook(rawBody): Promise<unknown>;
  *     }
  *     interface DndRegister   { isRegistered(e164: string): Promise<boolean> }
  *     interface ChannelLogger { debug|info|warn|error(message: string, fields?: Record<string, unknown>): void }
@@ -96,6 +99,8 @@ interface SendRequest {
   to: string;
   body: string;
   purpose: MessagePurpose;
+  /** T-0186 / D-L37: required so retries cannot double-deliver. */
+  idempotencyKey: string;
 }
 
 interface SendResult {
@@ -109,9 +114,18 @@ interface DeliveryStatus {
   updatedAt: Date;
 }
 
+interface ChannelCapabilities {
+  channels: readonly ChannelKind[];
+  templates: boolean;
+  webhooks: boolean;
+}
+
 interface ChannelProvider {
   send(request: SendRequest): Promise<SendResult>;
   getDeliveryStatus(scope: TenantScope, messageId: string): Promise<DeliveryStatus>;
+  capabilities(): ChannelCapabilities;
+  templates(scope: TenantScope): Promise<readonly unknown[]>;
+  parseWebhook(rawBody: string | Uint8Array): Promise<unknown>;
 }
 
 interface DndRegister {
@@ -224,13 +238,19 @@ const PII_PROBES: Record<string, string> = {
   'name in the body': 'Adaeze Okonkwo-PiiProbe',
 };
 
+let sendIdemCounter = 0;
+
 function sendRequest(overrides: Partial<SendRequest> = {}): SendRequest {
+  sendIdemCounter += 1;
   return {
     scope: SCOPE_A,
     channel: 'sms',
     to: CLEAR_NUMBER,
     body: 'Your appointment is confirmed.',
     purpose: 'transactional',
+    // T-0186: send requires idempotencyKey (D-L37). Unique per call so the
+    // fake's idempotency map does not collapse unrelated acceptance probes.
+    idempotencyKey: `unit-idem-accept-channel-${String(sendIdemCounter)}`,
     ...overrides,
   };
 }
@@ -249,6 +269,11 @@ function countingProvider(): ChannelProvider & { sends: SendRequest[] } {
       state: 'queued',
       updatedAt: new Date(),
     }),
+    capabilities: () => ({ channels: ['sms'], templates: false, webhooks: false }),
+    templates: async () => [],
+    parseWebhook: async () => {
+      throw new Error('countingProvider does not parse webhooks');
+    },
   };
 }
 
@@ -698,6 +723,11 @@ describe('acceptance: the destination number and the body never leave in telemet
       },
       getDeliveryStatus: async () => {
         throw new Error('not used');
+      },
+      capabilities: () => ({ channels: ['sms'], templates: false, webhooks: false }),
+      templates: async () => [],
+      parseWebhook: async () => {
+        throw new Error('leakyVendor does not parse webhooks');
       },
     };
 

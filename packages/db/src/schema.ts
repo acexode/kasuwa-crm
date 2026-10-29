@@ -1987,6 +1987,74 @@ export const quoteSend = pgTable(
   ],
 );
 
+/** Payment link statuses at P0 (T-0169 / D-L212): paid + expired only paths. */
+export const PAYMENT_LINK_STATUSES = ['pending', 'paid', 'expired', 'cancelled'] as const;
+export type PaymentLinkStatus = (typeof PAYMENT_LINK_STATUSES)[number];
+/** Provider id strings live only in `@kasuwa/payments-adapter` (CLAUDE.md 2.8). */
+export type PaymentLinkProvider = string;
+export const PAYMENT_EVENT_TYPES = ['payment.paid', 'payment.expired', 'payment.failed'] as const;
+export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
+
+export const paymentLink = pgTable(
+  'payment_link',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    quoteId: uuid('quote_id').notNull(),
+    provider: text('provider').notNull(),
+    providerLinkId: text('provider_link_id').notNull(),
+    url: text('url').notNull(),
+    status: text('status', { enum: PAYMENT_LINK_STATUSES }).notNull().default('pending'),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: text('currency', { enum: COMMERCE_CURRENCIES }).notNull(),
+    reference: text('reference').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdByUserId: uuid('created_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('payment_link_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    uniqueIndex('payment_link_idempotency_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.idempotencyKey,
+    ),
+    index('payment_link_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
+  ],
+);
+
+export const paymentEvent = pgTable(
+  'payment_event',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    paymentLinkId: uuid('payment_link_id').notNull(),
+    providerEventId: text('provider_event_id').notNull(),
+    eventType: text('event_type', { enum: PAYMENT_EVENT_TYPES }).notNull(),
+    paymentMethodToken: text('payment_method_token'),
+    paymentMethodLastFour: text('payment_method_last_four'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('payment_event_tenant_programme_id_key').on(
+      table.tenantId,
+      table.programmeId,
+      table.id,
+    ),
+    index('payment_event_link_idx').on(table.tenantId, table.programmeId, table.paymentLinkId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -2044,6 +2112,30 @@ export const TENANT_SCOPED_TABLES = [
   'approval_rule',
   'quote_approval',
   'quote_send',
+  'payment_link',
+  'payment_event',
+  'conversation',
+  'message',
+  'conversation_participant',
+  'onboarding_state',
+  'portal_identity',
+  'portal_session',
+  'portal_programme',
+  'message_delivery',
+  'message_template',
+  'invoice',
+  'invoice_line',
+  'portal_invite',
+  'portal_branding',
+  'consent_check',
+  'inbox_queue',
+  'canned_response',
+  'tax_line',
+  'einvoice',
+  'fx_rate',
+  'fx_lock',
+  'billing_schedule',
+  'mobile_payment',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

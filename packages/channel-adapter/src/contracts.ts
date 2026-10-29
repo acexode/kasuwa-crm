@@ -52,6 +52,8 @@ export const EmailAddress = z.email().max(320);
 /** WhatsApp's free-form ceiling; SMS concatenation and an email body sit under it. */
 const MessageBody = z.string().min(1).max(4096);
 
+const IdempotencyKey = z.string().min(1).max(128);
+
 const phoneRequest = <C extends DndChannel>(channel: C) =>
   z.object({
     scope: TenantScope,
@@ -59,6 +61,8 @@ const phoneRequest = <C extends DndChannel>(channel: C) =>
     to: E164,
     body: MessageBody,
     purpose: MessagePurpose,
+    /** Required (D-L37 / T-0186): retries without a key can double-deliver OTPs. */
+    idempotencyKey: IdempotencyKey,
   });
 
 /**
@@ -75,6 +79,7 @@ export const SendRequest = z.discriminatedUnion('channel', [
     to: EmailAddress,
     body: MessageBody,
     purpose: MessagePurpose,
+    idempotencyKey: IdempotencyKey,
   }),
 ]);
 export type SendRequest = z.infer<typeof SendRequest>;
@@ -107,9 +112,44 @@ export const DeliveryStatusOutput = z.object({
  * classify. Anything else it throws is discarded by the adapter and replaced
  * with a typed error, because a vendor error routinely embeds the request.
  */
+export const ChannelCapabilities = z.object({
+  channels: z.array(ChannelKind).min(1),
+  templates: z.boolean(),
+  webhooks: z.boolean(),
+});
+export type ChannelCapabilities = z.infer<typeof ChannelCapabilities>;
+
+export const ChannelTemplate = z.object({
+  id: z.string().min(1).max(128),
+  name: z.string().min(1).max(256),
+  channel: ChannelKind,
+  category: z.enum(['utility', 'marketing', 'authentication', 'service']).optional(),
+  body: z.string().min(1).max(4096),
+});
+export type ChannelTemplate = z.infer<typeof ChannelTemplate>;
+
+export const ChannelWebhookEvent = z
+  .object({
+    eventId: z.string().min(1).max(256),
+    occurredAt: z.date(),
+    type: z.enum(['message.delivered', 'message.failed', 'message.received']),
+    providerMessageId: z.string().min(1).max(256),
+  })
+  .strict();
+export type ChannelWebhookEvent = z.infer<typeof ChannelWebhookEvent>;
+
 export interface ChannelProvider {
   send(request: SendRequest): Promise<SendResult>;
   getDeliveryStatus(scope: TenantScope, messageId: string): Promise<DeliveryStatus>;
+  /** T-0186: which channels and features this provider exposes. */
+  capabilities(): ChannelCapabilities;
+  /** T-0186: list approved templates (empty until a real provider / inbox templates). */
+  templates(scope: TenantScope): Promise<readonly ChannelTemplate[]>;
+  /**
+   * T-0186: parse a verified webhook body. Callers must verify the signature
+   * themselves (or via a later provider helper); never logs rawBody.
+   */
+  parseWebhook(rawBody: string | Uint8Array): Promise<ChannelWebhookEvent>;
 }
 
 /** Nigeria's NCC Do-Not-Disturb register, keyed on E.164. */

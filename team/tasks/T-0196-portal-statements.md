@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0196 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M18 |
 | **owner** | Phase 3 W6 A2 |
 | **priority** | P1 |

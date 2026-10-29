@@ -1,0 +1,45 @@
+openapi: 3.1.0
+info:
+  title: Kasuwa Inbox API
+  version: 0.1.0-T-0185
+  description: Programme-scoped conversations (T-0185). Pipelines and routing follow in later tasks.
+paths:
+  /api/v1/programmes/{programmeId}/conversations:
+    get:
+      operationId: listConversations
+      x-kasuwa-implemented: false
+      summary: List conversations in a programme
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Conversation list
+  /api/v1/conversations/{conversationId}:
+    get:
+      operationId: getConversation
+      x-kasuwa-implemented: false
+      summary: Get a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Conversation
+  /api/v1/conversations/{conversationId}/messages:
+    get:
+      operationId: listMessages
+      x-kasuwa-implemented: false
+      summary: List messages in a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Message list

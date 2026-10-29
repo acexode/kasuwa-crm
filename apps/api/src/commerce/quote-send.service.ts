@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   ChannelError,
   type ChannelProvider,
@@ -109,6 +110,7 @@ export async function sendQuoteFor(
       to: parsed.data.to,
       body: quoteEmailBody(quote.id, quote.version, quote.currency, quote.totalMinor),
       purpose: 'transactional',
+      idempotencyKey: `quote-send:${quote.id}:${quote.version}:${randomUUID()}`,
     });
     providerMessageId = result.messageId;
   } catch (error) {

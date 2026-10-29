@@ -58,3 +58,4 @@ export * from './commerce/approvals.types';
 export * from './commerce/approvals.repository';
 export * from './commerce/quote-pdf';
 export * from './commerce/quote-send.repository';
+export * from './commerce/payment-links.repository';

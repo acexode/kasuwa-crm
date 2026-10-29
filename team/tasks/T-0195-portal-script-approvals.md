@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0195 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M18 |
 | **owner** | Phase 3 W6 A1 |
 | **priority** | P1 |

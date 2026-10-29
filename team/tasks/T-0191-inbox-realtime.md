@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0191 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M08 |
 | **owner** | Phase 3 W3 A5 |
 | **priority** | P0 |

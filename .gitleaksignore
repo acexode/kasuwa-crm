@@ -40,3 +40,8 @@ aa05abe9071a8771c51c32e2154e3bc496fa3682:apps/api/src/auth/mfa-secret.test.ts:ge
 721d79aabffdc22de0f88ff5ce49ba2a5d72b7f3:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207
 # Same fixture after the s1-dev rebase onto main (new commit SHA, same line).
 21fc08e9f0b8aaaac765b8f10a9ba0075d176426:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207
+
+# Invented channel idempotency key in T-0186 unit fixture (not a credential).
+47dc34eadb3d3b47b58bd063bbf0152e9dc0108d:packages/channel-adapter/src/default-provider.test.ts:generic-api-key:18
+# Same payments-adapter acceptance fixture after squash to main (T-0168).
+87f35ce915586d073a0eaf9ffb19becbd9fb9eab:tests/acceptance/adapters/payments-adapter.acceptance.test.ts:generic-api-key:207

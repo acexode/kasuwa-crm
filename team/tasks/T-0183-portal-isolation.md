@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | **id** | T-0183 |
-| **status** | `assigned` |
+| **status** | `not-assigned` |
 | **module** | M18 |
 | **owner** | Phase 3 W2 A5 |
 | **priority** | P0 |

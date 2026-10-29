@@ -312,6 +312,76 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0169 (M05 P0): payment links via payments-adapter. Off by default.
+   * Refunds/partials are flagged empty (D-L212).
+   */
+  payment_links: {
+    description: 'Payment-provider links for quotes; paid and expired only at P0 (T-0169).',
+    defaultValue: false,
+    owner: 'T-0169',
+    productionReady: false,
+  },
+  invoices: {
+    description: 'Invoices from accepted quotes (T-0172).',
+    defaultValue: false,
+    owner: 'T-0172',
+    productionReady: false,
+  },
+  vat_multitax: {
+    description: 'VAT and multi-tax lines (T-0173).',
+    defaultValue: false,
+    owner: 'T-0173',
+    productionReady: false,
+  },
+  mbs_einvoicing: {
+    description: 'Fake MBS e-invoicing (provisional B4) (T-0174).',
+    defaultValue: false,
+    owner: 'T-0174',
+    productionReady: false,
+  },
+  fx_lock: {
+    description: 'Admin FX rates and 24h locks (provisional B5) (T-0175).',
+    defaultValue: false,
+    owner: 'T-0175',
+    productionReady: false,
+  },
+  recurring_billing: {
+    description: 'Recurring billing schedules (T-0176).',
+    defaultValue: false,
+    owner: 'T-0176',
+    productionReady: false,
+  },
+  mobile_money: {
+    description: 'M-Pesa/MoMo adapter kinds (provisional B3) (T-0177).',
+    defaultValue: false,
+    owner: 'T-0177',
+    productionReady: false,
+  },
+  client_portal: {
+    description: 'BPO client portal screens (T-0184).',
+    defaultValue: false,
+    owner: 'T-0184',
+    productionReady: false,
+  },
+  inbox_templates: {
+    description: 'WhatsApp templates and 24h window (T-0188).',
+    defaultValue: false,
+    owner: 'T-0188',
+    productionReady: false,
+  },
+  inbox_routing: {
+    description: 'Inbox queues and canned responses (T-0190).',
+    defaultValue: false,
+    owner: 'T-0190',
+    productionReady: false,
+  },
+  onboarding_persistence: {
+    description: 'Server-side resumable first-admin onboarding wizard (T-0018, D-L205).',
+    defaultValue: false,
+    owner: 'T-0018',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the
