@@ -51,3 +51,17 @@
 | 9 Task reports | Present for landed tasks; S6 deferred noted |
 | 10 Hands-on demo | **Waiting on you** |
 | 11 Trackers current | FEATURES.md regenerated |
+
+## Lead judgements during CI green (wave 2)
+
+Decisions taken while aligning the branch with commitlint and unit expectations (commit `d7944a0` and related lead calls; no history rewrite).
+
+| # | Judgement | Rationale |
+|---|---|---|
+| W2-1 | **`invoices.write` held by agent / team_lead / programme_manager** (same set as `quotes.write`) | Update unit tests to match policy; do not widen the permission surface for Phase 3 |
+| W2-2 | **Export `DND_REGISTER` from `AppModule`** for `InboxModule` DI | Inbox consent/DND paths need the register token without bypassing module boundaries |
+| W2-3 | **Wire `en-NG.passthrough.json` into catalogues** | File existed but was unused; catalogue i18n validation expects it on the path |
+| W2-4 | **Rewrite commit subjects `T-XXXX` → `t-xxxx`** for commitlint `subject-case` | Branch history kept; new/amended subjects follow lowercase task id in scope line |
+| W2-5 | **`OnboardingController` + inbox controllers in no-store middleware expectations** | Cache-control census must include Phase 3 HTTP surfaces that carry session or PII-adjacent reads |
+| W2-6 | **`PortalBrandingController` in `admin.module.test` census** | Admin module route inventory matches landed portal branding API |
+| W2-7 | **Portal invite audit test mocks tenant slug query** | Audit assertion path resolves tenant context without an unscoped slug lookup in the suite |
