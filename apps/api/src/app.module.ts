@@ -16,6 +16,7 @@ import { ActivitiesController } from './activities/activities.controller';
 import { MyActivitiesController } from './activities/my-activities.controller';
 import { ADMIN_CONTROLLERS, AdminModule } from './admin/admin.module';
 import { AuthController } from './auth/auth.controller';
+import { PortalController } from './auth/portal/portal.controller';
 import { AuthModule } from './auth/auth.module';
 import type { AuthPolicy } from './auth/auth.policy';
 import { ContactsController } from './contacts/contacts.controller';
@@ -42,21 +43,58 @@ import {
   DuplicatesController,
 } from './merges/merges.controller';
 import { HomeLayoutController } from './me/home-layout.controller';
+import { OnboardingController } from './me/onboarding.controller';
 import { MeController } from './me/me.controller';
 import { NotificationThrottleGuard } from './notifications/notification-throttle.guard';
 import { NotificationsController } from './notifications/notifications.controller';
 import { PipelinesController } from './pipelines/pipelines.controller';
-import { CHANNEL, createApiChannel } from './messaging/channel';
+import {
+  CHANNEL,
+  DND_REGISTER,
+  createApiChannel,
+  unconfiguredDndRegister,
+  type DndRegister,
+} from './messaging/channel';
 import { ContactScriptsController, ScriptRunsController } from './scripts/script-runs.controller';
 import { ScriptsController } from './scripts/scripts.controller';
 import { ScriptsModule } from './scripts/scripts.module';
+import {
+  ApprovalsController,
+  ApprovalsProgrammeController,
+  ApprovalsQuoteController,
+} from './commerce/approvals.controller';
+import {
+  BillingScheduleController,
+  BillingScheduleInvoiceController,
+  BillingScheduleProgrammeController,
+} from './commerce/billing-schedule.controller';
 import {
   CataloguePriceBookController,
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './commerce/catalogue.controller';
+import { EinvoiceController } from './commerce/einvoice.controller';
+import { FxDealController, FxProgrammeController } from './commerce/fx.controller';
+import {
+  InvoicesController,
+  InvoicesProgrammeController,
+  InvoicesQuoteController,
+} from './commerce/invoices.controller';
+import {
+  MobilePaymentController,
+  MobilePaymentInvoiceController,
+} from './commerce/mobile-payment.controller';
+import {
+  PaymentLinksController,
+  PaymentLinksQuoteController,
+} from './commerce/payment-links.controller';
 import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
+import { InboxModule } from './inbox/inbox.module';
+import {
+  ConversationsController,
+  InboxProgrammeController,
+} from './inbox/conversations.controller';
 import { SearchController } from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
@@ -85,6 +123,7 @@ export const RECORDS_CONTROLLERS = [
   ActivitiesController,
   MeController,
   HomeLayoutController,
+  OnboardingController,
   MyActivitiesController,
   PipelinesController,
   // The deals API (T-0108): listDeals and createDeal under a pipeline, and
@@ -122,7 +161,26 @@ export const COMMERCE_CONTROLLERS = [
   CataloguePriceBookController,
   QuotesProgrammeController,
   QuotesController,
+  ApprovalsProgrammeController,
+  ApprovalsQuoteController,
+  ApprovalsController,
+  PaymentLinksQuoteController,
+  PaymentLinksController,
+  InvoicesProgrammeController,
+  InvoicesQuoteController,
+  InvoicesController,
+  EinvoiceController,
+  FxProgrammeController,
+  FxDealController,
+  BillingScheduleProgrammeController,
+  BillingScheduleInvoiceController,
+  BillingScheduleController,
+  MobilePaymentInvoiceController,
+  MobilePaymentController,
 ];
+
+/** Programme-scoped inbox reads (inbox.openapi.yaml, T-0185). */
+export const INBOX_CONTROLLERS = [InboxProgrammeController, ConversationsController];
 
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */
 const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
@@ -137,8 +195,10 @@ const CONTROLLERS = [HealthController, ...RECORDS_CONTROLLERS];
 const TELEMETRY_CONTROLLERS = [
   ...CONTROLLERS,
   AuthController,
+  PortalController,
   ...SCRIPTING_CONTROLLERS,
   ...COMMERCE_CONTROLLERS,
+  ...INBOX_CONTROLLERS,
   ...ADMIN_CONTROLLERS,
 ];
 
@@ -200,6 +260,8 @@ export interface AppModuleOptions {
    * fake to read what was sent.
    */
   channelProvider?: ChannelProvider;
+  /** Override for tests; production uses the fail-closed unconfigured register. */
+  dndRegister?: DndRegister;
   /**
    * The `cell` attribute on every API span (T-0005). Defaults to `local`;
    * `main.ts` passes KASUWA_CELL.
@@ -232,6 +294,13 @@ export interface AppModuleOptions {
    * `redisUrl` and `objectStore` are given (an in-process boot opting in).
    */
   crmImport?: boolean;
+  /** `client_portal` (T-0179). Off, portal API routes answer 404. */
+  portalEnabled?: boolean;
+  selfServeSignup?: boolean;
+  onboardingPersistence?: boolean;
+  selfServeProvisioningConnection?: string;
+  inboxTemplatesEnabled?: boolean;
+  inboxRoutingEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -271,7 +340,12 @@ export class AppModule implements NestModule {
     // And every scripting answer (T-0113, scripting.openapi.yaml's NoStore header).
     consumer
       .apply(NoStoreMiddleware)
-      .forRoutes(...RECORDS_CONTROLLERS, ...SCRIPTING_CONTROLLERS, ...COMMERCE_CONTROLLERS);
+      .forRoutes(
+        ...RECORDS_CONTROLLERS,
+        ...SCRIPTING_CONTROLLERS,
+        ...COMMERCE_CONTROLLERS,
+        ...INBOX_CONTROLLERS,
+      );
   }
 
   static forRoot(options: AppModuleOptions): DynamicModule {
@@ -283,7 +357,7 @@ export class AppModule implements NestModule {
       // Every admin area relies on this (D-L39); do not remove it while
       // AdminModule exists.
       global: true,
-      exports: [AUTH_MODE, CHANNEL],
+      exports: [AUTH_MODE, CHANNEL, DND_REGISTER],
       imports: [
         DatabaseModule.forRoot({
           databaseUrl: options.databaseUrl,
@@ -305,6 +379,18 @@ export class AppModule implements NestModule {
             : { connectionTimeoutMillis: options.poolConnectionTimeoutMillis }),
           ...(options.authPolicy === undefined ? {} : { authPolicy: options.authPolicy }),
           ...(options.keyProvider === undefined ? {} : { keyProvider: options.keyProvider }),
+          ...(options.portalEnabled === undefined
+            ? {}
+            : { portalEnabled: options.portalEnabled }),
+          ...(options.selfServeSignup === undefined
+            ? {}
+            : { selfServeSignup: options.selfServeSignup }),
+          ...(options.onboardingPersistence === undefined
+            ? {}
+            : { onboardingPersistence: options.onboardingPersistence }),
+          ...(options.selfServeProvisioningConnection === undefined
+            ? {}
+            : { selfServeProvisioningConnection: options.selfServeProvisioningConnection }),
         }),
         // Every admin area. A new area is added inside AdminModule, not here.
         AdminModule,
@@ -312,6 +398,14 @@ export class AppModule implements NestModule {
         // middleware, like the audit area.
         ScriptsModule,
         CommerceModule,
+        InboxModule.forRoot({
+          ...(options.inboxTemplatesEnabled === undefined
+            ? {}
+            : { inboxTemplatesEnabled: options.inboxTemplatesEnabled }),
+          ...(options.inboxRoutingEnabled === undefined
+            ? {}
+            : { inboxRoutingEnabled: options.inboxRoutingEnabled }),
+        }),
       ],
       controllers: CONTROLLERS,
       providers: [
@@ -344,8 +438,17 @@ export class AppModule implements NestModule {
         NotificationThrottleGuard,
         { provide: AUTH_MODE, useValue: options.authMode ?? 'stub' },
         {
+          provide: DND_REGISTER,
+          useValue: options.dndRegister ?? unconfiguredDndRegister,
+        },
+        {
           provide: CHANNEL,
-          useValue: createApiChannel(options.channelProvider ?? defaultChannelProvider(nodeEnv())),
+          useFactory: (dnd: DndRegister) =>
+            createApiChannel(
+              options.channelProvider ?? defaultChannelProvider(nodeEnv()),
+              dnd,
+            ),
+          inject: [DND_REGISTER],
         },
         { provide: APP_FILTER, useClass: ValidationExceptionFilter },
         // The catch-all (T-0036, D-L42): replaces Nest's default handler, which

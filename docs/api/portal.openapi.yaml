@@ -1,27 +1,115 @@
 openapi: 3.1.0
 info:
   title: Kasuwa Portal API
-  version: 0.1.0-T-0179
-  description: External portal identity (ADR-0021 / D-L212). Scope from portal_programme only.
+  version: 0.2.0-T-0179
+  description: |
+    External portal identity (ADR-0021 / D-L212 / D-L213).
+    Scope is always read from `portal_programme` inside the tenant transaction.
+    No third SECURITY DEFINER. Staff Bearer tokens and stub scope headers are refused.
 paths:
   /api/v1/portal/sign-in:
     post:
       operationId: portalSignIn
-      x-kasuwa-implemented: false
-      summary: Portal sign-in
+      x-kasuwa-implemented: true
+      summary: Portal sign-in (step 1 — may require MFA)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [tenantSlug, email, password]
+              properties:
+                tenantSlug: { type: string, minLength: 1, maxLength: 64 }
+                email: { type: string, format: email, maxLength: 320 }
+                password: { type: string, minLength: 1, maxLength: 200 }
       responses:
-        '200': { description: Session issued }
+        '200':
+          description: MFA challenge or session (no-store)
+          headers:
+            Cache-Control: { schema: { type: string }, description: must be no-store }
+        '401': { description: Not authenticated (unknown email and wrong password identical) }
+
   /api/v1/portal/mfa:
     post:
       operationId: portalVerifyMfa
-      x-kasuwa-implemented: false
-      summary: Portal MFA verify
+      x-kasuwa-implemented: true
+      summary: Portal MFA verify (completes sign-in)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [challengeId, code]
+              properties:
+                challengeId: { type: string, minLength: 36, maxLength: 80 }
+                code: { type: string, minLength: 6, maxLength: 12 }
       responses:
-        '200': { description: MFA accepted }
+        '200': { description: Session issued (cookie and/or bearer material) }
+        '401': { description: Not authenticated }
+
   /api/v1/portal/me:
     get:
       operationId: portalMe
-      x-kasuwa-implemented: false
-      summary: Current portal identity and programmes
+      x-kasuwa-implemented: true
+      summary: Current portal identity and programmes from portal_programme
       responses:
         '200': { description: Portal me }
+        '401': { description: Not authenticated }
+
+  /api/v1/portal/programmes:
+    get:
+      operationId: listPortalProgrammes
+      x-kasuwa-implemented: true
+      summary: Programmes in portal_programme for this identity
+      responses:
+        '200': { description: Programme list }
+        '401': { description: Not authenticated }
+
+  /api/v1/portal/contacts:
+    get:
+      operationId: listPortalContacts
+      x-kasuwa-implemented: true
+      summary: Contacts in the portal identity's programmes only
+      responses:
+        '200': { description: Contact page }
+        '401': { description: Not authenticated }
+        '404': { description: Out of scope (same body as missing) }
+
+  /api/v1/portal/reports/{reportId}:
+    get:
+      operationId: getPortalReport
+      x-kasuwa-implemented: true
+      summary: Portal report with D-P26 redaction
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Report }
+        '401': { description: Not authenticated }
+        '404': { description: Out of scope or missing }
+
+  /api/v1/portal/invitations/accept:
+    post:
+      operationId: acceptPortalInvitation
+      x-kasuwa-implemented: true
+      summary: Accept a portal invite (token in body, never query)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [tenantSlug, token]
+              properties:
+                tenantSlug: { type: string }
+                token: { type: string, minLength: 32 }
+      responses:
+        '200': { description: Accepted }
+        '401': { description: Bad slug or token (identical body) }

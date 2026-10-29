@@ -102,6 +102,8 @@ export interface ProvisionTenantOptions {
   adminDisplayName: string;
   /** The loud opt-in for a non-local database host. Default false. */
   allowNonLocalDatabase?: boolean;
+  /** Self-serve (T-0016): admin-chosen password hash instead of a setup credential. */
+  initialPasswordHash?: string;
   /**
    * Operator log. Receives progress and the audit-event shape; never the
    * setup credential, its hash, or the admin's email or name.
@@ -433,8 +435,10 @@ export async function provisionTenant(options: ProvisionTenantOptions): Promise<
 
   // Hashed before the transaction opens: argon2id is deliberately slow, and a
   // transaction holding the provisioning lock should not wait on it.
-  const setupCredential = newSetupCredential();
-  const credentialHash = await hashPassword(setupCredential);
+  const setupCredential =
+    options.initialPasswordHash === undefined ? newSetupCredential() : '';
+  const credentialHash =
+    options.initialPasswordHash ?? (await hashPassword(setupCredential));
 
   const tenantId = newId();
   const adminUserId = newId();

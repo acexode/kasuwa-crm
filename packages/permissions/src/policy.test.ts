@@ -71,7 +71,8 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
           action === 'activity.write' ||
           action === 'script.run' ||
           action === 'deal.write' ||
-          action === 'quotes.write',
+          action === 'quotes.write' ||
+          action === 'invoices.write',
       );
     }
   });
@@ -86,6 +87,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'script.run',
         'deal.write',
         'quotes.write',
+        'invoices.write',
       ],
     ],
     [
@@ -100,6 +102,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.reassign',
         'quotes.write',
         'quotes.approve',
+        'invoices.write',
       ],
     ],
     [
@@ -114,6 +117,7 @@ describe('canProgramme (D-L53: admin set in that programme, or tenant admin)', (
         'deal.reassign',
         'quotes.write',
         'quotes.approve',
+        'invoices.write',
       ],
     ],
   ])('gives the %s set exactly %j', (key, expected) => {
@@ -559,6 +563,7 @@ describe('listCapabilities (T-0158)', () => {
           'activity.write',
           'contact.claim_and_set_status',
           'deal.write',
+          'invoices.write',
           'quotes.write',
           'script.run',
         ],

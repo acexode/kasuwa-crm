@@ -209,8 +209,10 @@ function captureStray(): unknown[][] {
 
 /** Seam S3: the plaintext token, read from the message the provider received. */
 function tokenIn(message: SendRequest): string {
-  const match = /[?&]token=([A-Za-z0-9._~%-]+)/.exec(message.body);
-  expect(match, 'S3: the invitation body carries no `token=` parameter').not.toBeNull();
+  const match =
+    /#token=([A-Za-z0-9._~%-]+)/.exec(message.body) ??
+    /[?&]token=([A-Za-z0-9._~%-]+)/.exec(message.body);
+  expect(match, 'S3: the invitation body carries no invite token').not.toBeNull();
   const token = decodeURIComponent(match?.[1] ?? '');
   expect(token.length, 'S3: the invite token is shorter than 32 characters').toBeGreaterThanOrEqual(
     32,

@@ -25,6 +25,7 @@ export * from './programme/programme-policy';
 export * from './programme/programme-policy.repository';
 export * from './portal-user/portal-user.repository';
 export * from './portal-user/portal-user-invite';
+export * from './portal-invite/portal-invite.repository';
 export * from './disposition/disposition.repository';
 export * from './tenant/tenant-slug';
 export * from './pipeline/deal-fields';
@@ -50,6 +51,12 @@ export * from './notification/owner-events';
 export * from './notification/notification-handler';
 export * from './notification/notification.repository';
 export * from './home/home-layout.repository';
+export * from './onboarding/onboarding.repository';
+export {
+  organisationToSlug,
+  provisionSelfServeTenant,
+  type SelfServeProvisionInput,
+} from './self-serve/provision-from-signup';
 export * from './commerce/catalogue.types';
 export * from './commerce/catalogue.repository';
 export * from './commerce/quotes.types';
@@ -59,3 +66,21 @@ export * from './commerce/approvals.repository';
 export * from './commerce/quote-pdf';
 export * from './commerce/quote-send.repository';
 export * from './commerce/payment-links.repository';
+export * from './commerce/invoices.types';
+export * from './commerce/invoices.repository';
+export * from './commerce/tax.types';
+export * from './commerce/tax.repository';
+export * from './commerce/einvoice.repository';
+export * from './commerce/fx.repository';
+export * from './commerce/billing-schedule.types';
+export * from './commerce/billing-schedule.repository';
+export * from './commerce/mobile-payment.repository';
+export * from './inbox/conversations.types';
+export * from './inbox/conversations.repository';
+export * from './inbox/message-body-redact';
+export * from './inbox/send-message.repository';
+export * from './inbox/e164-hash';
+export * from './inbox/window';
+export * from './inbox/message-template.repository';
+export * from './inbox/consent-check.repository';
+export * from './inbox/routing.repository';

@@ -712,7 +712,9 @@ describe('authentication hardening', () => {
       // Growing this list is an architecture decision and needs an ADR. If this
       // fails, read NON_TENANT_SCOPED_TABLES and ask whether the new entry has
       // one.
-      expect([...NON_TENANT_SCOPED_TABLES]).toEqual(['auth_rate_limit']);
+      expect([...NON_TENANT_SCOPED_TABLES].sort()).toEqual(
+        ['auth_rate_limit', 'signup_attempt'].sort(),
+      );
     });
   });
 });

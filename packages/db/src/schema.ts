@@ -1089,6 +1089,24 @@ export const userMfaBackupCode = pgTable(
   ],
 );
 
+export const portalAuthChallenge = pgTable(
+  'portal_auth_challenge',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    portalIdentityId: uuid('portal_identity_id').notNull(),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('portal_auth_challenge_expiry_idx').on(table.expiresAt),
+    index('portal_auth_challenge_identity_idx').on(table.tenantId, table.portalIdentityId),
+  ],
+);
+
 export const authChallenge = pgTable(
   'auth_challenge',
   {
@@ -2121,6 +2139,7 @@ export const TENANT_SCOPED_TABLES = [
   'portal_identity',
   'portal_session',
   'portal_programme',
+  'portal_auth_challenge',
   'message_delivery',
   'message_template',
   'invoice',
@@ -2172,6 +2191,8 @@ export const NON_TENANT_SCOPED_TABLES = [
    * (T-0004 FINDING-3).
    */
   'auth_rate_limit',
+  /** Pre-tenant self-serve verification (T-0016); auth pool only. */
+  'signup_attempt',
 ] as const;
 
 export type NonTenantScopedTable = (typeof NON_TENANT_SCOPED_TABLES)[number];

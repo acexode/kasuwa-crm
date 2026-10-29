@@ -4,6 +4,8 @@ import {
   type DndRegister,
 } from '@kasuwa/channel-adapter';
 
+export type { DndRegister };
+
 /**
  * The API's one way to send a message: the compliance wrapper from
  * `@kasuwa/channel-adapter`, never a provider directly (T-0030 seam S1).
@@ -12,6 +14,8 @@ import {
  * global, so a feature module declares no provider of its own for it.
  */
 export const CHANNEL = Symbol('CHANNEL');
+/** Raw DND register for consent audit (T-0189), shared with {@link CHANNEL}. */
+export const DND_REGISTER = Symbol('DND_REGISTER');
 
 /**
  * There is no DND register integration yet (the NCC feed is not built), so the
@@ -27,6 +31,9 @@ export const unconfiguredDndRegister: DndRegister = {
 };
 
 /** Wraps `provider` in the adapter. Logs nothing: the adapter's own log fields are codes and ids. */
-export function createApiChannel(provider: ChannelProvider): ChannelProvider {
-  return createChannelAdapter({ provider, dnd: unconfiguredDndRegister });
+export function createApiChannel(
+  provider: ChannelProvider,
+  dnd: DndRegister = unconfiguredDndRegister,
+): ChannelProvider {
+  return createChannelAdapter({ provider, dnd });
 }

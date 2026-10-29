@@ -35,7 +35,7 @@ export interface CrmNavItem {
 
 export const CRM_NAV: readonly CrmNavItem[] = [
   { id: 'home', label: 'records.nav.home', icon: 'home', href: '/home', placeholder: false },
-  { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: null, placeholder: true },
+  { id: 'inbox', label: 'records.nav.inbox', icon: 'forum', href: '/inbox', placeholder: false },
   { id: 'leads', label: 'records.nav.leads', icon: 'person_add', href: '/leads', placeholder: false },
   { id: 'contacts', label: 'records.nav.contacts', icon: 'contacts', href: '/contacts', placeholder: false },
   { id: 'accounts', label: 'records.nav.accounts', icon: 'domain', href: '/accounts', placeholder: false },
@@ -106,6 +106,9 @@ export const CRM_SCREEN_TITLES: Readonly<Record<string, MessageId>> = {
   search: 'search.title',
   notifications: 'notifications.title',
   scripts: 'scripting.builder.title',
+  catalogue: 'commerce.catalogue.title',
+  quotes: 'commerce.quotes.title',
+  inbox: 'inbox.title',
 };
 
 export const CRM_SHELL_MESSAGE_IDS: readonly MessageId[] = [

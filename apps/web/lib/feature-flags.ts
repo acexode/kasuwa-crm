@@ -160,10 +160,9 @@ export async function crmActivitiesEnabled(): Promise<boolean> {
  * state, as the design draws it; off, the entry is not drawn. `crmLiveNav()`
  * reports each as `placeholder:<id>`. Presentation only: grants nothing.
  */
-const UNBUILT_NAV = ['inbox', 'tickets', 'calls', 'studio', 'reports'] as const;
+const UNBUILT_NAV = ['tickets', 'calls', 'studio', 'reports'] as const;
 
 const PLACEHOLDER_FLAG = {
-  inbox: 'crm_inbox',
   tickets: 'crm_tickets',
   calls: 'crm_calls',
   studio: 'crm_studio',
@@ -185,8 +184,9 @@ async function crmPlaceholderEnabled(id: (typeof UNBUILT_NAV)[number]): Promise<
  * as "not available yet", exactly like an unbuilt one (`components/crm/crm-nav.ts`).
  */
 export async function crmLiveNav(): Promise<string[]> {
-  const [home, contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, ...placeholders] = await Promise.all([
+  const [home, inbox, contacts, accounts, leads, activities, pipeline, search, csvImport, duplicates, recordView, notifications, notificationExtras, products, quotes, ...placeholders] = await Promise.all([
     crmHomeEnabled(),
+    crmInboxEnabled(),
     crmRecordsEnabled(),
     crmAccountsEnabled(),
     crmLeadsEnabled(),
@@ -198,6 +198,8 @@ export async function crmLiveNav(): Promise<string[]> {
     crmRecordViewEnabled(),
     crmNotificationsEnabled(),
     notificationPlaceholders(),
+    crmProductsEnabled(),
+    crmQuotesEnabled(),
     ...UNBUILT_NAV.map((id) => crmPlaceholderEnabled(id)),
   ]);
   const listPlaceholders = await listPlaceholderFlags();
@@ -206,6 +208,9 @@ export async function crmLiveNav(): Promise<string[]> {
     ...UNBUILT_NAV.filter((_, index) => placeholders[index] === true).map((id) => `placeholder:${id}`),
     // P03 Home (T-0132, D-L196): the rail's first entry, and so the landing.
     ...(home ? ['home'] : []),
+    ...(inbox ? ['inbox'] : []),
+    ...(products ? ['catalogue'] : []),
+    ...(quotes ? ['quotes'] : []),
     ...(leads ? ['leads'] : []),
     ...(contacts ? ['contacts'] : []),
     ...(accounts ? ['accounts'] : []),
@@ -676,6 +681,58 @@ export async function studioFlags(): Promise<StudioFlags> {
     read('studio_field_translations'),
   ]);
   return { objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations };
+}
+
+/** T-0192 / P08: inbox route behind `crm_inbox`. */
+export async function crmInboxEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_inbox',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** T-0184 / P23: client portal route behind `client_portal`. */
+export async function clientPortalEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'client_portal',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/**
+ * P08 composer placeholders (T-0192, D-L194): drawn disabled while their module
+ * flag is off; not drawn at all when off (handled in the screen).
+ */
+export interface InboxPlaceholders {
+  readonly templates: boolean;
+  readonly aiAssist: boolean;
+  readonly payments: boolean;
+  readonly notes: boolean;
+  readonly channels: boolean;
+}
+
+const INBOX_PLACEHOLDER_FLAGS = {
+  templates: 'inbox_templates',
+  aiAssist: 'ai_assistant',
+  payments: 'payment_links',
+  notes: 'inbox_routing',
+  channels: 'whatsapp_inbox',
+} as const satisfies Record<keyof InboxPlaceholders, string>;
+
+export async function inboxPlaceholders(): Promise<InboxPlaceholders> {
+  await initialiseFeatureFlags();
+  const client = featureFlagClient();
+  const context = toEvaluationContext({ tenantId: CRM_SHELL });
+  const entries = await Promise.all(
+    (Object.entries(INBOX_PLACEHOLDER_FLAGS) as [keyof InboxPlaceholders, string][]).map(
+      async ([key, flag]) => [key, await client.getBooleanValue(flag, false, context)] as const,
+    ),
+  );
+  return Object.fromEntries(entries) as unknown as InboxPlaceholders;
 }
 
 /** T-0171 / P21: catalogue route behind `crm_products`. */

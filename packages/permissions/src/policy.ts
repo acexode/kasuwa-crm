@@ -166,6 +166,16 @@ export const PROGRAMME_ACTIONS = [
    * flag. Requesting an approval still needs `quotes.write`.
    */
   'quotes.approve',
+  /**
+   * T-0172: create and issue invoices from accepted quotes in the programme.
+   * Same holder sets as `quotes.write`.
+   */
+  'invoices.write',
+  /**
+   * T-0175: admin-entered FX rates (provisional B5). Held by `admin` and the
+   * tenant-admin flag only, like catalogue prices.
+   */
+  'fx.write',
 ] as const;
 
 export type TenantAction = (typeof TENANT_ACTIONS)[number];
@@ -209,6 +219,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'script.run',
     'deal.write',
     'quotes.write',
+    'invoices.write',
   ],
   [TEAM_LEAD_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
@@ -220,6 +231,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.reassign',
     'quotes.write',
     'quotes.approve',
+    'invoices.write',
   ],
   [PROGRAMME_MANAGER_PERMISSION_SET_KEY]: [
     'contact.claim_and_set_status',
@@ -231,6 +243,7 @@ const SET_PERMITS: Readonly<Record<string, readonly ProgrammeAction[]>> = {
     'deal.reassign',
     'quotes.write',
     'quotes.approve',
+    'invoices.write',
   ],
 };
 

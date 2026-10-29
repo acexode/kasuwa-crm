@@ -64,6 +64,23 @@ export const USER_A_NO_PROGRAMME = `${A}0000000d0004`;
 /** Tenant B agent, member of programme B1 only. */
 export const USER_B_AGENT_1 = `${B}0000000d0005`;
 
+/** Tenant A external portal identity (T-0179), home programme A1, also member of A2. */
+export const PORTAL_IDENTITY_A = `${A}0000001100d0`;
+/** Pending portal_invite for T-0180 accept acceptance (token is 48× `a`). */
+export const PORTAL_ACCEPT_INVITE = `${A}0000001100d1`;
+/** Hex SHA-256 of `a`.repeat(48) — matches acceptance portal-invites suite. */
+export const PORTAL_ACCEPT_INVITE_TOKEN_HASH =
+  '97daac0ee9998dfcad6c9c0970da5ca411c86233a944c25b47566f6a7bc1ddd5';
+/** Portal reads acceptance (T-0181): entitled to programme A1 only. */
+export const PORTAL_IDENTITY_READS = `${A}0000001100d4`;
+/** Portal isolation acceptance (T-0183): entitled to programme A1 only. */
+export const PORTAL_IDENTITY_ISOLATION = `${A}0000001100d2`;
+export const PORTAL_CLIENT_EMAIL = 'portal.client@client.example';
+/** Fixture challenge for portal cookie-name acceptance (T-0179). */
+export const PORTAL_COOKIE_CHALLENGE_ID = '00000000-0000-4000-8000-000000000099';
+export const PORTAL_READS_EMAIL = 'portal.reads@client.example';
+export const PORTAL_ISOLATION_EMAIL = 'portal.isolation@client.example';
+
 /**
  * The password every seeded user shares.
  *

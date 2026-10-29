@@ -65,6 +65,7 @@ const AGENT_CAN = [
   'activity.write',
   'contact.claim_and_set_status',
   'deal.write',
+  'invoices.write', // D-L213: same holders as quotes.write
   'quotes.write', // D-L211 (T-0165): reps quote
   'script.run',
 ].sort();
