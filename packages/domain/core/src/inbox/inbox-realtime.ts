@@ -133,6 +133,16 @@ export interface InboxRealtimePublisher {
 
 export type InboxRealtimeHandling = 'published' | 'skipped';
 
+/** Why a publish was skipped. Event type and this class only — never ids. */
+export type InboxRealtimeSkipReason = 'programme_out_of_reach' | 'ids_disagree';
+
+function logInboxRealtimeSkip(
+  eventType: string,
+  reason: InboxRealtimeSkipReason,
+): void {
+  process.stderr.write(`${eventType} skipped (${reason})\n`);
+}
+
 /**
  * Confirms the message still exists in the event's programme, then publishes
  * ids only. Delivery is at-least-once: a second publish names the same ids.
@@ -142,8 +152,14 @@ export function handleInboxMessagePersisted(
 ): OutboxHandler<InboxRealtimeHandling> {
   return async (tx, event) => {
     if (event.eventType !== INBOX_MESSAGE_PERSISTED) return 'skipped';
-    if (event.tenantId !== tx.session.tenantId) return 'skipped';
-    if (!tx.session.programmeIds.includes(event.programmeId)) return 'skipped';
+    if (event.tenantId !== tx.session.tenantId) {
+      logInboxRealtimeSkip(event.eventType, 'ids_disagree');
+      return 'skipped';
+    }
+    if (!tx.session.programmeIds.includes(event.programmeId)) {
+      logInboxRealtimeSkip(event.eventType, 'programme_out_of_reach');
+      return 'skipped';
+    }
     // tenancy-reviewed: tenant from the session; the programme is the event's,
     // one the session reaches. The message body is not selected.
     const rows = await tx.query<{ conversation_id: string }>(
@@ -159,7 +175,10 @@ export function handleInboxMessagePersisted(
       event,
       row === undefined ? null : { conversationId: row.conversation_id },
     );
-    if (publication === null) return 'skipped';
+    if (publication === null) {
+      logInboxRealtimeSkip(event.eventType, 'ids_disagree');
+      return 'skipped';
+    }
     await publisher.publish(serialiseInboxRealtimeEvent(publication));
     return 'published';
   };

@@ -153,10 +153,45 @@ describe('handleInboxMessagePersisted', () => {
   it('publishes nothing when the message is gone', async () => {
     const { tx } = fakeTx(null);
     const publish = vi.fn(async (_body: string) => undefined);
-    await expect(
-      handleInboxMessagePersisted({ publish })(tx, event()),
-    ).resolves.toBe('skipped');
+    const stderr: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      stderr.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await expect(
+        handleInboxMessagePersisted({ publish })(tx, event()),
+      ).resolves.toBe('skipped');
+    } finally {
+      process.stderr.write = write;
+    }
     expect(publish).not.toHaveBeenCalled();
+    expect(stderr.join('')).toBe('inbox.message_persisted skipped (ids_disagree)\n');
+  });
+
+  it('logs programme_out_of_reach without ids when the session cannot reach it', async () => {
+    const { tx } = fakeTx(CONVERSATION);
+    tx.session.programmeIds = ['11111111-0000-4000-8000-0000000c0099'];
+    const publish = vi.fn(async (_body: string) => undefined);
+    const stderr: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      stderr.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await expect(
+        handleInboxMessagePersisted({ publish })(tx, event()),
+      ).resolves.toBe('skipped');
+    } finally {
+      process.stderr.write = write;
+    }
+    expect(publish).not.toHaveBeenCalled();
+    expect(stderr.join('')).toBe(
+      'inbox.message_persisted skipped (programme_out_of_reach)\n',
+    );
+    expect(stderr.join('')).not.toMatch(/11111111|000000/);
   });
 
   it('leaves other event types on the notifications handler and does not publish them', async () => {
