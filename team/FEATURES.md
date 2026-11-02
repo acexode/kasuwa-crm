@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 349 rows; built 190, partial 11, mock-only 26, flagged-off 96, deferred 10, not-started 16.
+Totals: 350 rows; built 190, partial 11, mock-only 26, flagged-off 97, deferred 10, not-started 16.
 
 ## Modules
 
@@ -329,6 +329,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_notifications` | The P26 notification bell and centre in the CRM shell (T-0101); the notifications API and consumer run regardless (T-0100). | flagged-off | `crm_notifications` | D-L87, D-L146, D-L164 | packages/feature-flags/src/index.ts |
 | flag | `crm_duplicates` | The P28 duplicates and merge screen at /contacts/duplicates and its link on the Contacts list (T-0097). | flagged-off | `crm_duplicates` | D-L146, D-L175 | packages/feature-flags/src/index.ts |
 | flag | `crm_inbox` | The Inbox entry in the CRM rail and bottom bar, a disabled placeholder until the P08 inbox is built (T-0130, D-L194). | flagged-off | `crm_inbox` | — | packages/feature-flags/src/index.ts |
+| flag | `conversation_search` | Include conversation hits in searchRecords (T-0193). Off: unknown_type when off. Session programme scope only. | flagged-off | `conversation_search` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_tickets` | The Tickets entry in the CRM rail, a disabled placeholder until tickets are built (T-0130, D-L194). | flagged-off | `crm_tickets` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_calls` | The Calls entry in the CRM rail, a disabled placeholder until the P09 voice screens are built (T-0130, D-L194). | flagged-off | `crm_calls` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_reports` | The Reports entry in the CRM rail, a disabled placeholder until reports are built (T-0130, D-L194). | flagged-off | `crm_reports` | — | packages/feature-flags/src/index.ts |

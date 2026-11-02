@@ -1,10 +1,18 @@
 import type { TenantTx } from '@kasuwa/db';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ConversationMissingDestinationError,
   recordOutboundMessage,
   resolveConversationDestination,
 } from './send-message.repository';
+
+const appendInboxMessagePersisted = vi.hoisted(() =>
+  vi.fn((_tx: unknown, _message: unknown) => Promise.resolve()),
+);
+
+vi.mock('./inbox-realtime', () => ({
+  appendInboxMessagePersisted,
+}));
 
 const TENANT = '11111111-0000-4000-8000-000000000001';
 const PROGRAMME = '11111111-0000-4000-8000-0000000c0001';
@@ -76,6 +84,13 @@ describe('recordOutboundMessage', () => {
     expect(result?.delivery.state).toBe('queued');
     expect(inserts.filter((s) => /^INSERT INTO message\s/m.test(s))).toHaveLength(1);
     expect(inserts.filter((s) => s.includes('INSERT INTO message_delivery'))).toHaveLength(1);
+    expect(appendInboxMessagePersisted).toHaveBeenCalledTimes(1);
+    expect(appendInboxMessagePersisted.mock.calls[0]?.[1]).toEqual({
+      programmeId: PROGRAMME,
+      conversationId: CONVERSATION,
+      messageId: result?.message.id,
+    });
+    expect(JSON.stringify(appendInboxMessagePersisted.mock.calls[0]?.[1])).not.toMatch(/Hello|body/u);
   });
 });
 

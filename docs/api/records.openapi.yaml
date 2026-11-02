@@ -4028,7 +4028,8 @@ paths:
           in: query
           required: false
           description: |
-            Which groups to answer, any of; absent means all four. Repeat
+            Which groups to answer, any of; absent means the enabled set
+            (four types, or five when `conversation_search` is on). Repeat
             the parameter for several. An unknown or repeated value is `400
             validation_failed` (`unknown_type` for an unknown one). The set
             is additive (D-L87): a later version may add a type, and a client
@@ -4038,7 +4039,7 @@ paths:
           schema:
             type: array
             minItems: 1
-            maxItems: 4
+            maxItems: 5
             uniqueItems: true
             items: { $ref: '#/components/schemas/SearchType' }
       responses:
@@ -8335,10 +8336,10 @@ components:
 
     SearchType:
       type: string
-      enum: [contact, lead, account, deal]
+      enum: [contact, lead, account, deal, conversation]
       description: |
         A record type searchRecords answers (T-0085). Additive (D-L87):
-        tickets, conversations and KB join when their modules publish reads.
+        `conversation` joins behind `conversation_search` (T-0193).
 
     LookupRequest:
       type: object
@@ -8372,8 +8373,13 @@ components:
           minItems: 1
           maxItems: 4
           uniqueItems: true
-          description: Which groups to answer, as searchRecords' `types`; absent means all four.
-          items: { $ref: '#/components/schemas/SearchType' }
+          description: |
+            Which groups to answer. Lookup is contacts and leads only
+            (accounts and deals always empty). Absent means all four.
+            Conversation is not a lookup type.
+          items:
+            type: string
+            enum: [contact, lead, account, deal]
 
     SearchResults:
       type: object
@@ -8381,19 +8387,20 @@ components:
       required: [groups]
       description: |
         One group per requested type, in the order contact, lead, account,
-        deal, each type at most once. **No counts of any kind** (D-P13): no
-        total, no per-type or per-programme count, no "more" flag.
+        deal, conversation, each type at most once. **No counts of any kind**
+        (D-P13): no total, no per-type or per-programme count, no "more" flag.
       properties:
         groups:
           type: array
           minItems: 1
-          maxItems: 4
+          maxItems: 5
           items:
             oneOf:
               - { $ref: '#/components/schemas/ContactSearchGroup' }
               - { $ref: '#/components/schemas/LeadSearchGroup' }
               - { $ref: '#/components/schemas/AccountSearchGroup' }
               - { $ref: '#/components/schemas/DealSearchGroup' }
+              - { $ref: '#/components/schemas/ConversationSearchGroup' }
 
     ContactSearchGroup:
       type: object
@@ -8438,6 +8445,31 @@ components:
           type: array
           maxItems: 3
           items: { $ref: '#/components/schemas/DealSearchHit' }
+
+    ConversationSearchGroup:
+      type: object
+      additionalProperties: false
+      required: [type, hits]
+      properties:
+        type: { type: string, const: conversation }
+        hits:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ConversationSearchHit' }
+
+    ConversationSearchHit:
+      type: object
+      additionalProperties: false
+      required: [type, id, programmeId, preview]
+      description: |
+        A conversation search hit (T-0193): ids and a short redacted preview.
+        Never a phone, email or raw message body. Scope is the session's
+        programmes only.
+      properties:
+        type: { type: string, const: conversation }
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        preview: { type: string, maxLength: 120 }
 
     SearchNameWithheldField:
       type: string
