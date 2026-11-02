@@ -1,6 +1,11 @@
+import type { TenantTx } from '@kasuwa/db';
 import { describe, expect, it } from 'vitest';
 import { LEAD_STATUSES } from '../contact/contact-lead';
-import { LEAD_STATUS_PREDICATE, prefixStatement } from './search.repository';
+import {
+  LEAD_STATUS_PREDICATE,
+  prefixStatement,
+  searchConversationsByPrefix,
+} from './search.repository';
 
 // Synthetic ids.
 const TENANT = '00000000-0000-4000-8000-0000000000t1';
@@ -90,5 +95,35 @@ describe('prefixStatement (T-0086 review fix 1)', () => {
       range,
     );
     expect(account.text).not.toContain('deleted_at');
+  });
+});
+
+describe('searchConversationsByPrefix (T-0193)', () => {
+  it('filters on tenant_id and programme_id from the session only', async () => {
+    const sql: { text: string; values: unknown[] }[] = [];
+    const tx = {
+      session: { tenantId: TENANT, userId: 'u', programmeIds: [A1] },
+      query: (text: string, values: unknown[]) => {
+        sql.push({ text, values });
+        return Promise.resolve([]);
+      },
+    } as unknown as TenantTx;
+    await searchConversationsByPrefix(tx, range, [A1]);
+    expect(sql).toHaveLength(1);
+    expect(sql[0]?.text).toMatch(/c\.tenant_id = \$1::uuid/);
+    expect(sql[0]?.text).toMatch(/c\.programme_id = ANY\(\$2::uuid\[\]\)/);
+    expect(sql[0]?.values[0]).toBe(TENANT);
+    expect(sql[0]?.values[1]).toEqual([A1]);
+    expect(sql[0]?.text).not.toMatch(/body(?!_redacted)/);
+  });
+
+  it('refuses a programme outside the session', async () => {
+    const tx = {
+      session: { tenantId: TENANT, userId: 'u', programmeIds: [A1] },
+      query: () => Promise.resolve([]),
+    } as unknown as TenantTx;
+    await expect(searchConversationsByPrefix(tx, range, [A2])).rejects.toMatchObject({
+      name: 'SearchScopeError',
+    });
   });
 });

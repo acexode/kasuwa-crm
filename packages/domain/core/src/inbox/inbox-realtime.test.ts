@@ -171,8 +171,15 @@ describe('handleInboxMessagePersisted', () => {
   });
 
   it('logs programme_out_of_reach without ids when the session cannot reach it', async () => {
-    const { tx } = fakeTx(CONVERSATION);
-    tx.session.programmeIds = ['11111111-0000-4000-8000-0000000c0099'];
+    const tx = {
+      session: {
+        tenantId: TENANT,
+        userId: ACTOR,
+        programmeIds: ['11111111-0000-4000-8000-0000000c0099'],
+      },
+      query: (): Promise<{ conversation_id: string }[]> =>
+        Promise.resolve([{ conversation_id: CONVERSATION }]),
+    } as unknown as TenantTx;
     const publish = vi.fn(async (_body: string) => undefined);
     const stderr: string[] = [];
     const write = process.stderr.write.bind(process.stderr);

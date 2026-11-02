@@ -476,6 +476,17 @@ export const FLAGS = {
     owner: 'T-0130 (shell placeholder), the P08 inbox when it is built',
     productionReady: false,
   },
+  /**
+   * T-0193: conversation as an additive record-search type. Off by default.
+   * When off, the type is still known but returns an empty group.
+   */
+  conversation_search: {
+    description:
+      'Include conversation hits in searchRecords (T-0193). Session programme scope only.',
+    defaultValue: false,
+    owner: 'T-0193',
+    productionReady: false,
+  },
   crm_tickets: {
     description: 'The Tickets entry in the CRM rail, a disabled placeholder until tickets are built (T-0130, D-L194).',
     defaultValue: false,

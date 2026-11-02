@@ -5,6 +5,8 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Inject,
+  Optional,
   Post,
   Query,
   UseFilters,
@@ -17,6 +19,9 @@ import { currentTx } from '../tenancy/tenant-context';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { SearchBudget, SearchThrottleGuard } from './search-throttle.guard';
 import { lookupRecordsFor, searchRecordsFor, type SearchResultsWire } from './search.service';
+
+/** `conversation_search` flag (T-0193). Off: conversation is an unknown type. */
+export const CONVERSATION_SEARCH_ENABLED = Symbol('CONVERSATION_SEARCH_ENABLED');
 
 /**
  * Global search: the search operations of `docs/api/records.openapi.yaml`
@@ -51,6 +56,12 @@ const NO_STORE = 'no-store';
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class SearchController {
+  constructor(
+    @Optional()
+    @Inject(CONVERSATION_SEARCH_ENABLED)
+    private readonly conversationSearchEnabled: boolean | undefined,
+  ) {}
+
   /**
    * `GET /api/v1/search?q=…[&types=…]` — operationId `searchRecords`.
    * 200 `SearchResults` · 400 `SearchValidationFailed` · 401 · 429
@@ -62,7 +73,9 @@ export class SearchController {
   @SearchBudget('searchRecords')
   @Header(CACHE_CONTROL, NO_STORE)
   async search(@Query() query: unknown): Promise<SearchResultsWire> {
-    return searchRecordsFor(currentTx(), query);
+    return searchRecordsFor(currentTx(), query, {
+      conversationSearchEnabled: this.conversationSearchEnabled === true,
+    });
   }
 
   /**

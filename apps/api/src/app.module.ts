@@ -95,7 +95,10 @@ import {
   ConversationsController,
   InboxProgrammeController,
 } from './inbox/conversations.controller';
-import { SearchController } from './search/search.controller';
+import {
+  CONVERSATION_SEARCH_ENABLED,
+  SearchController,
+} from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
@@ -301,6 +304,8 @@ export interface AppModuleOptions {
   selfServeProvisioningConnection?: string;
   inboxTemplatesEnabled?: boolean;
   inboxRoutingEnabled?: boolean;
+  /** `conversation_search` (T-0193). Off, conversation is an unknown search type. */
+  conversationSearchEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -418,6 +423,10 @@ export class AppModule implements NestModule {
         // The per-user search budgets (T-0086, D-L134): one instance, so one
         // set of counters, for both search routes.
         SearchThrottleGuard,
+        {
+          provide: CONVERSATION_SEARCH_ENABLED,
+          useValue: options.conversationSearchEnabled === true,
+        },
         // CSV import (T-0094): the queues, the stored-object repository and
         // the interceptor that enqueues only after a transaction commits.
         {

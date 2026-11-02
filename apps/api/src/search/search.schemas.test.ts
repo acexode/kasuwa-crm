@@ -48,6 +48,26 @@ describe('parseSearchQuery: the contract order, first code only (R17)', () => {
     });
   });
 
+  it('treats conversation as unknown while conversation_search is off', () => {
+    expect(codes(parseSearchQuery({ q: 'zqorder', types: 'conversation' }))).toEqual([
+      'types:unknown_type',
+    ]);
+  });
+
+  it('accepts conversation when conversation_search is on', () => {
+    const parsed = parseSearchQuery(
+      { q: 'zqorder', types: ['conversation', 'contact'] },
+      { conversationSearchEnabled: true },
+    );
+    expect(parsed).toEqual({
+      ok: true,
+      value: {
+        range: { prefix: 'zqorder', upper: 'zqordes' },
+        types: ['contact', 'conversation'],
+      },
+    });
+  });
+
   it('ignores unknown parameters and answers all four types by default (R16)', () => {
     const parsed = parseSearchQuery({ q: 'zq', programmeId: 'x', limit: '50' });
     expect(parsed.ok && parsed.value.types).toEqual(['contact', 'lead', 'account', 'deal']);
