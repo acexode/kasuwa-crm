@@ -12,14 +12,17 @@
 | #253 D-A3 fail-closed fixes (T-0016 OTP, T-0174 MBS default, T-0177 mobile money) | Merged to `main` |
 | T-0191 inbox realtime (outbound sends, outbox to realtime hub) | On `phase-3-dev`, reviewed read-only |
 | T-0193 conversation search (flag `conversation_search`, off) | On `phase-3-dev`; acceptance contract now five search types |
-| Quote `paid` status and Won move (migration 0069) | Not started; needs the 0069 path allowance and D-A3 review |
+| Quote `paid` status and Won move (migration 0069) | **Deferred out of phase 3** (lead decision 2026-11-03). Cursor's local `feat/quote-paid-won` stays unmerged |
 | Full gate on the phase branch | **Not run** (deferred to phase close) |
 
+## Lead decisions (2026-11-03)
+T-0016: build real email verification (Cursor). T-0177: status route stays for `expired` only; `paid` is webhook-only (B3). Quote paid + Won: deferred. `conversation_search` stays off (preview redaction is weak).
+
 ## Deferred (honest scope cut)
-T-0195 / T-0196 (portal P1) · inbound inbox realtime (outbound only today) · conversation-search prefix index (needs a lead-reviewed migration before the flag is on for any tenant).
+T-0195 / T-0196 (portal P1) · inbound inbox realtime (outbound only today) · conversation-search prefix index and stronger preview redaction (both before the flag is on for any tenant) · Won-on-paid move and migration 0069 (needs the D-L52 system-actor audit policy).
 
 ## Standing provisionals (not blocking exit)
 B1 Dotgo fail-closed/fake · B3 paid+expired only · B4 Fake MBS · B5 admin FX 24h · **WS5 out of phase** (D-L205/D-L213) · portal MFA OTP `000000` in non-prod
 
 ## Waiting on you
-D-A3 sign-offs: T-0157, T-0169, T-0016, T-0173, T-0174, T-0177 (see the checklist). Hands-on `pnpm demo` pass at phase close (`docs/phase3/PLAN.md` section 6.10). The `0069_*.sql` path allowance for the quote paid + Won branch.
+D-A3 sign-offs: T-0157, T-0169, T-0016, T-0173, T-0174, T-0177 (see the checklist). Hands-on `pnpm demo` pass at phase close (`docs/phase3/PLAN.md` section 6.10). 

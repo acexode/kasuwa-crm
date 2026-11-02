@@ -110,9 +110,11 @@ export class PaymentWebhooksController {
 
         const admins = await authTx.query<{ id: string }>(
           `SELECT id FROM "user"
-            WHERE is_tenant_admin = true
+            WHERE tenant_id = $1::uuid
+              AND is_tenant_admin = true
             ORDER BY created_at ASC
             LIMIT 1`,
+          [authTx.tenantId],
         );
         const adminId = admins[0]?.id;
         if (adminId === undefined) {

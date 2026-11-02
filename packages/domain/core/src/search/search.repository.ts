@@ -412,6 +412,9 @@ export interface ConversationSearchRow {
   preview: string;
 }
 
+// tenancy-reviewed: tenant from the session; programmes are the session's own
+// (the API passes `tx.session.programmeIds`, `assertInScope` re-checks), and both
+// message subqueries join on tenant_id and programme_id.
 /**
  * The first three conversations whose subject or a redacted message body
  * starts with the folded prefix, in these programmes only. The caller never
