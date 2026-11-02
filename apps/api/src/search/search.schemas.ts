@@ -19,8 +19,12 @@ import { looksLikeIdentifier } from '../common/name-query';
  * Pure, and nothing here logs.
  */
 
-export const SEARCH_TYPES = ['contact', 'lead', 'account', 'deal'] as const;
+/** The four types that shipped with T-0086. */
+export const BASE_SEARCH_TYPES = ['contact', 'lead', 'account', 'deal'] as const;
+/** Additive (T-0193): conversation joins when `conversation_search` is on. */
+export const SEARCH_TYPES = [...BASE_SEARCH_TYPES, 'conversation'] as const;
 export type SearchType = (typeof SEARCH_TYPES)[number];
+export type BaseSearchType = (typeof BASE_SEARCH_TYPES)[number];
 
 /** q's bounds, in code points as sent and once folded (CR4). */
 export const Q_MAX_LENGTH = 100;
@@ -67,17 +71,24 @@ function stringsIn(value: unknown, depth = 0): string[] {
     .flatMap((item) => stringsIn(item, depth + 1));
 }
 
+export interface ParseTypesOptions {
+  /** When false, `conversation` is an unknown type and the default set is four. */
+  readonly conversationSearchEnabled?: boolean;
+}
+
 /** The canonical order of the requested types, or the one code that applies. */
-function parseTypes(raw: unknown): Parsed<SearchType[]> {
-  if (raw === undefined) return { ok: true, value: [...SEARCH_TYPES] };
+function parseTypes(raw: unknown, options: ParseTypesOptions = {}): Parsed<SearchType[]> {
+  const allowed: readonly SearchType[] =
+    options.conversationSearchEnabled === true ? SEARCH_TYPES : BASE_SEARCH_TYPES;
+  if (raw === undefined) return { ok: true, value: [...allowed] };
   const values = Array.isArray(raw) ? (raw as unknown[]) : [raw];
   if (values.length === 0) return fail([detail('types', 'too_small')]);
-  if (values.some((value) => !(SEARCH_TYPES as readonly unknown[]).includes(value))) {
+  if (values.some((value) => !(allowed as readonly unknown[]).includes(value))) {
     return fail([detail('types', 'unknown_type')]);
   }
   if (new Set(values).size !== values.length) return fail([detail('types', 'duplicate_type')]);
   // R15: the answer's order is canonical, whatever order `types` arrived in.
-  return { ok: true, value: SEARCH_TYPES.filter((type) => values.includes(type)) };
+  return { ok: true, value: allowed.filter((type) => values.includes(type)) };
 }
 
 export interface SearchRequest {
@@ -91,7 +102,10 @@ export interface SearchRequest {
  * `q`), `invalid_string`, `unknown_type`, `query_too_short`. Unknown
  * parameters are ignored, never honoured (R16).
  */
-export function parseSearchQuery(raw: unknown): Parsed<SearchRequest> {
+export function parseSearchQuery(
+  raw: unknown,
+  options: ParseTypesOptions = {},
+): Parsed<SearchRequest> {
   const query: Record<string, unknown> =
     typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const q = own(query, 'q') ? query.q : undefined;
@@ -108,7 +122,7 @@ export function parseSearchQuery(raw: unknown): Parsed<SearchRequest> {
     return fail([detail('q', 'invalid_string')]);
   }
 
-  const types = parseTypes(own(query, 'types') ? query.types : undefined);
+  const types = parseTypes(own(query, 'types') ? query.types : undefined, options);
   if (!types.ok) return types;
 
   const prefix = foldSearchText(q);
@@ -188,7 +202,8 @@ export function parseEmail(raw: unknown): Parsed<string> {
 
 /** The body's `types`: an array, unlike the query string's repeatable parameter. */
 export function parseLookupTypes(raw: unknown): Parsed<SearchType[]> {
-  if (raw === undefined) return { ok: true, value: [...SEARCH_TYPES] };
+  // Lookup is contacts and leads only; conversation is never a lookup type.
+  if (raw === undefined) return { ok: true, value: [...BASE_SEARCH_TYPES] };
   if (!Array.isArray(raw)) return fail([detail('types', 'invalid_type')]);
-  return parseTypes(raw);
+  return parseTypes(raw, { conversationSearchEnabled: false });
 }

@@ -107,6 +107,21 @@ export const QuoteApprovalRequestedPayload = z.strictObject({
 
 export type QuoteApprovalRequestedPayload = z.infer<typeof QuoteApprovalRequestedPayload>;
 
+/**
+ * `inbox.message_persisted` (T-0191). Ids only (D-P29): tenant, programme,
+ * conversation and message. No body, phone or email. It rides the existing
+ * notifications queue — the one relay path — and the worker publishes this
+ * type to the realtime channel instead of writing a notification.
+ */
+export const InboxMessagePersistedPayload = z.strictObject({
+  tenantId: Uuid,
+  programmeId: Uuid,
+  conversationId: Uuid,
+  messageId: Uuid,
+});
+
+export type InboxMessagePersistedPayload = z.infer<typeof InboxMessagePersistedPayload>;
+
 /** Everything the outbox needs to know about one event type. */
 export interface OutboxEventDefinition {
   /** The strict payload schema. */
@@ -183,6 +198,13 @@ export const OUTBOX_EVENT_TYPES: Readonly<Record<string, OutboxEventDefinition>>
     schemaVersion: 1,
     aggregateType: 'quote_approval',
     aggregateKey: 'approvalId',
+    queue: OUTBOX_QUEUES.notifications,
+  }),
+  'inbox.message_persisted': Object.freeze({
+    schema: InboxMessagePersistedPayload,
+    schemaVersion: 1,
+    aggregateType: 'message',
+    aggregateKey: 'messageId',
     queue: OUTBOX_QUEUES.notifications,
   }),
 });

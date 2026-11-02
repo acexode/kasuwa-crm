@@ -402,3 +402,79 @@ export async function searchDealsByPrefix(
     name: row.name,
   }));
 }
+
+// --- conversations (T-0193) -----------------------------------------------------
+
+export interface ConversationSearchRow {
+  id: string;
+  programmeId: string;
+  /** Already redacted; never a raw message body. */
+  preview: string;
+}
+
+/**
+ * The first three conversations whose subject or a redacted message body
+ * starts with the folded prefix, in these programmes only. The caller never
+ * supplies programme ids: the API passes `tx.session.programmeIds`.
+ */
+export async function searchConversationsByPrefix(
+  tx: TenantTx,
+  range: PrefixRange,
+  programmeIds: readonly string[],
+): Promise<ConversationSearchRow[]> {
+  if (programmeIds.length === 0) return [];
+  assertInScope(tx, programmeIds);
+  const params = new Params();
+  const tenant = params.add(tx.session.tenantId);
+  const programmes = params.add([...programmeIds]);
+  const prefix = params.add(range.prefix);
+  const subjectMatch =
+    range.upper === null
+      ? `lower(coalesce(c.subject, '')) LIKE ${prefix}::text || '%'`
+      : `lower(coalesce(c.subject, '')) >= ${prefix}::text
+         AND lower(coalesce(c.subject, '')) < ${params.add(range.upper)}::text`;
+  const bodyPrefix = params.add(range.prefix);
+  const bodyMatch =
+    range.upper === null
+      ? `lower(msg.body_redacted) LIKE ${bodyPrefix}::text || '%'`
+      : `lower(msg.body_redacted) >= ${bodyPrefix}::text
+         AND lower(msg.body_redacted) < ${params.add(range.upper)}::text`;
+  const rows = await tx.query<{
+    id: string;
+    programme_id: string;
+    subject: string | null;
+    body_redacted: string | null;
+  }>(
+    `SELECT c.id, c.programme_id, c.subject,
+            (
+              SELECT m.body_redacted
+                FROM message m
+               WHERE m.tenant_id = c.tenant_id
+                 AND m.programme_id = c.programme_id
+                 AND m.conversation_id = c.id
+               ORDER BY m.created_at DESC
+               LIMIT 1
+            ) AS body_redacted
+       FROM conversation c
+      WHERE c.tenant_id = ${tenant}::uuid
+        AND c.programme_id = ANY(${programmes}::uuid[])
+        AND (
+              (${subjectMatch})
+           OR EXISTS (
+                SELECT 1 FROM message msg
+                 WHERE msg.tenant_id = c.tenant_id
+                   AND msg.programme_id = c.programme_id
+                   AND msg.conversation_id = c.id
+                   AND (${bodyMatch})
+              )
+            )
+      ORDER BY c.last_message_at DESC NULLS LAST, c.id
+      LIMIT ${SEARCH_HITS_PER_TYPE}`,
+    params.values,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    programmeId: row.programme_id,
+    preview: (row.subject ?? row.body_redacted ?? '').slice(0, 120),
+  }));
+}

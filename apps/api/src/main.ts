@@ -54,6 +54,11 @@ async function bootstrap(): Promise<void> {
     preTenant,
   );
   const inboxRoutingEnabled = await flagClient.getBooleanValue('inbox_routing', false, preTenant);
+  const conversationSearchEnabled = await flagClient.getBooleanValue(
+    'conversation_search',
+    false,
+    preTenant,
+  );
 
   // Before the app is built, so the first request is already traced.
   startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
@@ -74,6 +79,7 @@ async function bootstrap(): Promise<void> {
       onboardingPersistence,
       inboxTemplatesEnabled,
       inboxRoutingEnabled,
+      conversationSearchEnabled,
       ...(crmImport && configuration.REDIS_URL !== undefined ? { redisUrl: configuration.REDIS_URL } : {}),
       ...(crmImport && storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin

@@ -1,9 +1,10 @@
 import { loadWorkspaceEnv, storageConfigured, storageEnv, workerEnv } from '@kasuwa/config';
 import {
-  handleNotificationEvent,
+  handleRelayedOutboxEvent,
   IMPORT_HEADER_QUEUE,
   IMPORT_RETENTION_QUEUE,
   IMPORT_RUN_QUEUE,
+  INBOX_REALTIME_CHANNEL,
 } from '@kasuwa/domain-core';
 import { featureFlagClient, initialiseFeatureFlags } from '@kasuwa/feature-flags';
 import { S3ObjectStore } from '@kasuwa/storage-adapter';
@@ -105,6 +106,12 @@ async function main(): Promise<void> {
   await refuseUsableTestAdminAtBoot(pool, configuration.NODE_ENV);
 
   const connection = new IORedis(configuration.REDIS_URL, { maxRetriesPerRequest: null });
+  // Publish-only. Not the BullMQ connection, and not a second bus: the channel
+  // is the one apps/realtime already subscribes to. Errors stay a class name.
+  const realtimeRedis = new IORedis(configuration.REDIS_URL);
+  realtimeRedis.on('error', (error: Error) => {
+    process.stderr.write(`inbox realtime redis failed (${error.name})\n`);
+  });
 
   const heartbeat = new Queue(HEARTBEAT_QUEUE, { connection });
 
@@ -180,18 +187,24 @@ async function main(): Promise<void> {
     }
   }
 
-  // --- the notifications consumer (T-0100, ADR-0018 point 8) ---------------
+  // --- the outbox consumer (T-0100 notifications, T-0191 inbox realtime) ---
   // ALWAYS consumed, behind no flag: an event that is relayed and never
   // consumed would sit in BullMQ, and the producers append whether or not any
   // screen is on. It runs on the app pool (kasuwa_app): the helper re-enters
   // the tenant as the event's actor and re-reads the event under RLS first.
+  // Inbox messages on this same queue are published to the realtime channel;
+  // every other type is still a notification.
   const notificationsWorker = new Worker(
     OUTBOX_QUEUES.notifications,
     outboxConsumerProcessor(
       consumeOutboxJob,
       pool,
       OUTBOX_QUEUES.notifications,
-      handleNotificationEvent,
+      handleRelayedOutboxEvent({
+        publish: async (body) => {
+          await realtimeRedis.publish(INBOX_REALTIME_CHANNEL, body);
+        },
+      }),
       (line) => process.stdout.write(`${line}\n`),
     ),
     { connection, concurrency: 4 },
@@ -236,6 +249,7 @@ async function main(): Promise<void> {
     for (const queue of outboxQueues) await queue.close();
     await relayPool.end();
     await pool.end();
+    await realtimeRedis.quit();
     await connection.quit();
     process.exit(0);
   };

@@ -8,8 +8,10 @@ import {
   loadTenantDefaultCountry,
   lookupContacts,
   programmesReading,
+  redactMessageBodyForStorage,
   searchAccountsByPrefix,
   searchContactsByPrefix,
+  searchConversationsByPrefix,
   searchDealsByPrefix,
   wholePhoneE164,
   withheldAnywhere,
@@ -89,7 +91,18 @@ export interface DealSearchHitWire {
   name: string;
 }
 
-export type SearchHitWire = ContactSearchHitWire | AccountSearchHitWire | DealSearchHitWire;
+export interface ConversationSearchHitWire {
+  type: 'conversation';
+  id: string;
+  programmeId: string;
+  preview: string;
+}
+
+export type SearchHitWire =
+  | ContactSearchHitWire
+  | AccountSearchHitWire
+  | DealSearchHitWire
+  | ConversationSearchHitWire;
 
 export interface SearchResultsWire {
   groups: { type: SearchType; hits: SearchHitWire[] }[];
@@ -181,13 +194,23 @@ function leadStatusesFor(access: ContactFieldAccess): readonly string[] | null {
   return withheldAnywhere(access, 'status') ? null : LEAD_STATUSES;
 }
 
+export interface SearchRecordsOptions {
+  /** `conversation_search` feature flag. Off: conversation is unknown_type. */
+  readonly conversationSearchEnabled?: boolean;
+}
+
 /** searchRecords: `GET /api/v1/search`. */
 export async function searchRecordsFor(
   tx: TenantTx,
   rawQuery: unknown,
+  options: SearchRecordsOptions = {},
 ): Promise<SearchResultsWire> {
   // Every 400 is decided here, from the request alone, before any read.
-  const { range, types } = unwrap(parseSearchQuery(rawQuery));
+  const { range, types } = unwrap(
+    parseSearchQuery(rawQuery, {
+      conversationSearchEnabled: options.conversationSearchEnabled === true,
+    }),
+  );
   const programmeIds = tx.session.programmeIds;
   const groups: SearchResultsWire['groups'] = [];
   const access =
@@ -195,7 +218,10 @@ export async function searchRecordsFor(
       ? await loadContactFieldAccess(tx)
       : NO_ACCESS;
   for (const type of types) {
-    groups.push({ type, hits: await searchType(tx, type, range, access, programmeIds) });
+    groups.push({
+      type,
+      hits: await searchType(tx, type, range, access, programmeIds),
+    });
   }
   return { groups };
 }
@@ -242,6 +268,17 @@ async function searchType(
         programmeId: row.programmeId,
         pipelineId: row.pipelineId,
         name: row.name,
+      }));
+    }
+    case 'conversation': {
+      // Only reachable when conversation_search is on (else parse → unknown_type).
+      // Session programmes only — never a client-supplied list.
+      const rows = await searchConversationsByPrefix(tx, range, programmeIds);
+      return rows.map((row) => ({
+        type: 'conversation' as const,
+        id: row.id,
+        programmeId: row.programmeId,
+        preview: redactMessageBodyForStorage(row.preview),
       }));
     }
   }
