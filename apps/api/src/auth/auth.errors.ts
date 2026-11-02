@@ -40,6 +40,7 @@ interface AuthErrorDetail {
   attemptsRemaining?: number | null;
   retryAt?: string;
   timeZone?: string;
+  details?: readonly { path: string; code: string }[];
 }
 
 export class AuthError extends HttpException {
@@ -51,6 +52,15 @@ export class AuthError extends HttpException {
   ) {
     super({ statusCode: status, error: reasonPhrase(status), code, message, ...detail }, status);
   }
+}
+
+/** Field paths and reason codes only — never submitted values. */
+export function validationFailed(
+  details: readonly { path: string; code: string }[] = [],
+): AuthError {
+  return new AuthError(HttpStatus.BAD_REQUEST, 'validation_failed', 'Validation failed', {
+    details,
+  });
 }
 
 /**
@@ -172,6 +182,41 @@ export function notImplemented(): AuthError {
     HttpStatus.NOT_IMPLEMENTED,
     'not_implemented',
     'This endpoint is not available yet.',
+  );
+}
+
+export function resendTooSoon(retryAt: Date, timeZone: string): AuthError {
+  return new AuthError(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'resend_too_soon',
+    'Wait a moment before asking for another code.',
+    { retryAt: retryAt.toISOString(), timeZone },
+  );
+}
+
+export function otpInvalid(attemptsRemaining: number | null): AuthError {
+  return new AuthError(
+    HttpStatus.UNAUTHORIZED,
+    'otp_invalid',
+    'That code did not match. Check the message we sent and try again.',
+    { attemptsRemaining },
+  );
+}
+
+export function otpExpired(): AuthError {
+  return new AuthError(
+    HttpStatus.UNAUTHORIZED,
+    'otp_expired',
+    'That code has expired. Request a new one.',
+  );
+}
+
+export function otpTooManyAttempts(retryAt: Date, timeZone: string): AuthError {
+  return new AuthError(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'otp_too_many_attempts',
+    'Too many wrong codes. Request a new one.',
+    { retryAt: retryAt.toISOString(), timeZone },
   );
 }
 

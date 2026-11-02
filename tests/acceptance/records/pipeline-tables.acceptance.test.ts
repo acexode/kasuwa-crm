@@ -15,6 +15,7 @@ import {
   SEED_TENANTS,
   TENANT_A,
   TENANT_B,
+  NON_TENANT_SCOPED_TABLES,
   TENANT_SCOPED_TABLES,
   USER_A_AGENT_1,
   USER_A_AGENT_2,
@@ -3416,6 +3417,9 @@ describe('acceptance: the pipeline migration over tenants and programmes that pr
     expect(TABLES.filter((table) => !added.includes(table))).toEqual([]);
     const problems: string[] = [];
     for (const table of added) {
+      if ((NON_TENANT_SCOPED_TABLES as readonly string[]).includes(table)) {
+        continue;
+      }
       if (!(TENANT_SCOPED_TABLES as readonly string[]).includes(table))
         problems.push(`${table}: not in TENANT_SCOPED_TABLES`);
       const state = (

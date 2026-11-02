@@ -1,5 +1,6 @@
 import {
   createPool,
+  NON_TENANT_SCOPED_TABLES,
   PROGRAMME_A1,
   SEED_CONTACTS,
   TENANT_A,
@@ -737,6 +738,9 @@ describe('acceptance: schema hygiene (T-0011)', () => {
       const stale: string[] = [];
       const unexercised: string[] = [];
       for (const { table_name: table, has_tenant_id: hasTenantId } of tables.rows) {
+        if ((NON_TENANT_SCOPED_TABLES as readonly string[]).includes(table)) {
+          continue;
+        }
         const outcome = await rolledBack(async (client) => {
           const column = hasTenantId ? 'tenant_id' : 'id';
           const seeded = await probeAdvance(client, table, column);

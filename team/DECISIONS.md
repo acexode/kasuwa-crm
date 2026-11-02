@@ -4780,3 +4780,13 @@ T-0165 (#244) landed quotes. @acexode decided both money and product questions t
 - **B1 provisional (T-0017 / T-0016 OTP):** Dotgo/Gupshup-shaped adapter behind config; CI sandbox/fake; sign-up OTP via fake channel; `self_serve_signup` stays off.
 - Designs: P21 and P23 received; P08 and P02 exports filed (Channels/Compliance page frames may use empty states).
 
+### D-L213 — Keep B1–B5 provisionals; portal-first depth to close Phase 3 (@acexode via lead recommendation, 2026-10-29)
+
+@acexode accepted the lead's recommendation and authorised the lead to use best judgement on further Phase 3 decisions until the phase exit criteria are met, with a report of decisions taken in his place at close.
+
+- **B1–B5:** keep the D-L212 provisional defaults (no overturn). Real Dotgo credentials, refunds/partials, live NRS, and external FX feeds stay out of Phase 3 exit.
+- **Next track order:** (1) Portal depth T-0179 → T-0180/0181/0182/0183 → T-0184 → T-0195/T-0196; (2) Inbox depth T-0185–T-0193 (+ T-0017 fail-closed / fake); (3) Screen fidelity P21/P23/P08; (4) Commerce P1 T-0172–T-0177 under provisionals; (5) S4 T-0018 + T-0016 with fake OTP.
+- **WS5** (M13 / M07 sequences / P31): remains **out of Phase 3** (Phase 3b), confirming D-L205 §7.9.
+- **B6–B9:** unchanged — NGN/GHS/KES/ZAR only; localisation drafts stay drafts; simulated webhooks; designs already filed for the three screen tasks.
+- Phase 3 exit follows `docs/phase3/PLAN.md` §6, with blocked items listed as the standing provisionals above.
+

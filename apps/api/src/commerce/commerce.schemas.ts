@@ -77,6 +77,44 @@ export const DecideApprovalBody = z.strictObject({
 });
 
 /** T-0167: email only until WhatsApp quote delivery after S3. */
+export const InvoiceIdParam = z.object({ invoiceId: z.uuid() });
+
+export const DealIdParam = z.object({ dealId: z.uuid() });
+
+export const SetInvoiceStatusBody = z.strictObject({
+  status: z.enum(['draft', 'issued', 'paid', 'void', 'overdue']),
+});
+
+export const CreateFxRateBody = z.strictObject({
+  baseCurrency: CommerceCurrencySchema,
+  quoteCurrency: CommerceCurrencySchema,
+  rateMicros: z.string().regex(/^\d{1,18}$/),
+  effectiveAt: z.string().datetime().optional(),
+});
+
+export const FxPairQuery = z.strictObject({
+  baseCurrency: CommerceCurrencySchema,
+  quoteCurrency: CommerceCurrencySchema,
+});
+
+export const CreateFxLockBody = z.strictObject({
+  baseCurrency: CommerceCurrencySchema,
+  quoteCurrency: CommerceCurrencySchema,
+});
+
+export const BillingScheduleIdParam = z.object({ scheduleId: z.uuid() });
+
+export const CreateBillingScheduleBody = z.strictObject({
+  cadence: z.enum(['monthly', 'quarterly', 'yearly']),
+  nextRunAt: z.string().datetime().optional(),
+});
+
+export const SetBillingScheduleStatusBody = z.strictObject({
+  status: z.enum(['active', 'paused', 'ended']),
+});
+
+export const MobilePaymentIdParam = z.object({ paymentId: z.uuid() });
+
 export const SendQuoteBody = z.strictObject({
   channel: z.literal('email'),
   to: z.email().max(320),

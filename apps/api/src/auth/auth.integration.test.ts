@@ -546,16 +546,34 @@ describe('authentication', () => {
       expect(response.body.code).toBe('sso_domain_not_found');
     });
 
-    it('answers 501 for the endpoints T-0001 published but did not build', async () => {
+    it('returns 404 for self-serve routes when the flag is off (T-0016)', async () => {
       for (const path of [
         '/api/v1/auth/sign-up',
         '/api/v1/auth/verify-otp',
         '/api/v1/auth/verify-otp/resend',
       ]) {
         const response = await request(server()).post(path).send({});
-        expect(response.status, path).toBe(501);
-        expect(response.body.code, path).toBe('not_implemented');
+        expect(response.status, path).toBe(404);
+        expect(response.body.code, path).toBe('not_found');
       }
+    });
+
+    it('answers 501 for the endpoints T-0001 published but did not build', async () => {
+      const credentials = credentialsFor(USER_A_AGENT_1);
+      const started = await request(server())
+        .post(SIGN_IN)
+        .send({
+          tenantSlug: credentials.tenantSlug,
+          email: credentials.email,
+          password: credentials.password,
+        })
+        .expect(200);
+
+      const response = await request(server())
+        .post('/api/v1/auth/mfa/challenge')
+        .send({ challengeId: started.body.challengeId, method: 'sms' });
+      expect(response.status).toBe(501);
+      expect(response.body.code).toBe('not_implemented');
     });
 
     it('rejects an unexpected property rather than ignoring it', async () => {

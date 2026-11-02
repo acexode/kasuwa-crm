@@ -74,6 +74,13 @@ export type AdminErrorCode =
   | 'already_pending'
   | 'not_pending'
   | 'not_draft'
+  /** commerce.openapi.yaml (T-0172): invoice from quote. */
+  | 'quote_not_accepted'
+  | 'already_invoiced'
+  /** commerce.openapi.yaml (T-0174): e-invoice submit / retry. */
+  | 'not_submittable'
+  /** commerce.openapi.yaml (T-0175): FX rate missing for pair. */
+  | 'no_rate'
   /** records.openapi.yaml (T-0093): the import operations' conflicts (T-0094). */
   | 'import_status_conflict'
   | 'upload_mismatch'
@@ -81,8 +88,20 @@ export type AdminErrorCode =
   | 'already_merged'
   | 'undo_expired'
   | 'too_many_requests'
+  | 'rate_limited'
   | 'not_implemented'
   | 'service_unavailable'
+  /** commerce.openapi.yaml (T-0176): billing schedule already exists for invoice. */
+  | 'schedule_exists'
+  /** commerce.openapi.yaml (T-0177): mobile-money provider unavailable. */
+  | 'provider_unavailable'
+  /** inbox.openapi.yaml (T-0187): promotional send blocked by DND. */
+  | 'dnd_refused'
+  | 'window_closed'
+  /** inbox.openapi.yaml (T-0187): the provider permanently rejected the send. */
+  | 'provider_rejected'
+  /** inbox.openapi.yaml (T-0187): contact has no address/number for the channel. */
+  | 'no_destination'
   | 'internal_error';
 
 export interface AdminErrorDetail {
@@ -141,6 +160,13 @@ export const notFound = (): AdminError =>
  */
 export const notPermitted = (): AdminError =>
   new AdminError(HttpStatus.FORBIDDEN, 'not_permitted', 'You do not have permission to do that.');
+
+export const rateLimited = (): AdminError =>
+  new AdminError(
+    HttpStatus.TOO_MANY_REQUESTS,
+    'rate_limited',
+    'Too many invitations to this address. Try again later.',
+  );
 
 export const staleWrite = (): AdminError =>
   new AdminError(

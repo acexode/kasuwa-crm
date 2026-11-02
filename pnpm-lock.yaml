@@ -86,15 +86,24 @@ importers:
       '@kasuwa/feature-flags':
         specifier: workspace:*
         version: link:../../packages/feature-flags
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../packages/mbs-adapter
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../packages/metadata-engine
+      '@kasuwa/payments-adapter':
+        specifier: workspace:*
+        version: link:../../packages/payments-adapter
       '@kasuwa/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
       '@kasuwa/storage-adapter':
         specifier: workspace:*
         version: link:../../packages/storage-adapter
+      '@kasuwa/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.6(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -358,6 +367,9 @@ importers:
       '@kasuwa/db':
         specifier: workspace:*
         version: link:../../db
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../mbs-adapter
       '@kasuwa/metadata-engine':
         specifier: workspace:*
         version: link:../../metadata-engine
@@ -399,6 +411,12 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.15
+
+  packages/mbs-adapter:
+    dependencies:
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.7
 
   packages/metadata-engine:
     dependencies:
@@ -532,6 +550,12 @@ importers:
       '@kasuwa/domain-core':
         specifier: workspace:*
         version: link:../../packages/domain/core
+      '@kasuwa/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
+      '@kasuwa/mbs-adapter':
+        specifier: workspace:*
+        version: link:../../packages/mbs-adapter
       '@kasuwa/payments-adapter':
         specifier: workspace:*
         version: link:../../packages/payments-adapter

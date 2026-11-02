@@ -2,39 +2,29 @@
 
 *One screen. Everything else is for agents.*
 
-**2026-10-29 01:17 WAT (Africa/Lagos).** Phase 3 remainder foundations **merged** via [#248](https://github.com/acexode/kasuwa-crm/pull/248) → `main` (`00674de`).
-ADR-0021 / B2 accepted (D-L212). Provisional B1/B3/B4/B5 still in force.
+**2026-10-29 ~20:45 WAT (Africa/Lagos).** Phase 3 **depth close** on `cursor/p3-depth-e3f2` (PR #250, D-L213).
 
-## Landed on main
-| Area | Notes |
+## Branch state
+| Item | Status |
 |---|---|
-| T-0186 ChannelProvider v2 | idempotencyKey + capabilities |
-| T-0169 Payment links | mig 0051, slug webhook oracle |
-| T-0185 Conversations | mig 0052 |
-| T-0018 Onboarding state | mig 0053 |
-| T-0179 Portal identity | mig 0054 (home `programme_id`; membership via `portal_programme`) |
-| T-0187 delivery | mig 0055 |
-| T-0188 templates | mig 0056 |
-| T-0172 invoices | mig 0057 |
-| T-0180/182 invite+branding | mig 0058 |
-| T-0189/190 consent+routing | mig 0059 |
-| T-0173–177 commerce P1 tables | mig 0060 (provisional) |
-| T-0171 P21 routes | `/catalogue`, `/quotes` flag-gated stubs |
-| P08 / P23 stubs | `/inbox`, `/portal` flag-gated |
-| T-0017 | fail-closed `BspShapedProvider` |
+| Depth wave 1 (portal / inbox / commerce P1 / S4 / screens) | Landed on branch |
+| Wave 2 — unit + commitlint alignment (`d7944a0`) | **Pushed** to `origin/cursor/p3-depth-e3f2` |
+| Full CI (lint, typecheck, unit, integration, isolation, acceptance) | **Waiting on green** before squash to `main` |
 
-## Next (depth — not-assigned until acceptance suites)
-| | |
-|---|---|
-| **T-0195 / T-0196** | Portal script approvals + statements (W6 P1 depth) |
-| **Screen fidelity** | P21 / P23 / P08 beyond stubs |
-| **Auth depth** | Portal credential columns + `kasuwa_auth` grants with T-0049 / T-0157 allowlist |
+## Landed (not blocking exit unless CI fails)
+| Wave | Tasks | Notes |
+|---|---|---|
+| Portal P0 | T-0179–T-0183 (+ light T-0184) | MFA provisional OTP; invites; reads; branding |
+| Inbox | T-0185–T-0190 (+ light T-0192) | Templates/window/DND/routing |
+| Commerce P1 | T-0172–T-0177 | Fake MBS / admin FX; T-0176/T-0177 on branch |
+| S4 | T-0018, T-0016 fake OTP | `onboarding_persistence`, `self_serve_signup` |
+| Screens | T-0171 / T-0184 / T-0192 | Light UI acceptance + deepened screens |
+
+## Deferred (honest scope cut)
+T-0191 (realtime fan-out) · T-0193 (search depth) · T-0195 / T-0196 (portal P1) — reports note dependency on outbox / S2+S5; not fake-implemented.
+
+## Standing provisionals (not blocking exit)
+B1 Dotgo fail-closed/fake · B3 paid+expired only · B4 Fake MBS · B5 admin FX 24h · **WS5 out of phase** (D-L205/D-L213) · portal MFA OTP `000000` in non-prod
 
 ## Waiting on you
-| | |
-|---|---|
-| **Overturn provisionals** | B1 Dotgo detail; B3 refunds; B4 NRS; B5 FX source |
-
-## Risks
-- Screen fidelity for P21/P23/P08 is stubbed; deepen in follow-ups.
-- Portal password_hash / auth-pool grants deferred until T-0179 depth extends the census allowlists.
+Hands-on `pnpm demo` pass at phase close (`docs/phase3/PLAN.md` §6.10). D-A3 PR reviews where flagged.

@@ -1136,3 +1136,9 @@ throwaway merges". This is the second such attempt today (T-0040's builder made 
 @acexode accepted ADR-0021 (B2) and directed that B1/B3/B4/B5 ship with provisional
 lead defaults (Fake MBS, admin FX + 24h lock, paid/expired-only payment links,
 Dotgo-shaped adapter with fake OTP). See `team/DECISIONS.md` D-L212.
+
+## 2026-10-29 — D-L213 keep provisionals; portal-first Phase 3 close
+
+@acexode accepted the lead recommendation: keep B1–B5 provisional,
+portal depth first, lead may decide remaining Phase 3 calls and report
+at close. See `team/DECISIONS.md` D-L213.

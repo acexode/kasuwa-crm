@@ -17,10 +17,13 @@ import { KasuwaAuthGuard, readBearerToken } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { AUTH_CONTEXT_KEY } from '../tenancy/stub-auth.guard';
 import { AuthTenantTransactionInterceptor } from './auth-tenant-transaction.interceptor';
-import { type AuthError, notAuthenticated, notImplemented } from './auth.errors';
+import { type AuthError, notAuthenticated } from './auth.errors';
 import { AuthService } from './auth.service';
 import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
 import { MfaService } from './mfa.service';
+import { SelfServeSignupService } from './self-serve-signup.service';
+import { ResendOtpBody, SignUpBody, VerifyOtpBody } from './self-serve.schemas';
+import { SelfServeEnabledGuard } from './self-serve-enabled.guard';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
 import {
   MfaChallengeBody,
@@ -68,10 +71,9 @@ function requireRealSession(request: Request): string {
  * see the comment there. `/me` is an ordinary authenticated route and carries
  * both decorators like any other.
  *
- * The 501 routes are in the published contract and deliberately not built:
- * sign-up provisions a tenant, and OTP delivery needs a channel provider. Both
- * are decisions T-0001 does not own. They answer rather than 404 so that a
- * screen built against the contract gets a clear, documented refusal.
+ * Self-serve sign-up / OTP (T-0016) sit behind `self_serve_signup` and answer
+ * `404 not_found` when the flag is off (D-L213). MFA `method: sms` reissue
+ * remains `501 not_implemented` until a production channel provider lands.
  */
 @Controller('api/v1/auth')
 export class AuthController {
@@ -85,6 +87,7 @@ export class AuthController {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(MfaService) private readonly mfa: MfaService,
+    @Inject(SelfServeSignupService) private readonly selfServe: SelfServeSignupService,
   ) {}
 
   /**
@@ -241,22 +244,28 @@ export class AuthController {
     return this.auth.lookupSso(SsoLookupBody.parse(body));
   }
 
-  /** POST /api/v1/auth/sign-up — published, not built. See the class comment. */
   @Post('sign-up')
-  signUp(): never {
-    throw notImplemented();
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Header('Cache-Control', 'no-store')
+  async signUp(@Body() body: unknown) {
+    return this.selfServe.signUp(SignUpBody.parse(body));
   }
 
-  /** POST /api/v1/auth/verify-otp — published, not built. */
   @Post('verify-otp')
-  verifyOtp(): never {
-    throw notImplemented();
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  async verifyOtp(@Body() body: unknown) {
+    return this.selfServe.verifyOtp(VerifyOtpBody.parse(body));
   }
 
-  /** POST /api/v1/auth/verify-otp/resend — published, not built. */
   @Post('verify-otp/resend')
-  resendOtp(): never {
-    throw notImplemented();
+  @UseGuards(SelfServeEnabledGuard, SignInThrottleGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Header('Cache-Control', 'no-store')
+  async resendOtp(@Body() body: unknown) {
+    return this.selfServe.resendOtp(ResendOtpBody.parse(body));
   }
 
   /**

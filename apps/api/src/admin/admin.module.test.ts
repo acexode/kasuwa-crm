@@ -16,6 +16,7 @@ import { DispositionsController } from './dispositions/dispositions.controller';
 import { ProgrammeScriptsController } from './dispositions/programme-scripts.controller';
 import { FieldSecurityMatrixController } from './field-security/field-security-matrix.controller';
 import { FieldSecurityController } from './field-security/field-security.controller';
+import { PortalBrandingController } from './portal-branding/portal-branding.controller';
 import { PortalUsersController } from './portal-users/portal-users.controller';
 import { AdminHomeController, SettingsMenuBadgesController } from './home/home.controller';
 import { AdminProgrammesController } from './programmes/programmes.controller';
@@ -38,6 +39,7 @@ describe('AdminModule (D-L39)', () => {
         AdminProgrammesController,
         ProgrammeSlaRetentionController,
         PortalUsersController,
+        PortalBrandingController,
         AuditController,
         DispositionsController,
         ProgrammeScriptsController,

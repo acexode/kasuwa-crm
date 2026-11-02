@@ -46,6 +46,7 @@ const alias = {
   '@kasuwa/wfm-adapter': resolve(root, 'packages/wfm-adapter/src/index.ts'),
   '@kasuwa/storage-adapter': resolve(root, 'packages/storage-adapter/src/index.ts'),
   '@kasuwa/payments-adapter': resolve(root, 'packages/payments-adapter/src/index.ts'),
+  '@kasuwa/mbs-adapter': resolve(root, 'packages/mbs-adapter/src/index.ts'),
   // Longer key first (prefix match): the operator-only provisioning subpath.
   '@kasuwa/domain-core/provisioning': resolve(root, 'packages/domain/core/src/provisioning.ts'),
   '@kasuwa/domain-core': resolve(root, 'packages/domain/core/src/index.ts'),

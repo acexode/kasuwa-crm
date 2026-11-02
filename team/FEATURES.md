@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 311 rows; built 143, partial 11, mock-only 26, flagged-off 96, deferred 10, not-started 25.
+Totals: 349 rows; built 190, partial 11, mock-only 26, flagged-off 96, deferred 10, not-started 16.
 
 ## Modules
 
@@ -58,14 +58,14 @@ Every screen in the P01 and P02 e2e manifests. A screen never claims more than i
 | screen | `P01/2` | Two-step verification — 3 of 4 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/2a` | Two-step verification, switch method — 0 of 1 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/2b` | Two-step verification, wrong code — 1 of 2 operations built; reissueMfaChallenge partial | partial | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/3` | Sign up — 0 of 1 operations built; signUp not-started | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/4` | Verify email or phone — 0 of 2 operations built; verifyOtp not-started, resendOtp not-started | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/3` | Sign up — 1 of 1 operations built | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/4` | Verify email or phone — 2 of 2 operations built | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
 | screen | `P01/5.1` | Data region — no operation in docs/api | flagged-off | `self_serve_signup` | D-P2 | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/5.2` | Onboarding: currency — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/5.3` | Onboarding: connect WhatsApp — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/5.4` | Onboarding: import contacts — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/5.5` | Onboarding: invite the team — no operation in docs/api; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
-| screen | `P01/6` | Onboarding: done, setup checklist — no operation in docs/api; client-side only, no endpoint yet (T-0018) | flagged-off | `product_tour` | D-L194 | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/5.2` | Onboarding: currency — 2 of 2 operations built; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/5.3` | Onboarding: connect WhatsApp — 2 of 2 operations built; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/5.4` | Onboarding: import contacts — 2 of 2 operations built; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/5.5` | Onboarding: invite the team — 2 of 2 operations built; client-side only, no endpoint yet (T-0018) | mock-only | — | — | tests/e2e/p01-auth.spec.ts |
+| screen | `P01/6` | Onboarding: done, setup checklist — 2 of 2 operations built; client-side only, no endpoint yet (T-0018) | flagged-off | `product_tour` | D-L194 | tests/e2e/p01-auth.spec.ts |
 | screen | `P02/A` | Admin home — 6 of 6 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/A1` | Settings menu — 1 of 1 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
 | screen | `P02/B` | Programmes list — 2 of 2 operations built; answers from the generated admin mock until T-0035 | mock-only | — | — | tests/e2e/p02-admin.spec.ts |
@@ -120,6 +120,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `updateProgrammeRetention` | PUT /api/v1/admin/programmes/{programmeId}/retention — Save the retention policy | built | — | — | docs/api/admin.openapi.yaml · T-0028 · T-0033 |
 | operation | `listPortalUsers` | GET /api/v1/admin/programmes/{programmeId}/portal-users — Client-portal users for this programme | built | — | — | docs/api/admin.openapi.yaml · T-0030 |
 | operation | `invitePortalUser` | POST /api/v1/admin/programmes/{programmeId}/portal-users/invitations — Invite a client-portal user | built | — | — | docs/api/admin.openapi.yaml · T-0030 · T-0033 |
+| operation | `listPortalInvitations` | GET /api/v1/admin/programmes/{programmeId}/portal-invitations — Paginated portal invitations for this programme (T-0180) | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `getPortalBranding` | GET /api/v1/admin/programmes/{programmeId}/portal-branding — Portal white-label branding for this programme (T-0182) | built | — | — | docs/api/admin.openapi.yaml |
+| operation | `putPortalBranding` | PUT /api/v1/admin/programmes/{programmeId}/portal-branding — Update portal branding (T-0182) | built | — | — | docs/api/admin.openapi.yaml |
 | operation | `getProgrammeArchivePreview` | GET /api/v1/admin/programmes/{programmeId}/archive-preview — What archiving this programme would do | built | — | — | docs/api/admin.openapi.yaml · T-0029 |
 | operation | `archiveProgramme` | POST /api/v1/admin/programmes/{programmeId}/archive — Archive a programme | built | — | — | docs/api/admin.openapi.yaml · T-0029 |
 | operation | `listRoles` | GET /api/v1/admin/roles — The role hierarchy | built | — | — | docs/api/admin.openapi.yaml · T-0022 |
@@ -153,9 +156,11 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `getCurrentUser` | GET /api/v1/auth/me — The current user | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `getMyCapabilities` | GET /api/v1/me/capabilities — What the caller may do (T-0158) | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `lookupSso` | POST /api/v1/auth/sso/lookup — Find the SSO connection for an email domain | built | — | — | docs/api/auth.openapi.yaml |
-| operation | `signUp` | POST /api/v1/auth/sign-up — Start a self-serve sign-up (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
-| operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
-| operation | `resendOtp` | POST /api/v1/auth/verify-otp/resend — Re-send a verification code (contract only) | not-started | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
+| operation | `signUp` | POST /api/v1/auth/sign-up — Start a self-serve sign-up | built | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
+| operation | `verifyOtp` | POST /api/v1/auth/verify-otp — Verify an email or phone one-time code | built | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
+| operation | `resendOtp` | POST /api/v1/auth/verify-otp/resend — Re-send a verification code | built | `self_serve_signup` | D-P2 | docs/api/auth.openapi.yaml |
+| operation | `getOnboarding` | GET /api/v1/me/onboarding — Read the caller's first-admin onboarding wizard state | built | — | — | docs/api/auth.openapi.yaml |
+| operation | `putOnboardingStep` | PUT /api/v1/me/onboarding/step — Save an onboarding wizard step | built | — | — | docs/api/auth.openapi.yaml |
 | operation | `listProducts` | GET /api/v1/programmes/{programmeId}/products — List products in a programme | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `createProduct` | POST /api/v1/programmes/{programmeId}/products — Create a product | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `updateProduct` | PATCH /api/v1/products/{productId} — Update a product | built | — | — | docs/api/commerce.openapi.yaml |
@@ -172,12 +177,45 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listApprovals` | GET /api/v1/programmes/{programmeId}/approvals — List quote discount approvals in a programme | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `requestApproval` | POST /api/v1/quotes/{quoteId}/approvals — Request discount approval for a draft quote above the programme threshold | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `decideApproval` | POST /api/v1/approvals/{approvalId}/decision — Approve or reject a pending discount approval | built | — | — | docs/api/commerce.openapi.yaml |
-| operation | `listConversations` | GET /api/v1/programmes/{programmeId}/conversations — List conversations in a programme (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
-| operation | `getConversation` | GET /api/v1/conversations/{conversationId} — Get a conversation (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
-| operation | `listMessages` | GET /api/v1/conversations/{conversationId}/messages — List messages in a conversation (contract only) | not-started | — | — | docs/api/inbox.openapi.yaml |
-| operation | `portalSignIn` | POST /api/v1/portal/sign-in — Portal sign-in (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
-| operation | `portalVerifyMfa` | POST /api/v1/portal/mfa — Portal MFA verify (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
-| operation | `portalMe` | GET /api/v1/portal/me — Current portal identity and programmes (contract only) | not-started | — | — | docs/api/portal.openapi.yaml |
+| operation | `listInvoices` | GET /api/v1/programmes/{programmeId}/invoices — List invoices in a programme | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createInvoiceFromQuote` | POST /api/v1/quotes/{quoteId}/invoices — Create a draft invoice from an accepted quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getInvoice` | GET /api/v1/invoices/{invoiceId} — Get an invoice | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `setInvoiceStatus` | POST /api/v1/invoices/{invoiceId}/status — Change invoice status | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getEinvoice` | GET /api/v1/invoices/{invoiceId}/einvoice — Get e-invoice submission state | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `submitEinvoice` | POST /api/v1/invoices/{invoiceId}/einvoice/submit — Submit invoice to Fake MBS | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `retryEinvoice` | POST /api/v1/invoices/{invoiceId}/einvoice/retry — Retry a failed e-invoice submission | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `listFxRates` | GET /api/v1/programmes/{programmeId}/fx-rates — List FX rates | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createFxRate` | POST /api/v1/programmes/{programmeId}/fx-rates — Admin-entered FX rate | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getLatestFxRate` | GET /api/v1/programmes/{programmeId}/fx-rates/latest — Latest FX rate for a pair | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getFxLock` | GET /api/v1/deals/{dealId}/fx-lock — Active FX lock on a deal | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createFxLock` | POST /api/v1/deals/{dealId}/fx-lock — Lock the latest FX rate for 24h | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `listBillingSchedules` | GET /api/v1/programmes/{programmeId}/billing-schedules — List recurring billing schedules | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createBillingSchedule` | POST /api/v1/invoices/{invoiceId}/billing-schedule — Create a billing schedule from an invoice | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getBillingSchedule` | GET /api/v1/billing-schedules/{scheduleId} — Get a billing schedule | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `setBillingScheduleStatus` | POST /api/v1/billing-schedules/{scheduleId}/status — Pause, resume or end a billing schedule | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `generateBillingInvoice` | POST /api/v1/billing-schedules/{scheduleId}/generate — Advance schedule; invoice generation deferred to worker | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createMobilePayment` | POST /api/v1/invoices/{invoiceId}/mobile-payments — Start M-Pesa or MoMo collection for an invoice | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getMobilePayment` | GET /api/v1/mobile-payments/{paymentId} — Get mobile payment state | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `setMobilePaymentStatus` | POST /api/v1/mobile-payments/{paymentId}/status — Mark pending mobile payment paid or expired (B3 provisional) | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `listConversations` | GET /api/v1/programmes/{programmeId}/conversations — List conversations in a programme | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `getConversation` | GET /api/v1/conversations/{conversationId} — Get a conversation | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `listMessages` | GET /api/v1/conversations/{conversationId}/messages — List messages in a conversation | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `sendMessage` | POST /api/v1/conversations/{conversationId}/messages — Send an outbound message in a conversation | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `listTemplates` | GET /api/v1/programmes/{programmeId}/message-templates — List message templates | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `submitTemplate` | POST /api/v1/programmes/{programmeId}/message-templates — Create a message template | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `listQueues` | GET /api/v1/programmes/{programmeId}/inbox-queues — List inbox queues | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `createInboxQueue` | POST /api/v1/programmes/{programmeId}/inbox-queues — Create an inbox queue | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `listCannedResponses` | GET /api/v1/programmes/{programmeId}/canned-responses — List canned responses | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `createCannedResponse` | POST /api/v1/programmes/{programmeId}/canned-responses — Create a canned response | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `assignConversation` | POST /api/v1/conversations/{conversationId}/assign — Assign a conversation | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `transferConversation` | POST /api/v1/conversations/{conversationId}/transfer — Transfer a conversation | built | — | — | docs/api/inbox.openapi.yaml |
+| operation | `portalSignIn` | POST /api/v1/portal/sign-in — Portal sign-in (step 1 — may require MFA) | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `portalVerifyMfa` | POST /api/v1/portal/mfa — Portal MFA verify (completes sign-in) | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `portalMe` | GET /api/v1/portal/me — Current portal identity and programmes from portal_programme | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `listPortalProgrammes` | GET /api/v1/portal/programmes — Programmes in portal_programme for this identity | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `listPortalContacts` | GET /api/v1/portal/contacts — Contacts in the portal identity's programmes only | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `getPortalReport` | GET /api/v1/portal/reports/{reportId} — Portal report with D-P26 redaction | built | — | — | docs/api/portal.openapi.yaml |
+| operation | `acceptPortalInvitation` | POST /api/v1/portal/invitations/accept — Accept a portal invite (token in body, never query) | built | — | — | docs/api/portal.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
@@ -281,7 +319,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `fx_lock` | Admin FX rates and 24h locks (provisional B5) (T-0175). | flagged-off | `fx_lock` | — | packages/feature-flags/src/index.ts |
 | flag | `recurring_billing` | Recurring billing schedules (T-0176). | flagged-off | `recurring_billing` | — | packages/feature-flags/src/index.ts |
 | flag | `mobile_money` | M-Pesa/MoMo adapter kinds (provisional B3) (T-0177). | flagged-off | `mobile_money` | — | packages/feature-flags/src/index.ts |
-| flag | `client_portal` | BPO client portal screens (T-0184). | flagged-off | `client_portal` | — | packages/feature-flags/src/index.ts |
+| flag | `client_portal` | BPO client portal API and screens (T-0179, T-0184). | flagged-off | `client_portal` | — | packages/feature-flags/src/index.ts |
 | flag | `inbox_templates` | WhatsApp templates and 24h window (T-0188). | flagged-off | `inbox_templates` | — | packages/feature-flags/src/index.ts |
 | flag | `inbox_routing` | Inbox queues and canned responses (T-0190). | flagged-off | `inbox_routing` | — | packages/feature-flags/src/index.ts |
 | flag | `onboarding_persistence` | Server-side resumable first-admin onboarding wizard (T-0018, D-L205). | flagged-off | `onboarding_persistence` | — | packages/feature-flags/src/index.ts |

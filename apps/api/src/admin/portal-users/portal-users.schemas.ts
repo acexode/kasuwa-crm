@@ -16,3 +16,8 @@ export const InvitePortalUserBody = z.strictObject({
   access: z.enum(['viewer', 'reports_only']),
 });
 export type InvitePortalUserBody = z.infer<typeof InvitePortalUserBody>;
+
+export const ListPortalInvitationsQuery = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+  cursor: z.string().max(200).optional(),
+});

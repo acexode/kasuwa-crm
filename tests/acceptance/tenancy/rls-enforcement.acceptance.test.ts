@@ -165,6 +165,11 @@ describe('acceptance: RLS enforcement independent of the application', () => {
     // work because they were configured.
     //
     // Here it runs on every build, across every table, for ever.
+    //
+    // Intentional exceptions (TO kasuwa_auth only; kasuwa_app has no grant):
+    //   signup_attempt.signup_attempt_auth — pre-tenant self-serve state (0062, T-0016).
+    const ALLOWED_OPEN_POLICIES = ['signup_attempt.signup_attempt_auth'] as const;
+
     const open = await appPool.query<{ table: string; policy: string }>(
       `SELECT c.relname AS table, p.polname AS policy
          FROM pg_policy p
@@ -174,10 +179,18 @@ describe('acceptance: RLS enforcement independent of the application', () => {
           AND pg_get_expr(p.polqual, p.polrelid) = 'true'`,
     );
 
+    const openNames = open.rows.map((row) => `${row.table}.${row.policy}`);
+    const unexpected = openNames.filter(
+      (name) => !(ALLOWED_OPEN_POLICIES as readonly string[]).includes(name),
+    );
     expect(
-      open.rows.map((row) => `${row.table}.${row.policy}`),
-      'a policy admits every row to every session — if this is deliberate, it needs an ADR',
+      unexpected,
+      'a policy admits every row to every session — if this is deliberate, argue for it in this file',
     ).toEqual([]);
+    expect(
+      openNames,
+      'non-vacuous: the standing check still sees the argued open auth policy',
+    ).toEqual(expect.arrayContaining([...ALLOWED_OPEN_POLICIES]));
   });
 
   it('holds the exempt table to the same RLS invariant', async () => {

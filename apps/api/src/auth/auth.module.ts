@@ -3,19 +3,42 @@ import { createDevelopmentKeyProvider, type KeyProvider } from '@kasuwa/auth-cry
 import { AuthDatabaseModule, type AuthDatabaseOptions } from './auth-database.module';
 import { AuthTenantTransactionInterceptor } from './auth-tenant-transaction.interceptor';
 import { AuthController } from './auth.controller';
+import { PortalController } from './portal/portal.controller';
+import { PortalReadsController } from './portal/portal-reads.controller';
+import { PortalReadsService } from './portal/portal-reads.service';
+import { PortalService } from './portal/portal.service';
+import { PortalAuthGuard } from './portal/portal-auth.guard';
+import { PortalEnabledGuard, PORTAL_ENABLED_TOKEN } from './portal/portal-enabled.guard';
+import { PortalTransactionInterceptor } from './portal/portal-transaction.interceptor';
 import { AUTH_POLICY, DEFAULT_AUTH_POLICY, type AuthPolicy } from './auth.policy';
 import { AuthService } from './auth.service';
 import { CommitThenFailInterceptor } from './commit-then-fail.interceptor';
 import { KEY_PROVIDER } from './key-provider.token';
 import { MfaService } from './mfa.service';
 import { PoolIdentityCheck } from './pool-identity';
+import { OnboardingPersistenceGuard } from './onboarding-persistence.guard';
+import { SelfServeEnabledGuard } from './self-serve-enabled.guard';
+import { SelfServeSignupService } from './self-serve-signup.service';
 import { SignInThrottleGuard } from './sign-in-throttle.guard';
+import {
+  ONBOARDING_PERSISTENCE_ENABLED,
+  SELF_SERVE_PROVISIONING_CONNECTION,
+  SELF_SERVE_SIGNUP_ENABLED,
+} from './self-serve.tokens';
 
 export interface AuthModuleOptions extends AuthDatabaseOptions {
   /** Lockout, challenge and session numbers; see `AppModuleOptions.authPolicy`. */
   authPolicy?: Partial<AuthPolicy>;
   /** See `AppModuleOptions.keyProvider`. */
   keyProvider?: KeyProvider;
+  /** `client_portal` flag (T-0179). Off, portal routes answer 404. */
+  portalEnabled?: boolean;
+  /** `self_serve_signup` (T-0016). Off, sign-up routes answer 404. */
+  selfServeSignup?: boolean;
+  /** `onboarding_persistence` (T-0018). Off, onboarding routes answer 404. */
+  onboardingPersistence?: boolean;
+  /** Migrator connection for self-serve provision (operator boundary). */
+  selfServeProvisioningConnection?: string;
 }
 
 /**
@@ -47,9 +70,18 @@ export class AuthModule {
             : { connectionTimeoutMillis: options.connectionTimeoutMillis }),
         }),
       ],
-      controllers: [AuthController],
+      controllers: [AuthController, PortalController, PortalReadsController],
       providers: [
         AuthService,
+        PortalService,
+        PortalReadsService,
+        PortalAuthGuard,
+        PortalEnabledGuard,
+        PortalTransactionInterceptor,
+        {
+          provide: PORTAL_ENABLED_TOKEN,
+          useValue: options.portalEnabled === true,
+        },
         MfaService,
         CommitThenFailInterceptor,
         SignInThrottleGuard,
@@ -63,7 +95,23 @@ export class AuthModule {
           provide: KEY_PROVIDER,
           useValue: options.keyProvider ?? createDevelopmentKeyProvider(),
         },
+        SelfServeSignupService,
+        SelfServeEnabledGuard,
+        OnboardingPersistenceGuard,
+        {
+          provide: SELF_SERVE_SIGNUP_ENABLED,
+          useValue: options.selfServeSignup ?? false,
+        },
+        {
+          provide: ONBOARDING_PERSISTENCE_ENABLED,
+          useValue: options.onboardingPersistence ?? false,
+        },
+        {
+          provide: SELF_SERVE_PROVISIONING_CONNECTION,
+          useValue: options.selfServeProvisioningConnection ?? null,
+        },
       ],
+      exports: [OnboardingPersistenceGuard, ONBOARDING_PERSISTENCE_ENABLED],
     };
   }
 }
