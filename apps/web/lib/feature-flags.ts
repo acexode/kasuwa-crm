@@ -698,6 +698,26 @@ export async function crmQuotesEnabled(): Promise<boolean> {
   );
 }
 
+/** T-0171 / P21: approvals route behind `quote_approvals`. */
+export async function quoteApprovalsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'quote_approvals',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** T-0171 / P21: payment status route behind `payment_links`. */
+export async function paymentLinksEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'payment_links',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
 /** T-0018: server-side onboarding persistence behind `onboarding_persistence`. */
 export async function onboardingPersistenceEnabled(): Promise<boolean> {
   await initialiseFeatureFlags();

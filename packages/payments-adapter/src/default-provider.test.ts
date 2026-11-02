@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CreatePaymentLinkRequest } from './contracts';
-import { defaultPaymentProvider, NullPaymentProvider } from './default-provider';
+import {
+  defaultPaymentProvider,
+  fakeWebhookSecretForTenant,
+  NullPaymentProvider,
+  paymentProviderFor,
+} from './default-provider';
 import { ProviderUnavailableError } from './errors';
 import { FakePaymentProvider } from './fake';
 
@@ -46,12 +51,41 @@ describe('defaultPaymentProvider', () => {
     expect(defaultPaymentProvider('production')).toBeInstanceOf(NullPaymentProvider);
   });
 
-  it('is the in-memory fake in development and test', () => {
-    expect(defaultPaymentProvider('development')).toBeInstanceOf(FakePaymentProvider);
+  it('is the in-memory fake only when the environment is exactly test', () => {
+    expect(defaultPaymentProvider('development')).toBeInstanceOf(NullPaymentProvider);
     expect(defaultPaymentProvider('test')).toBeInstanceOf(FakePaymentProvider);
   });
 
   it('returns a fresh provider each time', () => {
     expect(defaultPaymentProvider('test')).not.toBe(defaultPaymentProvider('test'));
+  });
+});
+
+describe('paymentProviderFor', () => {
+  const tenantA = '11111111-0000-4000-8000-000000000001';
+  const tenantB = '22222222-0000-4000-8000-000000000002';
+
+  it('fails closed for every environment other than test', () => {
+    expect(paymentProviderFor('production', tenantA)).toBeInstanceOf(NullPaymentProvider);
+    expect(paymentProviderFor('development', tenantA)).toBeInstanceOf(NullPaymentProvider);
+    expect(paymentProviderFor('staging', tenantA)).toBeInstanceOf(NullPaymentProvider);
+  });
+
+  it('rejects a signature made for another tenant', async () => {
+    const signedByB = new FakePaymentProvider({
+      webhookSecret: fakeWebhookSecretForTenant(tenantB),
+    }).signWebhook({
+      eventId: 'evt-cross',
+      occurredAt: new Date('2026-11-02T00:00:00.000Z'),
+      type: 'payment.paid',
+      providerLinkId: 'plink_1',
+      reference: 'quote-1',
+    });
+    await expect(
+      paymentProviderFor('test', tenantA).verifyWebhookSignature({
+        rawBody: signedByB.rawBody,
+        headers: signedByB.headers,
+      }),
+    ).resolves.toBe(false);
   });
 });
