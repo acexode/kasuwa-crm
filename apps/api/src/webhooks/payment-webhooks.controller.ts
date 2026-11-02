@@ -11,9 +11,10 @@ import {
 import { nodeEnv } from '@kasuwa/config';
 import { withAuthTransaction, withTenantTransaction } from '@kasuwa/db';
 import {
-  defaultPaymentProvider,
+  InvalidWebhookError,
   isStoredPaymentProviderId,
-  type PaymentProvider,
+  paymentProviderFor,
+  ProviderUnavailableError,
   type StoredPaymentProviderId,
 } from '@kasuwa/payments-adapter';
 import type { Pool } from 'pg';
@@ -31,7 +32,8 @@ const TIMING_FLOOR_MS = 40;
 /**
  * Public payment webhooks (T-0169 / D-L205).
  * Path: /webhooks/:provider/:tenantSlug
- * Unknown slug and bad signature share one response.
+ * Unknown slug, bad signature, unknown link, another tenant's signature,
+ * and any environment other than test share one 401.
  */
 @Controller('webhooks')
 export class PaymentWebhooksController {
@@ -65,7 +67,7 @@ export class PaymentWebhooksController {
         normalised[key.toLowerCase()] = value;
       }
 
-      const paymentProvider: PaymentProvider = defaultPaymentProvider(nodeEnv() as 'development' | 'test' | 'production');
+      const environment = nodeEnv();
 
       return withAuthTransaction(this.pool, { tenantSlug }, async (authTx) => {
         if (authTx.tenantId === null) {
@@ -73,19 +75,38 @@ export class PaymentWebhooksController {
           return WEBHOOK_REJECT_BODY;
         }
 
-        const ok = await paymentProvider.verifyWebhookSignature({
-          rawBody,
-          headers: normalised,
-        });
+        const paymentProvider = paymentProviderFor(environment, authTx.tenantId);
+        let ok = false;
+        try {
+          ok = await paymentProvider.verifyWebhookSignature({
+            rawBody,
+            headers: normalised,
+          });
+        } catch (error) {
+          if (error instanceof ProviderUnavailableError) {
+            res.status(WEBHOOK_REJECT_STATUS);
+            return WEBHOOK_REJECT_BODY;
+          }
+          throw error;
+        }
         if (!ok) {
           res.status(WEBHOOK_REJECT_STATUS);
           return WEBHOOK_REJECT_BODY;
         }
 
-        const event = await paymentProvider.parseWebhookEvent({
-          rawBody,
-          headers: normalised,
-        });
+        let event: Awaited<ReturnType<typeof paymentProvider.parseWebhookEvent>>;
+        try {
+          event = await paymentProvider.parseWebhookEvent({
+            rawBody,
+            headers: normalised,
+          });
+        } catch (error) {
+          if (error instanceof InvalidWebhookError || error instanceof ProviderUnavailableError) {
+            res.status(WEBHOOK_REJECT_STATUS);
+            return WEBHOOK_REJECT_BODY;
+          }
+          throw error;
+        }
 
         const admins = await authTx.query<{ id: string }>(
           `SELECT id FROM "user"
@@ -99,11 +120,11 @@ export class PaymentWebhooksController {
           return WEBHOOK_REJECT_BODY;
         }
 
-        await withTenantTransaction(
+        const outcome = await withTenantTransaction(
           this.pool,
           { tenantId: authTx.tenantId, userId: adminId },
-          async (tx) => {
-            await applyPaymentWebhookEvent(tx, {
+          async (tx) =>
+            applyPaymentWebhookEvent(tx, {
               provider: storedProvider,
               providerLinkId: event.providerLinkId,
               providerEventId: event.eventId,
@@ -111,9 +132,12 @@ export class PaymentWebhooksController {
               paymentMethodToken: event.paymentMethod?.token ?? null,
               paymentMethodLastFour: event.paymentMethod?.lastFour ?? null,
               occurredAt: event.occurredAt,
-            });
-          },
+            }),
         );
+        if (outcome === 'missing') {
+          res.status(WEBHOOK_REJECT_STATUS);
+          return WEBHOOK_REJECT_BODY;
+        }
 
         return { ok: true };
       });

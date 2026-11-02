@@ -69,7 +69,7 @@ function toWire(link: PaymentLink): PaymentLinkWire {
   };
 }
 
-/** Test/dev provider; production wiring uses Null via defaultPaymentProvider. */
+/** Only NODE_ENV=test gets the fake. Every other environment fails closed. */
 let paymentProviderOverride: PaymentProvider | undefined;
 
 export function setPaymentProviderForTests(provider: PaymentProvider | undefined): void {
