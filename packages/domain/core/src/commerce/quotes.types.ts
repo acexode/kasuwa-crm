@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { CommerceCurrency } from './catalogue.types';
 
-export const QUOTE_STATUSES = [
+/** Statuses a client may set. `paid` is webhook-only (T-0169, D-A3). */
+export const CLIENT_QUOTE_STATUSES = [
   'draft',
   'sent',
   'accepted',
@@ -9,6 +10,7 @@ export const QUOTE_STATUSES = [
   'expired',
   'cancelled',
 ] as const;
+export const QUOTE_STATUSES = [...CLIENT_QUOTE_STATUSES, 'paid'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 export const QuoteStatusSchema = z.enum(QUOTE_STATUSES);
 
@@ -19,6 +21,7 @@ export const QUOTE_TRANSITIONS: Readonly<Record<QuoteStatus, readonly QuoteStatu
   rejected: [],
   expired: [],
   cancelled: [],
+  paid: [],
 };
 
 export const AmountMinorSchema = z.string().regex(/^\d{1,18}$/);
@@ -55,7 +58,7 @@ export const UpdateQuoteInputSchema = z.strictObject({
 export type UpdateQuoteInput = z.infer<typeof UpdateQuoteInputSchema>;
 
 export const SetQuoteStatusInputSchema = z.strictObject({
-  status: QuoteStatusSchema,
+  status: z.enum(CLIENT_QUOTE_STATUSES),
 });
 
 export type SetQuoteStatusInput = z.infer<typeof SetQuoteStatusInputSchema>;

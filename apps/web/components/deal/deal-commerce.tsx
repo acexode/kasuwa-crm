@@ -28,6 +28,12 @@ import type { DealDetail } from '../../lib/deal-detail-api';
 
 const PANEL = 'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4';
 
+/** `paid` is webhook-only and reuses the existing payment string (T-0169). */
+function quoteStatusId(status: string): MessageId {
+  if (status === 'paid') return 'notifications.prefs.event.payment';
+  return `deal.quotes.status.${status}` as MessageId;
+}
+
 type LoadState<T> =
   | { readonly phase: 'loading' }
   | { readonly phase: 'unavailable' }
@@ -258,7 +264,7 @@ export function DealQuotesRail({
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <Pill tone="neutral">{t.t(`deal.quotes.status.${quote.status}` as MessageId)}</Pill>
+                    <Pill tone="neutral">{t.t(quoteStatusId(quote.status))}</Pill>
                     <MoneyText t={t} locale={locale} amountMinor={quote.totalMinor} currency={quote.currency} />
                   </span>
                   <time dateTime={quote.updatedAt} className="text-caption font-normal text-text-2">

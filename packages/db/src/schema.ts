@@ -1841,6 +1841,7 @@ export const QUOTE_STATUSES = [
   'rejected',
   'expired',
   'cancelled',
+  'paid',
 ] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 
@@ -1987,6 +1988,66 @@ export const quoteSend = pgTable(
   ],
 );
 
+/** P0 link statuses. `cancelled` stays a provider word and is not stored (T-0169). */
+export const PAYMENT_LINK_STATUSES = ['pending', 'paid', 'expired'] as const;
+export type PaymentLinkStatus = (typeof PAYMENT_LINK_STATUSES)[number];
+
+export const PAYMENT_EVENT_TYPES = ['payment.paid', 'payment.expired', 'payment.failed'] as const;
+export type PaymentEventType = (typeof PAYMENT_EVENT_TYPES)[number];
+
+/**
+ * A payment link for a quote (T-0169). Tenant-scoped RLS: a webhook has no
+ * programme session. `programme_id` is still a column and the repository filters it.
+ */
+export const paymentLink = pgTable(
+  'payment_link',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    quoteId: uuid('quote_id').notNull(),
+    provider: text('provider').notNull(),
+    providerLinkId: text('provider_link_id').notNull(),
+    status: text('status', { enum: PAYMENT_LINK_STATUSES }).notNull(),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: text('currency', { enum: ['NGN', 'GHS', 'KES', 'ZAR'] }).notNull(),
+    url: text('url').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    createdByUserId: uuid('created_by_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('payment_link_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    uniqueIndex('payment_link_idempotency_key').on(table.tenantId, table.idempotencyKey),
+    uniqueIndex('payment_link_provider_link_key').on(table.tenantId, table.provider, table.providerLinkId),
+    index('payment_link_quote_idx').on(table.tenantId, table.programmeId, table.quoteId),
+  ],
+);
+
+/** Append-only provider event (T-0169). Tenant-scoped RLS, same reason as payment_link. */
+export const paymentEvent = pgTable(
+  'payment_event',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id').notNull(),
+    programmeId: uuid('programme_id').notNull(),
+    paymentLinkId: uuid('payment_link_id').notNull(),
+    provider: text('provider').notNull(),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type', { enum: PAYMENT_EVENT_TYPES }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('payment_event_tenant_programme_id_key').on(table.tenantId, table.programmeId, table.id),
+    uniqueIndex('payment_event_provider_event_key').on(table.tenantId, table.provider, table.eventId),
+    index('payment_event_link_idx').on(table.tenantId, table.programmeId, table.paymentLinkId),
+  ],
+);
+
 /**
  * Every table that carries tenant data. The schema-invariant test iterates this
  * list; adding a table to the schema without adding it here fails that test too.
@@ -2044,6 +2105,8 @@ export const TENANT_SCOPED_TABLES = [
   'approval_rule',
   'quote_approval',
   'quote_send',
+  'payment_link',
+  'payment_event',
 ] as const;
 
 export type TenantScopedTable = (typeof TENANT_SCOPED_TABLES)[number];

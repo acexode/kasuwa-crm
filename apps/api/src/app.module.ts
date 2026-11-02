@@ -55,6 +55,7 @@ import {
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './commerce/catalogue.controller';
+import { PaymentLinkController, PaymentLinksController, PaymentWebhookController } from './commerce/payments.controller';
 import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
 import { SearchController } from './search/search.controller';
@@ -122,6 +123,9 @@ export const COMMERCE_CONTROLLERS = [
   CataloguePriceBookController,
   QuotesProgrammeController,
   QuotesController,
+  PaymentLinksController,
+  PaymentLinkController,
+  PaymentWebhookController,
 ];
 
 /** Controllers hosted by this module. AuthController is hosted by AuthModule. */

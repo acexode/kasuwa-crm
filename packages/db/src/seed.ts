@@ -24,6 +24,8 @@ import {
   SEED_PRODUCTS,
   SEED_PRODUCT_VARIANTS,
   SEED_APPROVAL_RULES,
+  SEED_PAYMENT_EVENTS,
+  SEED_PAYMENT_LINKS,
   SEED_QUOTE_LINES,
   SEED_QUOTES,
   SEED_SCRIPTS,
@@ -446,6 +448,26 @@ export async function runSeed(options: SeedOptions): Promise<void> {
       );
     }
 
+    for (const link of SEED_PAYMENT_LINKS) {
+      await client.query(
+        `INSERT INTO payment_link
+           (id, tenant_id, programme_id, quote_id, provider, provider_link_id, status,
+            amount_minor, currency, url, idempotency_key, created_by_user_id)
+         VALUES ($1, $2, $3, $4, 'fake', 'seed-payment-link', 'pending',
+                 25000000::bigint, 'NGN', 'https://payments.fake.invalid/pay/seed-payment-link',
+                 'seed-payment-link', $5)`,
+        [link.id, link.tenantId, link.programmeId, link.quoteId, link.createdByUserId],
+      );
+    }
+
+    for (const event of SEED_PAYMENT_EVENTS) {
+      await client.query(
+        `INSERT INTO payment_event
+           (id, tenant_id, programme_id, payment_link_id, provider, event_id, event_type)
+         VALUES ($1, $2, $3, $4, 'fake', 'seed-payment-event', 'payment.failed')`,
+        [event.id, event.tenantId, event.programmeId, event.paymentLinkId],
+      );
+    }
 
     for (const rule of SEED_APPROVAL_RULES) {
       await client.query(

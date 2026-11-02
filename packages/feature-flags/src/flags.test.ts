@@ -35,6 +35,7 @@ describe('feature flags', () => {
       'crm_quotes',
       'quote_approvals',
       'quote_send',
+      'payment_links',
       'crm_search',
       'crm_custom_fields',
       'crm_import',

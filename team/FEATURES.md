@@ -12,7 +12,7 @@ feature flag and deferred decision has a row with its state and the decision beh
 
 States: `built`, `partial`, `mock-only`, `flagged-off`, `deferred`, `not-started`.
 
-Totals: 294 rows; built 143, partial 11, mock-only 26, flagged-off 85, deferred 10, not-started 19.
+Totals: 298 rows; built 146, partial 11, mock-only 26, flagged-off 86, deferred 10, not-started 19.
 
 ## Modules
 
@@ -172,6 +172,9 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `listApprovals` | GET /api/v1/programmes/{programmeId}/approvals — List quote discount approvals in a programme | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `requestApproval` | POST /api/v1/quotes/{quoteId}/approvals — Request discount approval for a draft quote above the programme threshold | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `decideApproval` | POST /api/v1/approvals/{approvalId}/decision — Approve or reject a pending discount approval | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `createPaymentLink` | POST /api/v1/programmes/{programmeId}/quotes/{quoteId}/payment-links — Create a payment link for a sent or accepted quote | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `getPaymentLink` | GET /api/v1/payment-links/{linkId} — Read a payment link the caller can reach | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `receivePaymentWebhook` | POST /webhooks/{provider}/{tenantSlug} — Apply a signed payment event | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `listContacts` | GET /api/v1/contacts — List contacts — search, filter, sort, keyset page | built | — | — | docs/api/records.openapi.yaml · T-0056 · T-0061 · T-0124 |
 | operation | `createContact` | POST /api/v1/contacts — Create a contact | built | — | — | docs/api/records.openapi.yaml |
 | operation | `getContact` | GET /api/v1/contacts/{contactId} — Get one contact | built | — | — | docs/api/records.openapi.yaml · T-0124 |
@@ -268,6 +271,7 @@ Every entry of `FLAGS` in `@kasuwa/feature-flags`.
 | flag | `crm_quotes` | Programme-scoped quotes with line items, discounts, validity and gated status changes (T-0165). | flagged-off | `crm_quotes` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_approvals` | In-app discount approval requests and decisions for programme quotes (T-0166). | flagged-off | `quote_approvals` | — | packages/feature-flags/src/index.ts |
 | flag | `quote_send` | Quote PDF template and send by email through the email channel kind (T-0167). | flagged-off | `quote_send` | — | packages/feature-flags/src/index.ts |
+| flag | `payment_links` | Payment links and paid/expired webhooks for programme quotes (T-0169). | flagged-off | `payment_links` | — | packages/feature-flags/src/index.ts |
 | flag | `crm_search` | The P27 global search screen at /search and the Ctrl/Cmd+K command palette in the CRM shell (T-0087). | flagged-off | `crm_search` | D-L133, D-L135 | packages/feature-flags/src/index.ts |
 | flag | `crm_custom_fields` | The P18 customisation studio for custom fields at /admin/custom-fields, and its settings-menu entry (T-0090). | flagged-off | `crm_custom_fields` | D-L128 | packages/feature-flags/src/index.ts |
 | flag | `crm_import` | CSV import of contacts: the /api/v1/imports routes, the importId contacts filter and the worker import queues (T-0094). | flagged-off | `crm_import` | D-L146, D-L166 | packages/feature-flags/src/index.ts |

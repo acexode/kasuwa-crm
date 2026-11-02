@@ -677,3 +677,46 @@ export async function studioFlags(): Promise<StudioFlags> {
   ]);
   return { objects, layouts, validation, relationships, recordTypes, extendedTypes, usage, translations };
 }
+
+/**
+ * P21 catalogue route (T-0171). Off until switched on. The API still scopes
+ * every read from the session whether this is on or off.
+ */
+export async function crmProductsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_products',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** P21 quote route (T-0171). */
+export async function crmQuotesEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'crm_quotes',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** P21 approvals route (T-0171). */
+export async function quoteApprovalsEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'quote_approvals',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}
+
+/** P21 payment status route (T-0171). Gates the screen, not the webhook. */
+export async function paymentLinksEnabled(): Promise<boolean> {
+  await initialiseFeatureFlags();
+  return featureFlagClient().getBooleanValue(
+    'payment_links',
+    false,
+    toEvaluationContext({ tenantId: CRM_SHELL }),
+  );
+}

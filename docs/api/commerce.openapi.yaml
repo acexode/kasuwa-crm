@@ -2,12 +2,14 @@ openapi: 3.1.0
 
 info:
   title: Kasuwa Commerce API
-  version: 0.1.0-T-0167
+  version: 0.1.0-T-0169
   description: |
     Programme-scoped product catalogue (T-0164), quotes (T-0165 / D-L211),
-    discount approvals (T-0166), and quote PDF / email send (T-0167). Currencies
-    NGN/GHS/KES/ZAR only (B6). Money is never a float — `amountMinor` is a string
-    of digits plus an ISO currency code.
+    discount approvals (T-0166), quote PDF / email send (T-0167), and payment
+    links (T-0169, D-A3). Currencies NGN/GHS/KES/ZAR only (B6). Money is never a
+    float — `amountMinor` is a string of digits plus an ISO currency code.
+    `paid` is set only by the payment webhook. The response never carries a
+    card number: a provider reference is an opaque link id.
 
 
     Scope is resolved from the session. A programme the caller cannot reach, a
@@ -268,7 +270,8 @@ components:
           description: The price book's currency; fixed at create and never changes.
         status:
           type: string
-          enum: [draft, sent, accepted, rejected, expired, cancelled]
+          enum: [draft, sent, accepted, rejected, expired, cancelled, paid]
+          description: paid is webhook-only and is not accepted by setQuoteStatus.
         discountBps: { type: integer, minimum: 0, maximum: 10000 }
         validUntil: { type: string, format: date-time, nullable: true }
         version: { type: integer, minimum: 1 }
@@ -336,6 +339,41 @@ components:
         status:
           type: string
           enum: [draft, sent, accepted, rejected, expired, cancelled]
+    CreatePaymentLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string, minLength: 1, maxLength: 128 }
+    PaymentLink:
+      type: object
+      additionalProperties: false
+      required: [id, programmeId, quoteId, providerLinkId, status, amountMinor, currency, url, expiresAt, paidAt]
+      properties:
+        id: { type: string, format: uuid }
+        programmeId: { type: string, format: uuid }
+        quoteId: { type: string, format: uuid }
+        providerLinkId: { type: string }
+        status:
+          type: string
+          enum: [pending, paid, expired]
+        amountMinor: { type: string, pattern: '^\\d{1,18}$' }
+        currency:
+          type: string
+          enum: [NGN, GHS, KES, ZAR]
+        url: { type: string }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
+    PaymentWebhookResult:
+      type: object
+      additionalProperties: false
+      required: [status, replay, dealMoved]
+      properties:
+        status:
+          type: string
+          enum: [pending, paid, expired]
+        replay: { type: boolean }
+        dealMoved: { type: boolean }
     SendQuoteRequest:
       type: object
       additionalProperties: false
@@ -1119,6 +1157,141 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '409':
           description: Not pending
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/programmes/{programmeId}/quotes/{quoteId}/payment-links:
+    post:
+      operationId: createPaymentLink
+      x-kasuwa-implemented: true
+      summary: Create a payment link for a sent or accepted quote
+      description: |
+        Amount comes from the quote total. The caller supplies an idempotency
+        key and no amount. Requires `quotes.write`. A repeated key returns the
+        original link.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: programmeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: quoteId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentLinkRequest' }
+      responses:
+        '201':
+          description: Payment link
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentLink' }
+        '400':
+          description: Validation failed, or the quote is not sent or accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Not permitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Quote not found or not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Payment provider unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/payment-links/{linkId}:
+    get:
+      operationId: getPaymentLink
+      x-kasuwa-implemented: true
+      summary: Read a payment link the caller can reach
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: linkId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Payment link
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentLink' }
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Link not found or not reachable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /webhooks/{provider}/{tenantSlug}:
+    post:
+      operationId: receivePaymentWebhook
+      x-kasuwa-implemented: true
+      summary: Apply a signed payment event
+      description: |
+        No bearer token. Unknown workspace, bad signature, unreadable body and
+        unknown link all answer 401 with one body. A repeated event id is 200
+        with `replay: true` and does not apply twice. `paid` updates the quote.
+        The deal moves to the pipeline's won stage only when the current stage
+        has a transition there and that stage has no requirements.
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z]{1,32}$' }
+        - name: tenantSlug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Event applied, or already applied
+          headers:
+            Cache-Control: { schema: { type: string }, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentWebhookResult' }
+        '401':
+          description: Not authenticated. Same body for an unknown slug, a bad signature and an unknown link.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Provider unavailable
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

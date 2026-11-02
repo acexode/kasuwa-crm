@@ -255,6 +255,21 @@ const PER_AGENT_ALLOWANCES = [
     path: 'tests/acceptance/commerce/quote-send.acceptance.test.ts',
     why: 'Phase 3 S1 T-0167 assigns Agent A5 the quote-send acceptance suite (lead-authorised deliverable on this branch).',
   },
+  {
+    branchPrefix: 'feat/s1-payment-links',
+    pathPattern: reservedMigration('0051'),
+    why: 'Phase 3 S1 T-0169 assigns migration 0051 (payment links). 0050 is T-0167.',
+  },
+  {
+    branchPrefix: 'feat/s1-payment-links',
+    path: 'tests/acceptance/commerce/payment-links.acceptance.test.ts',
+    why: 'Phase 3 S1 T-0169 assigns the payment-links acceptance suite (paid and expired only, D-A3).',
+  },
+  {
+    branchPrefix: 'feat/s1-payment-links',
+    path: 'tests/acceptance/commerce-ui/p21.acceptance.test.ts',
+    why: 'Phase 3 S1 T-0171 assigns the P21 screen acceptance suite. Invoices and refunds stay out.',
+  },
 ];
 
 function allows(entry, path) {

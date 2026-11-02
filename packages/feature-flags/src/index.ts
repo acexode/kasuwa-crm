@@ -312,6 +312,17 @@ export const FLAGS = {
     productionReady: false,
   },
   /**
+   * T-0169 (M05 P0, D-A3): payment links for a sent or accepted quote, and the
+   * webhook that marks the quote paid or the link expired. Off by default.
+   * Production still fails closed until a real provider is configured.
+   */
+  payment_links: {
+    description: 'Payment links and paid/expired webhooks for programme quotes (T-0169).',
+    defaultValue: false,
+    owner: 'T-0169',
+    productionReady: false,
+  },
+  /**
    * T-0087 (D-L133, D-L135, ADR-0014): the P27 global search screen at
    * `/search` and the Ctrl/Cmd+K command palette in the CRM shell. It gates
    * the ROUTE (a real 404 while it is off), the shell's header entry and the

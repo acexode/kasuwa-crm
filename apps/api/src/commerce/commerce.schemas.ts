@@ -81,3 +81,20 @@ export const SendQuoteBody = z.strictObject({
   channel: z.literal('email'),
   to: z.email().max(320),
 });
+
+export const ProgrammeQuoteParams = z.object({
+  programmeId: z.uuid(),
+  quoteId: z.uuid(),
+});
+
+export const PaymentLinkIdParam = z.object({ linkId: z.uuid() });
+
+export const CreatePaymentLinkBody = z.strictObject({
+  idempotencyKey: z.string().min(1).max(128),
+});
+
+/** Provider segment is an opaque id. Vendor names are not part of this contract. */
+export const WebhookPathParams = z.object({
+  provider: z.string().regex(/^[a-z]{1,32}$/),
+  tenantSlug: z.string().min(1).max(64),
+});

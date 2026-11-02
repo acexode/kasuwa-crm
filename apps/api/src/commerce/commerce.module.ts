@@ -9,6 +9,7 @@ import {
   CatalogueProductController,
   CatalogueProgrammeController,
 } from './catalogue.controller';
+import { PaymentLinkController, PaymentLinksController, PaymentWebhookController } from './payments.controller';
 import { QuotesController, QuotesProgrammeController } from './quotes.controller';
 
 @Module({
@@ -21,6 +22,9 @@ import { QuotesController, QuotesProgrammeController } from './quotes.controller
     ApprovalsProgrammeController,
     ApprovalsQuoteController,
     ApprovalsController,
+    PaymentLinksController,
+    PaymentLinkController,
+    PaymentWebhookController,
   ],
 })
 export class CommerceModule {}

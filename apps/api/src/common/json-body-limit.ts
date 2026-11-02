@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { STATUS_CODES } from 'node:http';
+import { STATUS_CODES, type IncomingMessage } from 'node:http';
 
 /**
  * The JSON body limit (T-0113, D-L96).
@@ -195,6 +195,17 @@ export function bodyParserErrorBody(status: number): {
   };
 }
 
+/**
+ * Keep the exact bytes for payment webhooks so the signature is checked
+ * against what was sent, not a re-serialised object (T-0169). Other routes
+ * do not need the raw body and do not keep it.
+ */
+function captureWebhookRawBody(req: IncomingMessage, _res: unknown, buf: Buffer): void {
+  const path = (req.url ?? '').split('?')[0] ?? '';
+  if (!path.startsWith('/webhooks/')) return;
+  (req as IncomingMessage & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+}
+
 @Injectable()
 export class JsonBodyLimit {
   constructor(@Inject(HttpAdapterHost) host: HttpAdapterHost) {
@@ -209,7 +220,10 @@ export class JsonBodyLimit {
         adapter.use(noStoreEverywhere);
       }
       if (!hasMiddleware(adapter.getInstance(), 'jsonParser')) {
-        adapter.useBodyParser('json', false, { limit: JSON_BODY_LIMIT_BYTES });
+        adapter.useBodyParser('json', false, {
+          limit: JSON_BODY_LIMIT_BYTES,
+          verify: captureWebhookRawBody,
+        });
       }
       if (!hasMiddleware(adapter.getInstance(), 'jsonParseErrorHandler')) {
         adapter.use(jsonParseErrorHandler);

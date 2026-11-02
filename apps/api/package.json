@@ -19,6 +19,7 @@
     "@kasuwa/domain-core": "workspace:*",
     "@kasuwa/feature-flags": "workspace:*",
     "@kasuwa/metadata-engine": "workspace:*",
+    "@kasuwa/payments-adapter": "workspace:*",
     "@kasuwa/permissions": "workspace:*",
     "@kasuwa/storage-adapter": "workspace:*",
     "@nestjs/common": "^11.0.1",

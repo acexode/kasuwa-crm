@@ -23,6 +23,7 @@ export const QUOTE_STATUSES = [
   'rejected',
   'expired',
   'cancelled',
+  'paid',
 ] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
 

@@ -427,3 +427,27 @@ export async function setQuoteStatus(
   );
   return findQuoteById(tx, quoteId);
 }
+
+/**
+ * Mark a sent or accepted quote paid. Not a client transition: only the
+ * payment webhook calls this (T-0169). Already-paid is a no-op success.
+ * Any other status, or a quote outside the session, returns null.
+ */
+export async function markQuotePaid(tx: TenantTx, quoteId: string): Promise<Quote | null> {
+  const current = await findQuoteById(tx, quoteId);
+  if (current === null) return null;
+  if (current.status === 'paid') return current;
+  if (current.status !== 'sent' && current.status !== 'accepted') return null;
+  const updated = await tx.query<{ id: string }>(
+    `UPDATE quote
+        SET status = 'paid', updated_at = now()
+      WHERE tenant_id = $1::uuid
+        AND programme_id = $2::uuid
+        AND id = $3::uuid
+        AND status IN ('sent', 'accepted')
+      RETURNING id`,
+    [tx.session.tenantId, current.programmeId, quoteId],
+  );
+  if (updated.length === 0) return null;
+  return findQuoteById(tx, quoteId);
+}

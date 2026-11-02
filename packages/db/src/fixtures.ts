@@ -27,6 +27,10 @@
  *                  0000001d   quote
  *                  0000001e   quote line
  *                  0000001f   approval rule
+ *                  00000020   payment link
+ *                  00000021   payment event
+ *                  00000020   payment link
+ *                  00000021   payment event
  *
  * Tenant A deliberately models the BPO shape: two client programmes, an agent
  * on each, a supervisor across both, and a user with no programme membership at
@@ -713,6 +717,42 @@ export const SEED_QUOTES: readonly SeedQuote[] = [
     currency: 'NGN',
     dealId: `${A}000000170001`,
     contactId: `${A}0000000e0001`,
+  },
+];
+
+export interface SeedPaymentLink {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  quoteId: string;
+  createdByUserId: string;
+}
+
+/** One pending link so schema-hygiene can UPDATE payment_link (T-0169). */
+export const SEED_PAYMENT_LINKS: readonly SeedPaymentLink[] = [
+  {
+    id: `${A}000000200001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    quoteId: `${A}0000001d0001`,
+    createdByUserId: USER_A_SUPERVISOR,
+  },
+];
+
+export interface SeedPaymentEvent {
+  id: string;
+  tenantId: string;
+  programmeId: string;
+  paymentLinkId: string;
+}
+
+/** One event so schema-hygiene can UPDATE payment_event (T-0169). */
+export const SEED_PAYMENT_EVENTS: readonly SeedPaymentEvent[] = [
+  {
+    id: `${A}000000210001`,
+    tenantId: TENANT_A,
+    programmeId: PROGRAMME_A1,
+    paymentLinkId: `${A}000000200001`,
   },
 ];
 

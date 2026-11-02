@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import type {
   CreatePaymentLinkRequest,
   ParseWebhookEventRequest,
@@ -7,7 +8,7 @@ import type {
   VerifyWebhookSignatureRequest,
 } from './contracts';
 import { ProviderUnavailableError } from './errors';
-import { FakePaymentProvider } from './fake';
+import { FAKE_WEBHOOK_SECRET, FakePaymentProvider } from './fake';
 
 /**
  * The provider for an environment with no real provider configured.
@@ -47,4 +48,24 @@ export type PaymentEnvironment = 'development' | 'test' | 'production';
  */
 export function defaultPaymentProvider(environment: PaymentEnvironment): PaymentProvider {
   return environment === 'production' ? new NullPaymentProvider() : new FakePaymentProvider();
+}
+
+/**
+ * Webhook secret for one tenant on the in-memory fake (T-0169). Derived, never
+ * stored. A signature made for tenant B does not verify against tenant A's
+ * secret, so a valid signature posted to the wrong slug is refused.
+ * Production never uses it: {@link paymentProviderFor} returns the null provider.
+ */
+export function fakeWebhookSecretForTenant(tenantId: string): string {
+  return createHmac('sha256', FAKE_WEBHOOK_SECRET).update(tenantId).digest('hex');
+}
+
+/**
+ * The provider a request should use. Production fails closed. Development and
+ * test get a fresh fake whose webhook secret belongs to `tenantId` alone, so
+ * two instances still agree on the signature without sharing memory.
+ */
+export function paymentProviderFor(environment: PaymentEnvironment, tenantId: string): PaymentProvider {
+  if (environment === 'production') return new NullPaymentProvider();
+  return new FakePaymentProvider({ webhookSecret: fakeWebhookSecretForTenant(tenantId) });
 }

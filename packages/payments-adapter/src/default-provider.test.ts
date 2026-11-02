@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CreatePaymentLinkRequest } from './contracts';
-import { defaultPaymentProvider, NullPaymentProvider } from './default-provider';
+import {
+  defaultPaymentProvider,
+  fakeWebhookSecretForTenant,
+  NullPaymentProvider,
+  paymentProviderFor,
+} from './default-provider';
 import { ProviderUnavailableError } from './errors';
 import { FakePaymentProvider } from './fake';
 
@@ -53,5 +58,39 @@ describe('defaultPaymentProvider', () => {
 
   it('returns a fresh provider each time', () => {
     expect(defaultPaymentProvider('test')).not.toBe(defaultPaymentProvider('test'));
+  });
+});
+
+describe('paymentProviderFor', () => {
+  const tenantA = '11111111-0000-4000-8000-000000000001';
+  const tenantB = '22222222-0000-4000-8000-000000000002';
+
+  it('is the null provider in production', () => {
+    expect(paymentProviderFor('production', tenantA)).toBeInstanceOf(NullPaymentProvider);
+  });
+
+  it('gives each tenant a different fake secret', () => {
+    expect(fakeWebhookSecretForTenant(tenantA)).not.toBe(fakeWebhookSecretForTenant(tenantB));
+    expect(fakeWebhookSecretForTenant(tenantA)).toBe(fakeWebhookSecretForTenant(tenantA));
+  });
+
+  it('rejects a signature made for another tenant', async () => {
+    const body = {
+      eventId: 'evt-cross',
+      occurredAt: new Date('2026-10-28T00:00:00.000Z'),
+      type: 'payment.paid' as const,
+      providerLinkId: 'plink_1',
+      reference: 'quote-1',
+    };
+    const signedByB = new FakePaymentProvider({
+      webhookSecret: fakeWebhookSecretForTenant(tenantB),
+    }).signWebhook(body);
+    const providerA = paymentProviderFor('test', tenantA);
+    await expect(
+      providerA.verifyWebhookSignature({
+        rawBody: signedByB.rawBody,
+        headers: signedByB.headers,
+      }),
+    ).resolves.toBe(false);
   });
 });
