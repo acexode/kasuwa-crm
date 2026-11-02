@@ -693,6 +693,8 @@ function prefixMatches(value: unknown, query: string): boolean {
 // ---------------------------------------------------------------------------
 
 const TYPE_ORDER = ['contact', 'lead', 'account', 'deal'];
+// T-0193: searchRecords adds `conversation` (lookup stays on the four).
+const SEARCH_TYPE_ORDER = [...TYPE_ORDER, 'conversation'];
 const SETS = ['admin', 'programme_manager', 'team_lead', 'agent', 'qa_analyst', 'client_portal'];
 const STAFF_RIGHTS = { contact: 'read', lead: 'read', account: 'read', deal: 'read' };
 const RIGHTS: Record<string, Record<string, string>> = {
@@ -721,12 +723,14 @@ const HIT_SCHEMA: Record<string, string> = {
   lead: 'LeadSearchHit',
   account: 'AccountSearchHit',
   deal: 'DealSearchHit',
+  conversation: 'ConversationSearchHit',
 };
 const GROUP_SCHEMA: Record<string, string> = {
   contact: 'ContactSearchGroup',
   lead: 'LeadSearchGroup',
   account: 'AccountSearchGroup',
   deal: 'DealSearchGroup',
+  conversation: 'ConversationSearchGroup',
 };
 const HIT_KEYS: Record<string, string[]> = {
   contact: ['type', 'id', 'programmeId', ...NAME_FIELDS, 'withheldFields'],
@@ -1590,22 +1594,22 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       }
     });
 
-    it('types is 1..4 unique SearchType values: contact, lead, account, deal; unknown is unknown_type; additive; the same in the body (R17)', () => {
+    it('types: search is 1..5 unique SearchType values (the four plus conversation), lookup is 1..4; unknown is unknown_type; additive; the same in the body (R17)', () => {
       const parameter = param(search(), 'types');
       expect([parameter?.style, parameter?.explode]).toEqual(['form', true]);
       const query = paramSchema(search(), 'types');
       const body = bodyProperty('types');
-      for (const [where, schema] of [
-        ['query', query],
-        ['body', body],
+      for (const [where, schema, order, max] of [
+        ['query', query, SEARCH_TYPE_ORDER, 5],
+        ['body', body, TYPE_ORDER, 4],
       ] as const) {
-        expect(enumOf(schema).map(str), where).toEqual(TYPE_ORDER);
-        expect(validate(schema, TYPE_ORDER, 'types'), where).toEqual([]);
+        expect(enumOf(schema).map(str), where).toEqual(order);
+        expect(validate(schema, order, 'types'), where).toEqual([]);
         for (const [label, bad] of [
           ['empty', []],
           ['a ticket', ['ticket']],
           ['a repeat', ['contact', 'contact']],
-          ['five', [...TYPE_ORDER, 'contact']],
+          ['too many', [...order, 'contact']],
           ['a plural', ['contacts']],
         ] as const) {
           expect(
@@ -1617,7 +1621,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         expect(
           isMapping(node) ? [node.minItems, node.maxItems, node.uniqueItems] : [],
           where,
-        ).toEqual([1, 4, true]);
+        ).toEqual([1, max, true]);
       }
       const text = prose(str(parameter?.description));
       expect(text).toMatch(/`unknown_type` for an unknown one/);
@@ -1950,7 +1954,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
   });
 
   describe('the answer: groups, at most three hits, no counts (R12, R13, R14)', () => {
-    it('both operations answer the one SearchResults: closed, groups only, 1..4, each one of the four closed group schemas', () => {
+    it('both operations answer the one SearchResults: closed, groups only, 1..5, each one of the five closed group schemas', () => {
       for (const op of gate()) {
         expect(responseSchema(op, '200').node, op.id).toBe(schemaNamed('SearchResults').node);
       }
@@ -1963,13 +1967,13 @@ describe('acceptance: records contract, global search (T-0085)', () => {
       expect(isMapping(node) ? [node.type, node.minItems, node.maxItems] : []).toEqual([
         'array',
         1,
-        4,
+        5,
       ]);
       const items = groups ? child(groups, 'items') : undefined;
       const variants =
         isMapping(items?.node) && Array.isArray(items.node.oneOf) ? items.node.oneOf : [];
       expect(variants.map((variant) => at(variant).node)).toEqual(
-        TYPE_ORDER.map((type) => schemaNamed(GROUP_SCHEMA[type] ?? '').node),
+        SEARCH_TYPE_ORDER.map((type) => schemaNamed(GROUP_SCHEMA[type] ?? '').node),
       );
     });
 
@@ -2438,7 +2442,7 @@ describe('acceptance: records contract, global search (T-0085)', () => {
         ],
         ['a ticket group', withGroup({ type: 'ticket', hits: [] })],
         ['no groups', { groups: [] }],
-        ['five groups', { groups: [...groups, contacts] }],
+        ['six groups', { groups: [...groups, contacts, contacts, contacts] }],
         [
           'an account with an owner',
           {

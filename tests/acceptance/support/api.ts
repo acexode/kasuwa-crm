@@ -41,6 +41,7 @@ export interface CreateApiOptions {
   dndRegister?: DndRegister;
   inboxTemplatesEnabled?: boolean;
   inboxRoutingEnabled?: boolean;
+  conversationSearchEnabled?: boolean;
 }
 
 /**
@@ -82,6 +83,9 @@ export async function createApi(
           ...(options.inboxRoutingEnabled === undefined
             ? {}
             : { inboxRoutingEnabled: options.inboxRoutingEnabled }),
+          ...(options.conversationSearchEnabled === undefined
+            ? {}
+            : { conversationSearchEnabled: options.conversationSearchEnabled }),
         }),
       ),
     ],
