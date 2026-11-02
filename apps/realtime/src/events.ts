@@ -2,9 +2,9 @@ import { z } from 'zod';
 
 /**
  * The event seam (ADR-0020): Redis pub/sub, channel `kasuwa.realtime.events`,
- * ids only (D-P29). T-0191 feeds it from the outbox later; today anything that
- * publishes here is trusted only as far as this schema, and the hub still
- * filters on the tenant and programme it names.
+ * ids only (D-P29). T-0191 publishes `inbox.message_persisted` here from the
+ * outbox consumer. A publisher is trusted only as far as this schema, and the
+ * hub still filters on the tenant and the programme fixed at connect.
  */
 export const EVENTS_CHANNEL = 'kasuwa.realtime.events';
 

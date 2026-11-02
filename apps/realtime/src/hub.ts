@@ -3,9 +3,9 @@ import type { RealtimeEvent } from './events';
 /**
  * Server-side fan-out (CLAUDE.md of this app, invariants 1 and 2). A client is
  * given an event only when the event's tenant is the client's and the event's
- * programme is in the client's SUBSCRIBED set, which is always a subset of the
- * programmes the session reached at connect. "Send everything and let the
- * client filter" is how a wallboard leaks another BPO client's queue.
+ * programme is in the programmes fixed at connect and in the subscribed subset
+ * of that set. "Send everything and let the client filter" is how a wallboard
+ * leaks another BPO client's queue.
  */
 export interface HubClient {
   readonly tenantId: string;
@@ -14,6 +14,23 @@ export interface HubClient {
   /** What it receives now. Always a subset of `reachable`. */
   subscribed: ReadonlySet<string>;
   send(frame: unknown): void;
+}
+
+/**
+ * Whether this socket may see `event`. The tenant must match, and the
+ * programme must be in the set fixed at connect (`reachable`) and in the
+ * subscribed subset of that set. A programme named only by a later client
+ * frame cannot widen `reachable`.
+ */
+export function deliversTo(
+  client: Pick<HubClient, 'tenantId' | 'reachable' | 'subscribed'>,
+  event: Pick<RealtimeEvent, 'tenantId' | 'programmeId'>,
+): boolean {
+  return (
+    client.tenantId === event.tenantId &&
+    client.reachable.has(event.programmeId) &&
+    client.subscribed.has(event.programmeId)
+  );
 }
 
 export class Hub {
@@ -39,8 +56,7 @@ export class Hub {
   publish(event: RealtimeEvent): number {
     let delivered = 0;
     for (const client of this.clients) {
-      if (client.tenantId !== event.tenantId) continue;
-      if (!client.subscribed.has(event.programmeId)) continue;
+      if (!deliversTo(client, event)) continue;
       client.send({
         type: 'event',
         event: { type: event.type, programmeId: event.programmeId, ids: event.ids },

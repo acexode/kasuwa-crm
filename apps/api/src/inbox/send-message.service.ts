@@ -215,6 +215,7 @@ export async function sendMessageFor(
     throw error;
   }
 
+  // recordOutboundMessage appends the inbox outbox event in this same transaction.
   const recorded = await recordOutboundMessage(
     tx,
     conversationId,

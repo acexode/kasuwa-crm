@@ -79,6 +79,7 @@ export * from './inbox/conversations.types';
 export * from './inbox/conversations.repository';
 export * from './inbox/message-body-redact';
 export * from './inbox/send-message.repository';
+export * from './inbox/inbox-realtime';
 export * from './inbox/e164-hash';
 export * from './inbox/window';
 export * from './inbox/message-template.repository';

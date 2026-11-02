@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseEvent, type RealtimeEvent } from './events';
-import { Hub, resolveSubscription, type HubClient } from './hub';
+import { deliversTo, Hub, resolveSubscription, type HubClient } from './hub';
 import { keepsEveryProgramme } from './scope';
 
 const T1 = '11111111-0000-4000-8000-000000160001';
@@ -52,6 +52,32 @@ describe('Hub (T-0160)', () => {
     hub.remove(a);
     hub.publish(event(T1, P1));
     expect(a.frames).toEqual([]);
+  });
+});
+
+describe('deliversTo (T-0191)', () => {
+  const socket = (over: Partial<Pick<HubClient, 'reachable' | 'subscribed'>> = {}) => ({
+    tenantId: T1,
+    reachable: over.reachable ?? new Set([P1]),
+    subscribed: over.subscribed ?? new Set([P1]),
+  });
+
+  it('delivers only when the programme was fixed at connect and is still subscribed', () => {
+    expect(deliversTo(socket(), event(T1, P1))).toBe(true);
+    expect(deliversTo(socket(), event(T2, P1))).toBe(false);
+    expect(deliversTo(socket(), event(T1, P2))).toBe(false);
+  });
+
+  it('refuses a programme that is subscribed but was not in scope at connect', () => {
+    const widened = socket({ reachable: new Set([P1]), subscribed: new Set([P1, P2]) });
+    expect(deliversTo(widened, event(T1, P2))).toBe(false);
+    expect(deliversTo(widened, event(T1, P1))).toBe(true);
+  });
+
+  it('honours a narrowed subscription inside the connect-time scope', () => {
+    const narrowed = socket({ reachable: new Set([P1, P2]), subscribed: new Set([P1]) });
+    expect(deliversTo(narrowed, event(T1, P2))).toBe(false);
+    expect(deliversTo(narrowed, event(T1, P1))).toBe(true);
   });
 });
 

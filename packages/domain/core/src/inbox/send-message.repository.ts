@@ -2,6 +2,7 @@ import { newId, type TenantTx } from '@kasuwa/db';
 import { findContactById } from '../contact/contact.repository';
 import { findConversationById } from './conversations.repository';
 import type { ConversationChannel, Message } from './conversations.types';
+import { appendInboxMessagePersisted } from './inbox-realtime';
 import { redactMessageBodyForStorage } from './message-body-redact';
 
 export type SendPurpose = 'transactional' | 'promotional';
@@ -109,6 +110,13 @@ export async function recordOutboundMessage(
       WHERE tenant_id = $1::uuid AND programme_id = $2::uuid AND id = $3::uuid`,
     [tx.session.tenantId, conversation.programmeId, conversationId],
   );
+
+  // Same transaction as the inserts above, so the event commits with the message.
+  await appendInboxMessagePersisted(tx, {
+    programmeId: conversation.programmeId,
+    conversationId,
+    messageId,
+  });
 
   const now = new Date();
   return {
