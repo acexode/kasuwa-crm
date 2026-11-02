@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultMbsProvider, NullMbsProvider } from './default-provider';
 import { FakeMbsProvider, fakeIrn } from './fake';
 
 describe('FakeMbsProvider', () => {
@@ -33,5 +34,15 @@ describe('FakeMbsProvider', () => {
       currency: 'NGN',
     });
     expect(result.outcome).toBe('failed');
+  });
+});
+
+describe('defaultMbsProvider', () => {
+  it('is the fake only when the environment is exactly test', () => {
+    expect(defaultMbsProvider('test')).toBeInstanceOf(FakeMbsProvider);
+    expect(defaultMbsProvider('development')).toBeInstanceOf(NullMbsProvider);
+    expect(defaultMbsProvider('staging')).toBeInstanceOf(NullMbsProvider);
+    expect(defaultMbsProvider('production')).toBeInstanceOf(NullMbsProvider);
+    expect(defaultMbsProvider('unknown')).toBeInstanceOf(NullMbsProvider);
   });
 });

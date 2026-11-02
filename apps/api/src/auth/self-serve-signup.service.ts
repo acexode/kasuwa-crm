@@ -180,48 +180,68 @@ export class SelfServeSignupService {
     nextStep: 'verify_email' | 'verify_phone' | 'onboarding';
   }> {
     this.assertEnabled();
-    const row = await this.loadAttempt(input.verificationId);
-    if (row.expires_at.getTime() <= Date.now()) {
-      throw otpExpired();
+    // Email verification is a separate step. A phone code must not prove the
+    // email, and must not provision a tenant for an address the caller does
+    // not control.
+    if (input.channel !== 'phone') {
+      throw otpInvalid(null);
     }
-    if (row.otp_attempt_count >= OTP_MAX_ATTEMPTS) {
-      throw otpTooManyAttempts(row.expires_at, this.policy.cellTimeZone);
+
+    const consumed = await withAuthTransaction(
+      this.authPool,
+      { tenantSlug: 'self-serve' },
+      async (tx) => {
+        const updated = await tx.query<SignupRow>(
+          `UPDATE signup_attempt
+              SET otp_attempt_count = otp_attempt_count + 1, updated_at = now()
+            WHERE id = $1
+              AND otp_attempt_count < $2
+              AND expires_at > now()
+          RETURNING id, email_hash, payload, password_hash, phone_otp_hash,
+                    phone_verified, email_verified, otp_attempt_count, expires_at,
+                    resend_available_at, provisioned_tenant_id`,
+          [input.verificationId, OTP_MAX_ATTEMPTS],
+        );
+        return updated[0] ?? null;
+      },
+    );
+
+    if (consumed === null) {
+      const existing = await this.findAttempt(input.verificationId);
+      if (existing === null) throw otpInvalid(null);
+      if (existing.expires_at.getTime() <= Date.now()) throw otpExpired();
+      throw otpTooManyAttempts(existing.expires_at, this.policy.cellTimeZone);
     }
+
     const submitted = sha256(input.code);
-    const expected = row.phone_otp_hash;
-    if (expected === null || !timingSafeEqual(submitted, expected)) {
-      await this.incrementOtpAttempts(row.id, row.otp_attempt_count);
-      throw otpInvalid(Math.max(0, OTP_MAX_ATTEMPTS - row.otp_attempt_count - 1));
+    const expected = consumed.phone_otp_hash;
+    const matches =
+      expected !== null &&
+      expected.length === submitted.length &&
+      timingSafeEqual(submitted, expected);
+    if (!matches) {
+      throw otpInvalid(Math.max(0, OTP_MAX_ATTEMPTS - consumed.otp_attempt_count));
     }
 
     await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
       await tx.query(
         `UPDATE signup_attempt
-            SET phone_verified = true, email_verified = true, updated_at = now()
+            SET phone_verified = true, updated_at = now()
           WHERE id = $1`,
-        [row.id],
+        [consumed.id],
       );
     });
 
-    if (row.provisioned_tenant_id === null && this.provisioningConnection !== null) {
-      const payload = row.payload;
-      const email = String(payload.email ?? '');
-      const exists = await this.emailHasAccount(email);
-      if (!exists) {
-        const slug = organisationToSlug(String(payload.organisationName ?? 'workspace'));
-        await provisionSelfServeTenant({
-          connectionString: this.provisioningConnection,
-          slug,
-          organisationName: String(payload.organisationName ?? 'Workspace'),
-          adminEmail: email,
-          adminDisplayName: String(payload.fullName ?? 'Admin'),
-          passwordHash: row.password_hash,
-          allowNonLocalDatabase: true,
-        });
-      }
+    const fresh = await this.loadAttempt(consumed.id);
+    if (fresh.phone_verified && fresh.email_verified) {
+      await this.provisionIfNeeded(fresh);
     }
 
-    return { emailVerified: true, phoneVerified: true, nextStep: 'onboarding' };
+    return {
+      emailVerified: fresh.email_verified,
+      phoneVerified: true,
+      nextStep: fresh.email_verified ? 'onboarding' : 'verify_email',
+    };
   }
 
   async resendOtp(input: ResendOtpBody): Promise<{
@@ -272,23 +292,36 @@ export class SelfServeSignupService {
     };
   }
 
-  private async loadAttempt(id: string): Promise<SignupRow> {
+  private async findAttempt(id: string): Promise<SignupRow | null> {
     const rows = await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) =>
       tx.query<SignupRow>(`SELECT * FROM signup_attempt WHERE id = $1`, [id]),
     );
-    const row = rows[0];
-    if (row === undefined) {
-      throw otpInvalid(null);
-    }
+    return rows[0] ?? null;
+  }
+
+  private async loadAttempt(id: string): Promise<SignupRow> {
+    const row = await this.findAttempt(id);
+    if (row === null) throw otpInvalid(null);
     return row;
   }
 
-  private async incrementOtpAttempts(id: string, current: number): Promise<void> {
-    await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
-      await tx.query(
-        `UPDATE signup_attempt SET otp_attempt_count = $2, updated_at = now() WHERE id = $1`,
-        [id, current + 1],
-      );
+  /** Runs only after both the phone and the email are verified. */
+  private async provisionIfNeeded(row: SignupRow): Promise<void> {
+    if (!row.phone_verified || !row.email_verified) return;
+    if (row.provisioned_tenant_id !== null || this.provisioningConnection === null) return;
+    const payload = row.payload;
+    const email = String(payload.email ?? '');
+    const exists = await this.emailHasAccount(email);
+    if (exists) return;
+    const slug = organisationToSlug(String(payload.organisationName ?? 'workspace'));
+    await provisionSelfServeTenant({
+      connectionString: this.provisioningConnection,
+      slug,
+      organisationName: String(payload.organisationName ?? 'Workspace'),
+      adminDisplayName: String(payload.fullName ?? 'Admin'),
+      adminEmail: email,
+      passwordHash: row.password_hash,
+      allowNonLocalDatabase: true,
     });
   }
 

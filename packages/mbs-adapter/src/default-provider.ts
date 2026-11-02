@@ -9,7 +9,12 @@ export class NullMbsProvider implements MbsProvider {
   }
 }
 
-export function defaultMbsProvider(nodeEnv: 'development' | 'test' | 'production'): MbsProvider {
-  if (nodeEnv === 'production') return new NullMbsProvider();
-  return new FakeMbsProvider();
+/**
+ * Only an environment whose name is exactly `test` gets the in-memory fake.
+ * Development, staging, production, and any other name get `NullMbsProvider`,
+ * which refuses every submit. A staging process must not clear an invoice
+ * through the fake provider that ships in this repo.
+ */
+export function defaultMbsProvider(environment: string): MbsProvider {
+  return environment === 'test' ? new FakeMbsProvider() : new NullMbsProvider();
 }

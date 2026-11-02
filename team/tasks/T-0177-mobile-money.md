@@ -14,7 +14,7 @@
 ## Goal
 
 M-Pesa and MTN MoMo through `payments-adapter` (fake/sandbox kinds; production
-fail-closed). Mig **0068** `mobile_payment`. Flag `mobile_money`.
+fail-closed). Mig **0060** `mobile_payment` (0060_commerce_p1.sql). Flag `mobile_money`.
 
 ## Acceptance tests
 
