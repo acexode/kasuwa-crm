@@ -468,7 +468,7 @@ export async function searchConversationsByPrefix(
                    AND (${bodyMatch})
               )
             )
-      ORDER BY c.id
+      ORDER BY c.last_message_at DESC NULLS LAST, c.id
       LIMIT ${SEARCH_HITS_PER_TYPE}`,
     params.values,
   );

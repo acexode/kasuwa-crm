@@ -478,11 +478,11 @@ export const FLAGS = {
   },
   /**
    * T-0193: conversation as an additive record-search type. Off by default.
-   * When off, the type is still known but returns an empty group.
+   * When off, `types=conversation` is `400 unknown_type`.
    */
   conversation_search: {
     description:
-      'Include conversation hits in searchRecords (T-0193). Session programme scope only.',
+      'Include conversation hits in searchRecords (T-0193). Off: unknown_type when off. Session programme scope only.',
     defaultValue: false,
     owner: 'T-0193',
     productionReady: false,

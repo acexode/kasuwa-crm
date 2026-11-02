@@ -8371,10 +8371,15 @@ components:
         types:
           type: array
           minItems: 1
-          maxItems: 5
+          maxItems: 4
           uniqueItems: true
-          description: Which groups to answer, as searchRecords' `types`; absent means the enabled set.
-          items: { $ref: '#/components/schemas/SearchType' }
+          description: |
+            Which groups to answer. Lookup is contacts and leads only
+            (accounts and deals always empty). Absent means all four.
+            Conversation is not a lookup type.
+          items:
+            type: string
+            enum: [contact, lead, account, deal]
 
     SearchResults:
       type: object

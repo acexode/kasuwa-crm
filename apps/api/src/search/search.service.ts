@@ -220,7 +220,7 @@ export async function searchRecordsFor(
   for (const type of types) {
     groups.push({
       type,
-      hits: await searchType(tx, type, range, access, programmeIds, options),
+      hits: await searchType(tx, type, range, access, programmeIds),
     });
   }
   return { groups };
@@ -232,7 +232,6 @@ async function searchType(
   range: PrefixRange,
   access: ContactFieldAccess,
   programmeIds: readonly string[],
-  options: SearchRecordsOptions,
 ): Promise<SearchHitWire[]> {
   switch (type) {
     case 'contact': {
@@ -272,7 +271,7 @@ async function searchType(
       }));
     }
     case 'conversation': {
-      if (options.conversationSearchEnabled !== true) return [];
+      // Only reachable when conversation_search is on (else parse → unknown_type).
       // Session programmes only — never a client-supplied list.
       const rows = await searchConversationsByPrefix(tx, range, programmeIds);
       return rows.map((row) => ({
