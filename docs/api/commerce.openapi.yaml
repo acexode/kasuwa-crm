@@ -570,7 +570,7 @@ components:
       additionalProperties: false
       required: [status]
       properties:
-        status: { type: string, enum: [paid, expired] }
+        status: { type: string, enum: [expired] }
 
 
 security:
@@ -1670,7 +1670,7 @@ paths:
     post:
       operationId: setMobilePaymentStatus
       x-kasuwa-implemented: true
-      summary: Mark pending mobile payment paid or expired (B3 provisional)
+      summary: Expire a pending mobile payment. paid is webhook-only and not accepted here.
       parameters:
         - name: paymentId
           in: path

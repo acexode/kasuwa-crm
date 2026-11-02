@@ -117,6 +117,11 @@ export const AUDIT_OBJECT_TYPES = [
    * never a key, a filename or content.
    */
   'stored_object',
+  /**
+   * Expiring a pending mobile-money collection (T-0177). The label is the
+   * payment id. `paid` is not a client action and is not audited here.
+   */
+  'mobile_payment',
 ] as const;
 export type AuditObjectType = (typeof AUDIT_OBJECT_TYPES)[number];
 
@@ -138,6 +143,7 @@ export const AUDIT_OBJECT_TYPE_LABELS: Record<AuditObjectType, string> = {
   custom_field: 'Custom field',
   import_job: 'Contact import',
   stored_object: 'Stored file',
+  mobile_payment: 'Mobile money payment',
 };
 
 export interface AuditChange {

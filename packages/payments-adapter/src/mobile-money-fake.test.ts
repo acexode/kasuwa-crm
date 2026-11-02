@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { defaultMobileMoneyProvider } from './default-mobile-money-provider';
 import { ProviderUnavailableError } from './errors';
+import { NullMobileMoneyProvider } from './mobile-money';
 import { FakeMobileMoneyProvider } from './mobile-money-fake';
 
 const SCOPE = {
@@ -43,5 +45,15 @@ describe('FakeMobileMoneyProvider', () => {
         idempotencyKey: 'idem-fail',
       }),
     ).rejects.toBeInstanceOf(ProviderUnavailableError);
+  });
+});
+
+describe('defaultMobileMoneyProvider', () => {
+  it('is the fake only when the environment is exactly test', () => {
+    expect(defaultMobileMoneyProvider('test')).toBeInstanceOf(FakeMobileMoneyProvider);
+    expect(defaultMobileMoneyProvider('development')).toBeInstanceOf(NullMobileMoneyProvider);
+    expect(defaultMobileMoneyProvider('staging')).toBeInstanceOf(NullMobileMoneyProvider);
+    expect(defaultMobileMoneyProvider('production')).toBeInstanceOf(NullMobileMoneyProvider);
+    expect(defaultMobileMoneyProvider('unknown')).toBeInstanceOf(NullMobileMoneyProvider);
   });
 });

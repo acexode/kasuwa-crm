@@ -1,10 +1,12 @@
 import type { TenantTx } from '@kasuwa/db';
 import {
+  change,
   createMobilePaymentForInvoice,
   findInvoiceById,
   findMobilePaymentById,
   MobilePaymentInvalidTransitionError,
   MobilePaymentProgrammeOutOfScopeError,
+  recordAuditEvent,
   setMobilePaymentStatus,
   type MobilePayment,
 } from '@kasuwa/domain-core';
@@ -33,9 +35,14 @@ const CreateMobilePaymentBody = z
   })
   .strict();
 
+/**
+ * A signed provider callback is the only way to set `paid`. This route
+ * expires a still-pending collection. The webhook that would mark `paid`
+ * is not this endpoint.
+ */
 const SetMobilePaymentStatusBody = z
   .object({
-    status: z.enum(['paid', 'expired']),
+    status: z.literal('expired'),
   })
   .strict();
 
@@ -60,7 +67,7 @@ export function setMobileMoneyProviderForTests(provider: MobileMoneyProvider | u
 function activeMobileMoneyProvider(): MobileMoneyProvider {
   return (
     mobileMoneyProviderOverride ??
-    defaultMobileMoneyProvider(nodeEnv() as 'development' | 'test' | 'production')
+    defaultMobileMoneyProvider(nodeEnv())
   );
 }
 
@@ -149,8 +156,16 @@ export async function setMobilePaymentStatusFor(
     throw notPermitted();
   }
   try {
-    const updated = await setMobilePaymentStatus(tx, paymentId, parsed.data.status);
+    const updated = await setMobilePaymentStatus(tx, paymentId, 'expired');
     if (updated === null) throw notFound();
+    await recordAuditEvent(tx, {
+      action: 'updated',
+      objectType: 'mobile_payment',
+      objectId: updated.id,
+      objectLabel: updated.id,
+      programmeId: updated.programmeId,
+      changes: [change('status', 'pending', 'expired')],
+    });
     return toWire(updated, null);
   } catch (error) {
     mapMobileError(error);

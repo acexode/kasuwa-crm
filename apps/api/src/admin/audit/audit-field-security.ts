@@ -120,6 +120,8 @@ export const AUDIT_VALUE_POLICY: Readonly<Record<AuditObjectType, ValuePolicy>> 
   // counts only; never a filename, a header, a key or a cell.
   import_job: CONFIGURATION,
   stored_object: CONFIGURATION,
+  // T-0177: expiring a collection stores the status words only, never a phone.
+  mobile_payment: CONFIGURATION,
 };
 
 /** An object type outside the closed list: nothing in it is readable. */
