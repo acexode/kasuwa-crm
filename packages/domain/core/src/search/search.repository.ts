@@ -1,5 +1,6 @@
 import type { TenantTx } from '@kasuwa/db';
 import { LEAD_STATUSES } from '../contact/contact-lead';
+import { previewOf } from '../inbox/message-body-redact';
 
 /**
  * Global search reads (T-0086; searchRecords and lookupRecords in
@@ -478,6 +479,6 @@ export async function searchConversationsByPrefix(
   return rows.map((row) => ({
     id: row.id,
     programmeId: row.programme_id,
-    preview: (row.subject ?? row.body_redacted ?? '').slice(0, 120),
+    preview: previewOf(row.subject ?? row.body_redacted ?? '', 120),
   }));
 }

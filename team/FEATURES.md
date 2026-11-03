@@ -196,7 +196,7 @@ Every operation in `docs/api/*.openapi.yaml`, its state from `x-kasuwa-implement
 | operation | `generateBillingInvoice` | POST /api/v1/billing-schedules/{scheduleId}/generate — Advance schedule; invoice generation deferred to worker | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `createMobilePayment` | POST /api/v1/invoices/{invoiceId}/mobile-payments — Start M-Pesa or MoMo collection for an invoice | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `getMobilePayment` | GET /api/v1/mobile-payments/{paymentId} — Get mobile payment state | built | — | — | docs/api/commerce.openapi.yaml |
-| operation | `setMobilePaymentStatus` | POST /api/v1/mobile-payments/{paymentId}/status — Mark pending mobile payment paid or expired (B3 provisional) | built | — | — | docs/api/commerce.openapi.yaml |
+| operation | `setMobilePaymentStatus` | POST /api/v1/mobile-payments/{paymentId}/status — Expire a pending mobile payment. paid is webhook-only and not accepted here. | built | — | — | docs/api/commerce.openapi.yaml |
 | operation | `listConversations` | GET /api/v1/programmes/{programmeId}/conversations — List conversations in a programme | built | — | — | docs/api/inbox.openapi.yaml |
 | operation | `getConversation` | GET /api/v1/conversations/{conversationId} — Get a conversation | built | — | — | docs/api/inbox.openapi.yaml |
 | operation | `listMessages` | GET /api/v1/conversations/{conversationId}/messages — List messages in a conversation | built | — | — | docs/api/inbox.openapi.yaml |

@@ -182,7 +182,12 @@ export class AuthService implements OnModuleInit {
         // anywhere below, including in how much work is done.
         account: hasTenant(tx) ? await this.findAccount(tx, input.email) : null,
       }),
-    );
+    ).catch((error: unknown) => {
+      // A 42501 (the auth role lacks a grant) is an operational fault, not a
+      // verdict on the caller: the same one 503 as pool exhaustion (T-0157).
+      if ((error as { code?: unknown } | null)?.code === '42501') throw signInUnavailable();
+      throw error;
+    });
 
     if (prepared.locked !== null) {
       // A locked identifier is refused without hashing. That is deliberate and

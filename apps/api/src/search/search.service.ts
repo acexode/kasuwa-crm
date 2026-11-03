@@ -8,7 +8,6 @@ import {
   loadTenantDefaultCountry,
   lookupContacts,
   programmesReading,
-  redactMessageBodyForStorage,
   searchAccountsByPrefix,
   searchContactsByPrefix,
   searchConversationsByPrefix,
@@ -278,7 +277,7 @@ async function searchType(
         type: 'conversation' as const,
         id: row.id,
         programmeId: row.programmeId,
-        preview: redactMessageBodyForStorage(row.preview),
+        preview: row.preview,
       }));
     }
   }
