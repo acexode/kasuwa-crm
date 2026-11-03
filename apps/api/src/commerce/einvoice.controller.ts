@@ -13,10 +13,11 @@ import { AdminErrorFilter } from '../admin/common/admin-errors';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
+import { MbsEinvoicingEnabledGuard } from './commerce-flags';
 import { getEinvoiceFor, retryEinvoiceFor, submitEinvoiceFor } from './einvoice.service';
 
 @Controller('api/v1/invoices/:invoiceId/einvoice')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(KasuwaAuthGuard, MbsEinvoicingEnabledGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class EinvoiceController {

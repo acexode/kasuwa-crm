@@ -44,6 +44,8 @@ export interface CreateApiOptions {
   conversationSearchEnabled?: boolean;
   paymentLinksEnabled?: boolean;
   vatMultitaxEnabled?: boolean;
+  mobileMoneyEnabled?: boolean;
+  mbsEinvoicingEnabled?: boolean;
 }
 
 /**
@@ -89,6 +91,8 @@ export async function createApi(
           // assert the flag-off answer pass `false`.
           paymentLinksEnabled: options.paymentLinksEnabled ?? true,
           vatMultitaxEnabled: options.vatMultitaxEnabled ?? true,
+          mobileMoneyEnabled: options.mobileMoneyEnabled ?? true,
+          mbsEinvoicingEnabled: options.mbsEinvoicingEnabled ?? true,
           ...(options.conversationSearchEnabled === undefined
             ? {}
             : { conversationSearchEnabled: options.conversationSearchEnabled }),

@@ -310,6 +310,10 @@ export interface AppModuleOptions {
   conversationSearchEnabled?: boolean;
   /** `vat_multitax` (T-0173). Off, invoices carry no tax lines. */
   vatMultitaxEnabled?: boolean;
+  /** `mobile_money` (T-0177). Off, mobile-payment routes answer 404. */
+  mobileMoneyEnabled?: boolean;
+  /** `mbs_einvoicing` (T-0174). Off, e-invoice routes answer 404. */
+  mbsEinvoicingEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -413,6 +417,12 @@ export class AppModule implements NestModule {
           ...(options.vatMultitaxEnabled === undefined
             ? {}
             : { vatMultitaxEnabled: options.vatMultitaxEnabled }),
+          ...(options.mobileMoneyEnabled === undefined
+            ? {}
+            : { mobileMoneyEnabled: options.mobileMoneyEnabled }),
+          ...(options.mbsEinvoicingEnabled === undefined
+            ? {}
+            : { mbsEinvoicingEnabled: options.mbsEinvoicingEnabled }),
         }),
         InboxModule.forRoot({
           ...(options.inboxTemplatesEnabled === undefined

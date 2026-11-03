@@ -48,6 +48,7 @@ function toEntity(row: Row, qrPayload: string | null): Einvoice {
 export async function findEinvoiceByInvoiceId(
   tx: TenantTx,
   invoiceId: string,
+  provider?: Pick<MbsProvider, 'qrPayloadForIrn'>,
 ): Promise<Einvoice | null> {
   const rows = await tx.query<Row>(
     `SELECT id, programme_id, invoice_id, irn, status, created_at, updated_at
@@ -59,14 +60,20 @@ export async function findEinvoiceByInvoiceId(
   );
   const row = rows[0];
   if (row === undefined) return null;
-  const qrPayload = row.irn ? `https://mbs.fake.kasuwa.test/qr?irn=${encodeURIComponent(row.irn)}` : null;
+  // QR comes from the provider that cleared the IRN — never a hard-coded host.
+  const qrPayload =
+    row.irn !== null && provider !== undefined ? provider.qrPayloadForIrn(row.irn) : null;
   return toEntity(row, qrPayload);
 }
 
-async function ensureDraftRow(tx: TenantTx, invoiceId: string): Promise<Einvoice | null> {
+async function ensureDraftRow(
+  tx: TenantTx,
+  invoiceId: string,
+  provider: MbsProvider,
+): Promise<Einvoice | null> {
   const invoice = await findInvoiceById(tx, invoiceId);
   if (invoice === null) return null;
-  const existing = await findEinvoiceByInvoiceId(tx, invoiceId);
+  const existing = await findEinvoiceByInvoiceId(tx, invoiceId, provider);
   if (existing !== null) return existing;
   const id = newId();
   await tx.query(
@@ -74,7 +81,7 @@ async function ensureDraftRow(tx: TenantTx, invoiceId: string): Promise<Einvoice
      VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'draft')`,
     [id, tx.session.tenantId, invoice.programmeId, invoiceId],
   );
-  return findEinvoiceByInvoiceId(tx, invoiceId);
+  return findEinvoiceByInvoiceId(tx, invoiceId, provider);
 }
 
 export async function submitEinvoice(
@@ -84,7 +91,7 @@ export async function submitEinvoice(
 ): Promise<Einvoice | null> {
   const invoice = await findInvoiceById(tx, invoiceId);
   if (invoice === null) return null;
-  let row = await ensureDraftRow(tx, invoiceId);
+  let row = await ensureDraftRow(tx, invoiceId, provider);
   if (row === null) return null;
   if (row.status !== 'draft' && row.status !== 'failed') throw new EinvoiceNotDraftError();
 
@@ -115,7 +122,11 @@ export async function submitEinvoice(
     ],
   );
 
-  row = await findEinvoiceByInvoiceId(tx, invoiceId);
+  row = await findEinvoiceByInvoiceId(tx, invoiceId, provider);
+  // Prefer the QR the provider just returned over a later regeneration.
+  if (row !== null && result.qrPayload !== '') {
+    return { ...row, qrPayload: result.qrPayload };
+  }
   return row;
 }
 
@@ -124,7 +135,7 @@ export async function retryEinvoice(
   invoiceId: string,
   provider: MbsProvider,
 ): Promise<Einvoice | null> {
-  const row = await findEinvoiceByInvoiceId(tx, invoiceId);
+  const row = await findEinvoiceByInvoiceId(tx, invoiceId, provider);
   if (row === null) return null;
   if (row.status !== 'failed') throw new EinvoiceNotDraftError();
   await tx.query(

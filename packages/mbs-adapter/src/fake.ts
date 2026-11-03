@@ -25,6 +25,11 @@ export class FakeMbsProvider implements MbsProvider {
     return this.submissions;
   }
 
+  qrPayloadForIrn(irn: string): string | null {
+    if (irn === '') return null;
+    return fakeQrPayload(irn);
+  }
+
   async submit(request: MbsSubmitRequest): Promise<MbsSubmitResult> {
     this.submissions.push(request);
     if (request.invoiceNumber.includes('MBS-FAIL')) {
