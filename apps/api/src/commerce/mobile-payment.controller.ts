@@ -23,7 +23,7 @@ import {
 } from './mobile-payment.service';
 
 @Controller('api/v1/invoices')
-@UseGuards(KasuwaAuthGuard, MobileMoneyEnabledGuard)
+@UseGuards(MobileMoneyEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class MobilePaymentInvoiceController {
@@ -37,7 +37,7 @@ export class MobilePaymentInvoiceController {
 }
 
 @Controller('api/v1/mobile-payments')
-@UseGuards(KasuwaAuthGuard, MobileMoneyEnabledGuard)
+@UseGuards(MobileMoneyEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class MobilePaymentController {

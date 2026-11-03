@@ -52,32 +52,26 @@ const state = vi.hoisted(() => {
         if (sql.includes('SET phone_verified = true')) {
           if (row !== undefined) {
             row.phone_verified = true;
-            row.otp_attempt_count = 0;
           }
           return [];
         }
         if (sql.includes('SET email_verified = true')) {
           if (row !== undefined) {
             row.email_verified = true;
-            row.otp_attempt_count = 0;
           }
           return [];
         }
         if (sql.includes('SET phone_otp_hash')) {
           if (row !== undefined) {
             row.phone_otp_hash = params[1] as Buffer;
-            row.expires_at = params[2] as Date;
-            row.resend_available_at = params[3] as Date;
-            row.otp_attempt_count = 0;
+            row.resend_available_at = params[2] as Date;
           }
           return [];
         }
         if (sql.includes('SET email_otp_hash')) {
           if (row !== undefined) {
             row.email_otp_hash = params[1] as Buffer;
-            row.expires_at = params[2] as Date;
-            row.resend_available_at = params[3] as Date;
-            row.otp_attempt_count = 0;
+            row.resend_available_at = params[2] as Date;
           }
           return [];
         }
@@ -296,7 +290,31 @@ describe('self-serve email OTP', () => {
     );
     const body = String(send.mock.calls[0]?.[0]?.body ?? '');
     expect(body).toMatch(/\d{6}/u);
-    expect(state.rows.get(ID)?.otp_attempt_count).toBe(0);
+  });
+
+  it('never refills the email guesses: a correct phone code or a resend keeps the count', async () => {
+    seed({ phoneCode: '123456', emailCode: '654321', attempts: 4 });
+    const send = vi.fn().mockResolvedValue({ messageId: 'm1', state: 'queued' });
+    const svc = service({ send } as unknown as ChannelProvider);
+    await svc.verifyOtp({ verificationId: ID, channel: 'phone', code: '123456' });
+    expect(state.rows.get(ID)?.otp_attempt_count).toBe(5);
+    await expect(
+      svc.verifyOtp({ verificationId: ID, channel: 'email', code: '654321' }),
+    ).rejects.toBeDefined();
+    expect(state.rows.get(ID)?.email_verified).toBe(false);
+    await expect(svc.resendOtp({ verificationId: ID, channel: 'email' })).rejects.toBeDefined();
+    expect(send).not.toHaveBeenCalled();
+    expect(state.rows.get(ID)?.otp_attempt_count).toBe(5);
+  });
+
+  it('a resend neither extends the ten minutes nor works on a verified channel', async () => {
+    seed({ phoneCode: '123456', emailCode: '654321', phoneVerified: true });
+    const before = state.rows.get(ID)?.expires_at.getTime();
+    const send = vi.fn().mockResolvedValue({ messageId: 'm1', state: 'queued' });
+    const svc = service({ send } as unknown as ChannelProvider);
+    await svc.resendOtp({ verificationId: ID, channel: 'email' });
+    expect(state.rows.get(ID)?.expires_at.getTime()).toBe(before);
+    await expect(svc.resendOtp({ verificationId: ID, channel: 'phone' })).rejects.toBeDefined();
   });
 
   it('calls provision after a correct email code when the phone is already verified', async () => {

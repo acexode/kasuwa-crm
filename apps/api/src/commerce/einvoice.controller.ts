@@ -17,7 +17,7 @@ import { MbsEinvoicingEnabledGuard } from './commerce-flags';
 import { getEinvoiceFor, retryEinvoiceFor, submitEinvoiceFor } from './einvoice.service';
 
 @Controller('api/v1/invoices/:invoiceId/einvoice')
-@UseGuards(KasuwaAuthGuard, MbsEinvoicingEnabledGuard)
+@UseGuards(MbsEinvoicingEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class EinvoiceController {

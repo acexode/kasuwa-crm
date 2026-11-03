@@ -236,20 +236,21 @@ export class SelfServeSignupService {
     }
 
     // Phone must never set email_verified. A correct email code alone sets it.
-    // Reset the shared attempt counter after a success so the other channel
-    // still gets a full five tries (one column, no migration).
+    // The attempt counter is shared by both codes and is NEVER reset (not by a
+    // success, not by a resend): resetting it would let a caller, who owns the
+    // phone, re-submit the phone code to refill the guesses on the email code.
     await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
       if (input.channel === 'phone') {
         await tx.query(
           `UPDATE signup_attempt
-              SET phone_verified = true, otp_attempt_count = 0, updated_at = now()
+              SET phone_verified = true, updated_at = now()
             WHERE id = $1`,
           [consumed.id],
         );
       } else {
         await tx.query(
           `UPDATE signup_attempt
-              SET email_verified = true, otp_attempt_count = 0, updated_at = now()
+              SET email_verified = true, updated_at = now()
             WHERE id = $1`,
           [consumed.id],
         );
@@ -280,13 +281,22 @@ export class SelfServeSignupService {
       throw otpInvalid(null);
     }
     const row = await this.loadAttempt(input.verificationId);
+    // A resend never extends the attempt's life or refills its guesses: the ten
+    // minutes run from sign-up, and a verified channel has nothing to resend.
+    if (row.expires_at.getTime() <= Date.now()) throw otpExpired();
+    if (row.otp_attempt_count >= OTP_MAX_ATTEMPTS) {
+      throw otpTooManyAttempts(row.expires_at, this.policy.cellTimeZone);
+    }
+    if (input.channel === 'phone' ? row.phone_verified : row.email_verified) {
+      throw otpInvalid(null);
+    }
     if (row.resend_available_at.getTime() > Date.now()) {
       throw resendTooSoon(row.resend_available_at, this.policy.cellTimeZone);
     }
     const otp = randomOtp();
     const otpHash = sha256(otp);
     const now = Date.now();
-    const expiresAt = new Date(now + OTP_TTL_MINUTES * 60_000);
+    const expiresAt = row.expires_at;
     const resendAvailableAt = new Date(now + this.policy.resendSeconds * 1000);
     const phone = String(row.payload.phoneE164 ?? '');
     const email = String(row.payload.email ?? '');
@@ -295,18 +305,16 @@ export class SelfServeSignupService {
       if (input.channel === 'phone') {
         await tx.query(
           `UPDATE signup_attempt
-              SET phone_otp_hash = $2, expires_at = $3, resend_available_at = $4,
-                  otp_attempt_count = 0, updated_at = now()
+              SET phone_otp_hash = $2, resend_available_at = $3, updated_at = now()
             WHERE id = $1`,
-          [row.id, otpHash, expiresAt, resendAvailableAt],
+          [row.id, otpHash, resendAvailableAt],
         );
       } else {
         await tx.query(
           `UPDATE signup_attempt
-              SET email_otp_hash = $2, expires_at = $3, resend_available_at = $4,
-                  otp_attempt_count = 0, updated_at = now()
+              SET email_otp_hash = $2, resend_available_at = $3, updated_at = now()
             WHERE id = $1`,
-          [row.id, otpHash, expiresAt, resendAvailableAt],
+          [row.id, otpHash, resendAvailableAt],
         );
       }
     });
