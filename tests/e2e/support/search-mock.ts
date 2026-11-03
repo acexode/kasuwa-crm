@@ -385,7 +385,14 @@ function parameterNames(operation: Operation): readonly string[] {
 export type SearchType = 'contact' | 'lead' | 'account' | 'deal';
 
 /** The contract's group order (SearchType's enum order). */
-export const SEARCH_TYPES: readonly SearchType[] = (at(schema('SearchType'), 'enum') as unknown[]).map(String) as SearchType[];
+/**
+ * The contract also lists `conversation` (T-0193, flag `conversation_search`, off): the P27 screen
+ * draws the four record types only, so the mock serves those.
+ */
+const SCREEN_SEARCH_TYPES: readonly string[] = ['contact', 'lead', 'account', 'deal'];
+export const SEARCH_TYPES: readonly SearchType[] = (at(schema('SearchType'), 'enum') as unknown[])
+  .map(String)
+  .filter((type) => SCREEN_SEARCH_TYPES.includes(type)) as SearchType[];
 const NAME_FIELD_ORDER: readonly string[] = (at(schema('SearchNameWithheldField'), 'enum') as unknown[]).map(String);
 const LEAD_STATUSES: readonly string[] = (at(schema('LeadSearchHit'), 'properties', 'status', 'enum') as unknown[]).map(String);
 
