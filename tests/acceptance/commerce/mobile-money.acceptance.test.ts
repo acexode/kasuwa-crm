@@ -68,7 +68,7 @@ describe('acceptance: mobile money (T-0177)', () => {
     expect(existsSync(resolve(repoRoot, 'packages/db/migrations/0060_commerce_p1.sql'))).toBe(true);
   });
 
-  it('starts mpesa and momo collections and allows paid or expired only', async () => {
+  it('starts mpesa and momo collections; a client may only expire one, never mark it paid (D-A3)', async () => {
     const invoiceId = await draftInvoice();
     const mpesa = await request(server())
       .post(MOBILE_PAYMENTS(invoiceId))
@@ -78,20 +78,22 @@ describe('acceptance: mobile money (T-0177)', () => {
     expect(mpesa.body.providerKind).toBe('mpesa');
     expect(mpesa.body.providerCollectionId).toMatch(/^fake-mm-/);
 
-    await request(server())
+    const paid = await request(server())
       .post(MOBILE_PAYMENT_STATUS(mpesa.body.id as string))
       .set(writer())
       .send({ status: 'paid' });
+    expect(paid.status).toBe(400);
 
     const invoice2 = await draftInvoice();
     const momo = await request(server())
       .post(MOBILE_PAYMENTS(invoice2))
       .set(writer())
       .send({ kind: 'momo', idempotencyKey: 'mm-idem-2' });
-    await request(server())
+    const expired = await request(server())
       .post(MOBILE_PAYMENT_STATUS(momo.body.id as string))
       .set(writer())
       .send({ status: 'expired' });
+    expect(expired.status).toBe(201);
   });
 
   it('fail-closes when the mobile-money provider is unavailable', async () => {

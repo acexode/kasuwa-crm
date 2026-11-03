@@ -27,10 +27,10 @@ const SIGNUP_BODY = {
   acceptedTermsAt: new Date().toISOString(),
 };
 
-function extractOtp(provider: FakeChannelProvider): string {
-  const last = provider.sent.at(-1);
+function extractOtp(provider: FakeChannelProvider, via: 'sms' | 'email' = 'sms'): string {
+  const last = provider.sent.filter((message) => message.channel === via).at(-1);
   if (last === undefined) {
-    throw new Error('no OTP was sent through the channel provider');
+    throw new Error(`no ${via} OTP was sent through the channel provider`);
   }
   const match = /(\d{6})/u.exec(last.body);
   if (match?.[1] === undefined) {
@@ -134,8 +134,23 @@ describe('acceptance: self-serve sign-up (T-0016)', () => {
         channel: 'phone',
         code: extractOtp(channel),
       });
+    // A phone code proves the phone only (T-0016, D-A3): no email_verified, no tenant yet.
     expect(verified.status).toBe(200);
     expect(verified.body).toMatchObject({
+      emailVerified: false,
+      phoneVerified: true,
+      nextStep: 'verify_email',
+    });
+
+    const emailVerified = await request(appOn.getHttpServer())
+      .post(VERIFY)
+      .send({
+        verificationId: started.body.verificationId,
+        channel: 'email',
+        code: extractOtp(channel, 'email'),
+      });
+    expect(emailVerified.status).toBe(200);
+    expect(emailVerified.body).toMatchObject({
       emailVerified: true,
       phoneVerified: true,
       nextStep: 'onboarding',
