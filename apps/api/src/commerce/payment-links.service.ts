@@ -140,6 +140,17 @@ export async function getPaymentLinkFor(
   return toWire(link);
 }
 
+/**
+ * Reconciling a paid event onto its quote failed. Carries only the class name
+ * of the cause: never a message, which can quote row data (T-0169).
+ */
+export class PaymentReconciliationError extends Error {
+  constructor(readonly causeClass: string) {
+    super('payment reconciliation failed');
+    this.name = 'PaymentReconciliationError';
+  }
+}
+
 export async function applyPaymentWebhookEvent(
   tx: TenantTx,
   input: {
@@ -167,7 +178,13 @@ export async function applyPaymentWebhookEvent(
 
   if (input.eventType === 'payment.paid') {
     await setPaymentLinkStatus(tx, link.id, 'paid');
-    await markQuotePaidFromLink(tx, link.quoteId);
+    try {
+      await markQuotePaidFromLink(tx, link.quoteId);
+    } catch (error) {
+      throw new PaymentReconciliationError(
+        error instanceof Error ? error.constructor.name : 'UnknownError',
+      );
+    }
   } else if (input.eventType === 'payment.expired') {
     if (link.status === 'pending') await setPaymentLinkStatus(tx, link.id, 'expired');
   }

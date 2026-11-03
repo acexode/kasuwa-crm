@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Post,
   UseFilters,
@@ -20,6 +21,7 @@ import {
   listInvoicesFor,
   setInvoiceStatusFor,
 } from './invoices.service';
+import { VAT_MULTITAX_ENABLED_TOKEN } from './vat-flags';
 
 @Controller('api/v1/programmes/:programmeId')
 @UseGuards(KasuwaAuthGuard)
@@ -38,11 +40,15 @@ export class InvoicesProgrammeController {
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class InvoicesQuoteController {
+  constructor(@Inject(VAT_MULTITAX_ENABLED_TOKEN) private readonly vatMultitaxEnabled: boolean) {}
+
   /** operationId createInvoiceFromQuote */
   @Post(':quoteId/invoices')
   @HttpCode(HttpStatus.CREATED)
   async createFromQuote(@Param() params: unknown) {
-    return createInvoiceFromQuoteFor(currentTx(), params);
+    return createInvoiceFromQuoteFor(currentTx(), params, {
+      vatMultitaxEnabled: this.vatMultitaxEnabled,
+    });
   }
 }
 

@@ -304,8 +304,12 @@ export interface AppModuleOptions {
   selfServeProvisioningConnection?: string;
   inboxTemplatesEnabled?: boolean;
   inboxRoutingEnabled?: boolean;
+  /** `payment_links` (T-0169). Off, the payment-link create and read routes answer 404. */
+  paymentLinksEnabled?: boolean;
   /** `conversation_search` (T-0193). Off, conversation is an unknown search type. */
   conversationSearchEnabled?: boolean;
+  /** `vat_multitax` (T-0173). Off, invoices carry no tax lines. */
+  vatMultitaxEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -402,7 +406,14 @@ export class AppModule implements NestModule {
         // In-call script authoring (T-0113): its own module for its no-store
         // middleware, like the audit area.
         ScriptsModule,
-        CommerceModule,
+        CommerceModule.forRoot({
+          ...(options.paymentLinksEnabled === undefined
+            ? {}
+            : { paymentLinksEnabled: options.paymentLinksEnabled }),
+          ...(options.vatMultitaxEnabled === undefined
+            ? {}
+            : { vatMultitaxEnabled: options.vatMultitaxEnabled }),
+        }),
         InboxModule.forRoot({
           ...(options.inboxTemplatesEnabled === undefined
             ? {}

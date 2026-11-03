@@ -12,13 +12,14 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { AdminErrorFilter } from '../admin/common/admin-errors';
+import { PaymentLinksEnabledGuard } from './payment-links-flag';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
 import { createPaymentLinkFor, getPaymentLinkFor } from './payment-links.service';
 
 @Controller('api/v1/quotes')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(PaymentLinksEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class PaymentLinksQuoteController {
@@ -32,7 +33,7 @@ export class PaymentLinksQuoteController {
 }
 
 @Controller('api/v1/payment-links')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(PaymentLinksEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class PaymentLinksController {

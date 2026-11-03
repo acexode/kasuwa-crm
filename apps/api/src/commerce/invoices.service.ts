@@ -109,9 +109,12 @@ export async function getInvoiceFor(tx: TenantTx, params: unknown): Promise<Invo
 export async function createInvoiceFromQuoteFor(
   tx: TenantTx,
   params: unknown,
+  options: { vatMultitaxEnabled?: boolean } = {},
 ): Promise<InvoiceWire> {
   const { quoteId } = QuoteIdParam.parse(params);
-  const includeTax = true;
+  // `vat_multitax` (T-0173, D-A3). Off (the default) keeps the pre-T-0173
+  // invoice: no tax_line rows, totalMinor is the quote total.
+  const includeTax = options.vatMultitaxEnabled === true;
   const quote = await findQuoteById(tx, quoteId);
   if (quote === null) throw notFound();
   if (!canProgramme(await loadGrants(tx), 'invoices.write', quote.programmeId)) {

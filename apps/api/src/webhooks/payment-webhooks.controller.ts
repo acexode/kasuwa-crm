@@ -3,6 +3,8 @@ import {
   Headers,
   HttpCode,
   Inject,
+  Logger,
+  ServiceUnavailableException,
   Param,
   Post,
   Req,
@@ -19,7 +21,7 @@ import {
 } from '@kasuwa/payments-adapter';
 import type { Pool } from 'pg';
 import type { Response } from 'express';
-import { applyPaymentWebhookEvent } from '../commerce/payment-links.service';
+import { applyPaymentWebhookEvent, PaymentReconciliationError } from '../commerce/payment-links.service';
 import { PG_POOL } from '../database/database.module';
 import {
   WEBHOOK_REJECT_BODY,
@@ -37,6 +39,8 @@ const TIMING_FLOOR_MS = 40;
  */
 @Controller('webhooks')
 export class PaymentWebhooksController {
+  private readonly logger = new Logger(PaymentWebhooksController.name);
+
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   @Post(':provider/:tenantSlug')
@@ -122,11 +126,13 @@ export class PaymentWebhooksController {
           return WEBHOOK_REJECT_BODY;
         }
 
-        const outcome = await withTenantTransaction(
-          this.pool,
-          { tenantId: authTx.tenantId, userId: adminId },
-          async (tx) =>
-            applyPaymentWebhookEvent(tx, {
+        let outcome: Awaited<ReturnType<typeof applyPaymentWebhookEvent>>;
+        try {
+          outcome = await withTenantTransaction(
+            this.pool,
+            { tenantId: authTx.tenantId, userId: adminId },
+            async (tx) =>
+              applyPaymentWebhookEvent(tx, {
               provider: storedProvider,
               providerLinkId: event.providerLinkId,
               providerEventId: event.eventId,
@@ -134,8 +140,18 @@ export class PaymentWebhooksController {
               paymentMethodToken: event.paymentMethod?.token ?? null,
               paymentMethodLastFour: event.paymentMethod?.lastFour ?? null,
               occurredAt: event.occurredAt,
-            }),
-        );
+              }),
+          );
+        } catch (error) {
+          if (error instanceof PaymentReconciliationError) {
+            // The transaction rolled back, so the event is not recorded and the
+            // provider's retry is applied afresh. Class name only: no message,
+            // no ids, nothing from the payload.
+            this.logger.error(`payment webhook reconciliation failed: ${error.causeClass}`);
+            throw new ServiceUnavailableException();
+          }
+          throw error;
+        }
         if (outcome === 'missing') {
           res.status(WEBHOOK_REJECT_STATUS);
           return WEBHOOK_REJECT_BODY;
