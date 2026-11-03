@@ -90,6 +90,14 @@ import {
 } from './commerce/payment-links.controller';
 import { QuotesController, QuotesProgrammeController } from './commerce/quotes.controller';
 import { CommerceModule } from './commerce/commerce.module';
+import {
+  MBS_EINVOICING_ENABLED_TOKEN,
+  MOBILE_MONEY_ENABLED_TOKEN,
+  MbsEinvoicingEnabledGuard,
+  MobileMoneyEnabledGuard,
+  mbsEinvoicingEnabled,
+  mobileMoneyEnabled,
+} from './commerce/commerce-flags';
 import { InboxModule } from './inbox/inbox.module';
 import {
   ConversationsController,
@@ -306,6 +314,10 @@ export interface AppModuleOptions {
   inboxRoutingEnabled?: boolean;
   /** `conversation_search` (T-0193). Off, conversation is an unknown search type. */
   conversationSearchEnabled?: boolean;
+  /** `mobile_money` (T-0177). Off, mobile-payment routes answer 404. */
+  mobileMoneyEnabled?: boolean;
+  /** `mbs_einvoicing` (T-0174). Off, e-invoice routes answer 404. */
+  mbsEinvoicingEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -427,6 +439,16 @@ export class AppModule implements NestModule {
           provide: CONVERSATION_SEARCH_ENABLED,
           useValue: options.conversationSearchEnabled === true,
         },
+        {
+          provide: MOBILE_MONEY_ENABLED_TOKEN,
+          useValue: mobileMoneyEnabled(options),
+        },
+        {
+          provide: MBS_EINVOICING_ENABLED_TOKEN,
+          useValue: mbsEinvoicingEnabled(options),
+        },
+        MobileMoneyEnabledGuard,
+        MbsEinvoicingEnabledGuard,
         // CSV import (T-0094): the queues, the stored-object repository and
         // the interceptor that enqueues only after a transaction commits.
         {

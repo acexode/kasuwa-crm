@@ -7,7 +7,11 @@ import {
   submitEinvoice,
   type Einvoice,
 } from '@kasuwa/domain-core';
-import { defaultMbsProvider, type MbsProvider } from '@kasuwa/mbs-adapter';
+import {
+  defaultMbsProvider,
+  MbsProviderUnavailableError,
+  type MbsProvider,
+} from '@kasuwa/mbs-adapter';
 import { canProgramme, loadGrants } from '@kasuwa/permissions';
 import { nodeEnv } from '@kasuwa/config';
 import { HttpStatus } from '@nestjs/common';
@@ -55,6 +59,13 @@ function mapError(error: unknown): never {
   if (error instanceof EinvoiceNotDraftError) {
     throw new AdminError(HttpStatus.CONFLICT, 'not_submittable', 'E-invoice is not submittable');
   }
+  if (error instanceof MbsProviderUnavailableError) {
+    throw new AdminError(
+      HttpStatus.SERVICE_UNAVAILABLE,
+      'provider_unavailable',
+      'MBS provider is unavailable',
+    );
+  }
   throw error;
 }
 
@@ -68,7 +79,7 @@ async function assertInvoiceWrite(tx: TenantTx, invoiceId: string): Promise<void
 
 export async function getEinvoiceFor(tx: TenantTx, params: unknown): Promise<EinvoiceWire> {
   const { invoiceId } = InvoiceIdParam.parse(params);
-  const row = await findEinvoiceByInvoiceId(tx, invoiceId);
+  const row = await findEinvoiceByInvoiceId(tx, invoiceId, activeMbsProvider());
   if (row === null) throw notFound();
   return toWire(row);
 }

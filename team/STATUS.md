@@ -13,6 +13,7 @@
 | T-0191 inbox realtime (outbound sends, outbox to realtime hub) | On `phase-3-dev`, reviewed read-only |
 | T-0193 conversation search (flag `conversation_search`, off) | On `phase-3-dev`; acceptance contract now five search types |
 | Quote `paid` status and Won move (migration 0069) | **Deferred out of phase 3** (lead decision 2026-11-03). Cursor's local `feat/quote-paid-won` stays unmerged |
+| T-0016 / T-0174 / T-0177 follow-ups | Local on `feat/p3-signup-mobile-mbs` (email OTP; MBS typed 503 + provider QR; mobile status expired-only; flags gate mobile_money + mbs_einvoicing). Acceptance edits listed in the three reports. |
 | Full gate on the phase branch | **Not run** (deferred to phase close) |
 
 ## Lead decisions (2026-11-03)

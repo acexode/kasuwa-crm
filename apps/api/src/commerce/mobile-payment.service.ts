@@ -31,6 +31,8 @@ import { InvoiceIdParam, MobilePaymentIdParam } from './commerce.schemas';
 const CreateMobilePaymentBody = z
   .object({
     kind: MobileMoneyKindSchema,
+    // Required: FakeMobileMoneyProvider dedupes on this key. Not persisted on
+    // mobile_payment (no column without a migration); adapter-scoped only.
     idempotencyKey: z.string().min(1).max(128),
   })
   .strict();
