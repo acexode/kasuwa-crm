@@ -71,6 +71,7 @@ interface SignupRow {
   payload: Record<string, unknown>;
   password_hash: string;
   phone_otp_hash: Buffer | null;
+  email_otp_hash: Buffer | null;
   phone_verified: boolean;
   email_verified: boolean;
   otp_attempt_count: number;
@@ -78,6 +79,10 @@ interface SignupRow {
   resend_available_at: Date;
   provisioned_tenant_id: string | null;
 }
+
+const SIGNUP_RETURNING = `id, email_hash, payload, password_hash, phone_otp_hash, email_otp_hash,
+                    phone_verified, email_verified, otp_attempt_count, expires_at,
+                    resend_available_at, provisioned_tenant_id`;
 
 @Injectable()
 export class SelfServeSignupService {
@@ -121,8 +126,8 @@ export class SelfServeSignupService {
     const emailHash = sha256(normalizedEmail);
     const phoneHash = sha256(input.phoneE164);
     const verificationId = newId();
-    const otp = randomOtp();
-    const otpHash = sha256(otp);
+    const phoneOtp = randomOtp();
+    const emailOtp = randomOtp();
     const passwordHash = await hashPassword(input.password);
     const now = Date.now();
     const expiresAt = new Date(now + OTP_TTL_MINUTES * 60_000);
@@ -131,9 +136,9 @@ export class SelfServeSignupService {
     await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
       await tx.query(
         `INSERT INTO signup_attempt
-           (id, email_hash, phone_hash, payload, password_hash, phone_otp_hash,
+           (id, email_hash, phone_hash, payload, password_hash, phone_otp_hash, email_otp_hash,
             expires_at, resend_available_at)
-         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9)`,
         [
           verificationId,
           emailHash,
@@ -149,7 +154,8 @@ export class SelfServeSignupService {
             acceptedTermsAt: input.acceptedTermsAt,
           }),
           passwordHash,
-          otpHash,
+          sha256(phoneOtp),
+          sha256(emailOtp),
           expiresAt,
           resendAvailableAt,
         ],
@@ -160,9 +166,17 @@ export class SelfServeSignupService {
       scope: SIGNUP_CELL_SCOPE,
       channel: 'sms',
       to: input.phoneE164,
-      body: `Your Kasuwa verification code is ${otp}. It expires in ten minutes.`,
+      body: `Your Kasuwa verification code is ${phoneOtp}. It expires in ten minutes.`,
       purpose: 'transactional',
       idempotencyKey: `signup:${verificationId}:phone`,
+    });
+    await this.channel.send({
+      scope: SIGNUP_CELL_SCOPE,
+      channel: 'email',
+      to: normalizedEmail,
+      body: `Your Kasuwa email verification code is ${emailOtp}. It expires in ten minutes.`,
+      purpose: 'transactional',
+      idempotencyKey: `signup:${verificationId}:email`,
     });
 
     return {
@@ -180,10 +194,10 @@ export class SelfServeSignupService {
     nextStep: 'verify_email' | 'verify_phone' | 'onboarding';
   }> {
     this.assertEnabled();
-    // Email verification is a separate step. A phone code must not prove the
-    // email, and must not provision a tenant for an address the caller does
-    // not control.
-    if (input.channel !== 'phone') {
+    // Unknown id and an unsupported channel share one answer so the caller
+    // cannot probe for which verificationIds exist. Zod already limits the
+    // channel enum; keep the guard for defence in depth.
+    if (input.channel !== 'phone' && input.channel !== 'email') {
       throw otpInvalid(null);
     }
 
@@ -197,9 +211,7 @@ export class SelfServeSignupService {
             WHERE id = $1
               AND otp_attempt_count < $2
               AND expires_at > now()
-          RETURNING id, email_hash, payload, password_hash, phone_otp_hash,
-                    phone_verified, email_verified, otp_attempt_count, expires_at,
-                    resend_available_at, provisioned_tenant_id`,
+          RETURNING ${SIGNUP_RETURNING}`,
           [input.verificationId, OTP_MAX_ATTEMPTS],
         );
         return updated[0] ?? null;
@@ -214,7 +226,7 @@ export class SelfServeSignupService {
     }
 
     const submitted = sha256(input.code);
-    const expected = consumed.phone_otp_hash;
+    const expected = input.channel === 'phone' ? consumed.phone_otp_hash : consumed.email_otp_hash;
     const matches =
       expected !== null &&
       expected.length === submitted.length &&
@@ -223,13 +235,26 @@ export class SelfServeSignupService {
       throw otpInvalid(Math.max(0, OTP_MAX_ATTEMPTS - consumed.otp_attempt_count));
     }
 
+    // Phone must never set email_verified. A correct email code alone sets it.
+    // The attempt counter is shared by both codes and is NEVER reset (not by a
+    // success, not by a resend): resetting it would let a caller, who owns the
+    // phone, re-submit the phone code to refill the guesses on the email code.
     await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
-      await tx.query(
-        `UPDATE signup_attempt
-            SET phone_verified = true, updated_at = now()
-          WHERE id = $1`,
-        [consumed.id],
-      );
+      if (input.channel === 'phone') {
+        await tx.query(
+          `UPDATE signup_attempt
+              SET phone_verified = true, updated_at = now()
+            WHERE id = $1`,
+          [consumed.id],
+        );
+      } else {
+        await tx.query(
+          `UPDATE signup_attempt
+              SET email_verified = true, updated_at = now()
+            WHERE id = $1`,
+          [consumed.id],
+        );
+      }
     });
 
     const fresh = await this.loadAttempt(consumed.id);
@@ -239,8 +264,8 @@ export class SelfServeSignupService {
 
     return {
       emailVerified: fresh.email_verified,
-      phoneVerified: true,
-      nextStep: fresh.email_verified ? 'onboarding' : 'verify_email',
+      phoneVerified: fresh.phone_verified,
+      nextStep: nextStepFor(fresh),
     };
   }
 
@@ -252,36 +277,67 @@ export class SelfServeSignupService {
     resendAvailableAt: string;
   }> {
     this.assertEnabled();
+    if (input.channel !== 'phone' && input.channel !== 'email') {
+      throw otpInvalid(null);
+    }
     const row = await this.loadAttempt(input.verificationId);
+    // A resend never extends the attempt's life or refills its guesses: the ten
+    // minutes run from sign-up, and a verified channel has nothing to resend.
+    if (row.expires_at.getTime() <= Date.now()) throw otpExpired();
+    if (row.otp_attempt_count >= OTP_MAX_ATTEMPTS) {
+      throw otpTooManyAttempts(row.expires_at, this.policy.cellTimeZone);
+    }
+    if (input.channel === 'phone' ? row.phone_verified : row.email_verified) {
+      throw otpInvalid(null);
+    }
     if (row.resend_available_at.getTime() > Date.now()) {
       throw resendTooSoon(row.resend_available_at, this.policy.cellTimeZone);
     }
     const otp = randomOtp();
     const otpHash = sha256(otp);
     const now = Date.now();
-    const expiresAt = new Date(now + OTP_TTL_MINUTES * 60_000);
+    const expiresAt = row.expires_at;
     const resendAvailableAt = new Date(now + this.policy.resendSeconds * 1000);
     const phone = String(row.payload.phoneE164 ?? '');
     const email = String(row.payload.email ?? '');
 
     await withAuthTransaction(this.authPool, { tenantSlug: 'self-serve' }, async (tx) => {
-      await tx.query(
-        `UPDATE signup_attempt
-            SET phone_otp_hash = $2, expires_at = $3, resend_available_at = $4,
-                otp_attempt_count = 0, updated_at = now()
-          WHERE id = $1`,
-        [row.id, otpHash, expiresAt, resendAvailableAt],
-      );
+      if (input.channel === 'phone') {
+        await tx.query(
+          `UPDATE signup_attempt
+              SET phone_otp_hash = $2, resend_available_at = $3, updated_at = now()
+            WHERE id = $1`,
+          [row.id, otpHash, resendAvailableAt],
+        );
+      } else {
+        await tx.query(
+          `UPDATE signup_attempt
+              SET email_otp_hash = $2, resend_available_at = $3, updated_at = now()
+            WHERE id = $1`,
+          [row.id, otpHash, resendAvailableAt],
+        );
+      }
     });
 
-    await this.channel.send({
-      scope: SIGNUP_CELL_SCOPE,
-      channel: 'sms',
-      to: phone,
-      body: `Your Kasuwa verification code is ${otp}. It expires in ten minutes.`,
-      purpose: 'transactional',
-      idempotencyKey: `signup:${row.id}:phone:resend:${resendAvailableAt.toISOString()}`,
-    });
+    if (input.channel === 'phone') {
+      await this.channel.send({
+        scope: SIGNUP_CELL_SCOPE,
+        channel: 'sms',
+        to: phone,
+        body: `Your Kasuwa verification code is ${otp}. It expires in ten minutes.`,
+        purpose: 'transactional',
+        idempotencyKey: `signup:${row.id}:phone:resend:${resendAvailableAt.toISOString()}`,
+      });
+    } else {
+      await this.channel.send({
+        scope: SIGNUP_CELL_SCOPE,
+        channel: 'email',
+        to: email,
+        body: `Your Kasuwa email verification code is ${otp}. It expires in ten minutes.`,
+        purpose: 'transactional',
+        idempotencyKey: `signup:${row.id}:email:resend:${resendAvailableAt.toISOString()}`,
+      });
+    }
 
     return {
       verificationId: row.id,
@@ -341,4 +397,10 @@ export class SelfServeSignupService {
       await client.end();
     }
   }
+}
+
+function nextStepFor(row: SignupRow): 'verify_email' | 'verify_phone' | 'onboarding' {
+  if (row.phone_verified && row.email_verified) return 'onboarding';
+  if (!row.email_verified) return 'verify_email';
+  return 'verify_phone';
 }

@@ -95,7 +95,10 @@ import {
   ConversationsController,
   InboxProgrammeController,
 } from './inbox/conversations.controller';
-import { SearchController } from './search/search.controller';
+import {
+  CONVERSATION_SEARCH_ENABLED,
+  SearchController,
+} from './search/search.controller';
 import { SearchThrottleGuard } from './search/search-throttle.guard';
 import { JsonBodyLimit } from './common/json-body-limit';
 import { AUTH_MODE, KasuwaAuthGuard, type ResolvedAuthMode } from './tenancy/kasuwa-auth.guard';
@@ -301,6 +304,16 @@ export interface AppModuleOptions {
   selfServeProvisioningConnection?: string;
   inboxTemplatesEnabled?: boolean;
   inboxRoutingEnabled?: boolean;
+  /** `payment_links` (T-0169). Off, the payment-link create and read routes answer 404. */
+  paymentLinksEnabled?: boolean;
+  /** `conversation_search` (T-0193). Off, conversation is an unknown search type. */
+  conversationSearchEnabled?: boolean;
+  /** `vat_multitax` (T-0173). Off, invoices carry no tax lines. */
+  vatMultitaxEnabled?: boolean;
+  /** `mobile_money` (T-0177). Off, mobile-payment routes answer 404. */
+  mobileMoneyEnabled?: boolean;
+  /** `mbs_einvoicing` (T-0174). Off, e-invoice routes answer 404. */
+  mbsEinvoicingEnabled?: boolean;
 }
 
 /** Closes the import queues' Redis connections with the app. */
@@ -397,7 +410,20 @@ export class AppModule implements NestModule {
         // In-call script authoring (T-0113): its own module for its no-store
         // middleware, like the audit area.
         ScriptsModule,
-        CommerceModule,
+        CommerceModule.forRoot({
+          ...(options.paymentLinksEnabled === undefined
+            ? {}
+            : { paymentLinksEnabled: options.paymentLinksEnabled }),
+          ...(options.vatMultitaxEnabled === undefined
+            ? {}
+            : { vatMultitaxEnabled: options.vatMultitaxEnabled }),
+          ...(options.mobileMoneyEnabled === undefined
+            ? {}
+            : { mobileMoneyEnabled: options.mobileMoneyEnabled }),
+          ...(options.mbsEinvoicingEnabled === undefined
+            ? {}
+            : { mbsEinvoicingEnabled: options.mbsEinvoicingEnabled }),
+        }),
         InboxModule.forRoot({
           ...(options.inboxTemplatesEnabled === undefined
             ? {}
@@ -418,6 +444,10 @@ export class AppModule implements NestModule {
         // The per-user search budgets (T-0086, D-L134): one instance, so one
         // set of counters, for both search routes.
         SearchThrottleGuard,
+        {
+          provide: CONVERSATION_SEARCH_ENABLED,
+          useValue: options.conversationSearchEnabled === true,
+        },
         // CSV import (T-0094): the queues, the stored-object repository and
         // the interceptor that enqueues only after a transaction commits.
         {

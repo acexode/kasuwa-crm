@@ -855,7 +855,11 @@ describe('acceptance: T-0087 — every string through i18n, in every catalogue, 
       expect(key, `en.json has no label for ${what}`).toBeDefined();
       return key ?? `<missing ${what}>`;
     };
-    expect(enumAt('SearchType', 'enum'), 'the contract’s search types changed').toEqual([...GROUP_TYPES]);
+    // T-0193: the contract adds `conversation` (flagged); the palette still renders the four.
+    expect(enumAt('SearchType', 'enum'), 'the contract’s search types changed').toEqual([
+      ...GROUP_TYPES,
+      'conversation',
+    ]);
     const groupKeys = GROUP_TYPES.map((type) =>
       find(`the ${type} group (an id about search ending ".group.${type}")`, searchKey(en, [`.group.${type}`])),
     );

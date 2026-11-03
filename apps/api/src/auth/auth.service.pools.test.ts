@@ -38,7 +38,10 @@ vi.mock('@kasuwa/auth-crypto', async (importOriginal) => ({
 }));
 
 /** Every pool a transaction or a session lookup was opened on, in order. */
-const opened = vi.hoisted(() => ({ calls: [] as { kind: string; pool: unknown }[] }));
+const opened = vi.hoisted(() => ({
+  calls: [] as { kind: string; pool: unknown }[],
+  failWith: null as unknown,
+}));
 
 vi.mock('@kasuwa/db', async (importOriginal) => ({
   ...(await importOriginal<typeof Db>()),
@@ -48,6 +51,7 @@ vi.mock('@kasuwa/db', async (importOriginal) => ({
     fn: (tx: { tenantId: string | null; query: () => Promise<unknown[]> }) => unknown,
   ) => {
     opened.calls.push({ kind: 'transaction', pool });
+    if (opened.failWith !== null) throw opened.failWith;
     // No tenant resolves: every path takes its refusal branch, which is
     // enough to see which pool it opened, and writes nothing.
     return fn({ tenantId: null, query: async () => [] });
@@ -90,6 +94,7 @@ describe('AuthService: every auth transaction on the auth pool, one read on the 
     opened.calls = [];
     crypto.dummyPasswordHash.mockReset().mockResolvedValue('$argon2id$dummy');
     crypto.verifyPassword.mockReset().mockResolvedValue(false);
+    opened.failWith = null;
   });
 
   it('sign-in reads on the auth pool too, because the credential is a secret the app pool cannot read, then records the outcome there', async () => {
@@ -104,6 +109,16 @@ describe('AuthService: every auth transaction on the auth pool, one read on the 
       { kind: 'transaction', pool: 'auth' },
       { kind: 'transaction', pool: 'auth' },
     ]);
+  });
+
+  it('sign-in phase one answers 503 on a Postgres 42501, and rethrows other errors', async () => {
+    const input = { tenantSlug: 'w', email: 'a@example.test', password: 'x' };
+    opened.failWith = Object.assign(new Error('permission denied'), { code: '42501' });
+    await expect(service().signIn(input)).rejects.toMatchObject({
+      response: { statusCode: 503, code: 'service_unavailable' },
+    });
+    opened.failWith = Object.assign(new Error('boom'), { code: '23505' });
+    await expect(service().signIn(input)).rejects.toThrow('boom');
   });
 
   it.each([

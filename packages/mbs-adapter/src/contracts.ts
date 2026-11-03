@@ -26,4 +26,9 @@ export type MbsSubmitResult = z.infer<typeof MbsSubmitResultSchema>;
 export interface MbsProvider {
   readonly id: 'fake' | 'null';
   submit(request: MbsSubmitRequest): Promise<MbsSubmitResult>;
+  /**
+   * QR payload for a cleared IRN. Callers must not invent a host — only the
+   * provider that cleared the invoice knows how to address its QR.
+   */
+  qrPayloadForIrn(irn: string): string | null;
 }

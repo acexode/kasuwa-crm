@@ -1,11 +1,16 @@
 import type { MbsProvider } from './contracts';
+import { MbsProviderUnavailableError } from './errors';
 import { FakeMbsProvider } from './fake';
 
 export class NullMbsProvider implements MbsProvider {
   readonly id = 'null' as const;
 
   async submit(): Promise<never> {
-    throw new Error('MBS provider is not configured');
+    throw new MbsProviderUnavailableError();
+  }
+
+  qrPayloadForIrn(_irn: string): string | null {
+    return null;
   }
 }
 

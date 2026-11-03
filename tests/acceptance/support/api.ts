@@ -41,6 +41,11 @@ export interface CreateApiOptions {
   dndRegister?: DndRegister;
   inboxTemplatesEnabled?: boolean;
   inboxRoutingEnabled?: boolean;
+  conversationSearchEnabled?: boolean;
+  paymentLinksEnabled?: boolean;
+  vatMultitaxEnabled?: boolean;
+  mobileMoneyEnabled?: boolean;
+  mbsEinvoicingEnabled?: boolean;
 }
 
 /**
@@ -82,6 +87,15 @@ export async function createApi(
           ...(options.inboxRoutingEnabled === undefined
             ? {}
             : { inboxRoutingEnabled: options.inboxRoutingEnabled }),
+          // Phase 3 depth is default-on for acceptance, as portal is (D-L213). Suites that
+          // assert the flag-off answer pass `false`.
+          paymentLinksEnabled: options.paymentLinksEnabled ?? true,
+          vatMultitaxEnabled: options.vatMultitaxEnabled ?? true,
+          mobileMoneyEnabled: options.mobileMoneyEnabled ?? true,
+          mbsEinvoicingEnabled: options.mbsEinvoicingEnabled ?? true,
+          ...(options.conversationSearchEnabled === undefined
+            ? {}
+            : { conversationSearchEnabled: options.conversationSearchEnabled }),
         }),
       ),
     ],

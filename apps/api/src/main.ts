@@ -54,6 +54,19 @@ async function bootstrap(): Promise<void> {
     preTenant,
   );
   const inboxRoutingEnabled = await flagClient.getBooleanValue('inbox_routing', false, preTenant);
+  const paymentLinksEnabled = await flagClient.getBooleanValue('payment_links', false, preTenant);
+  const vatMultitaxEnabled = await flagClient.getBooleanValue('vat_multitax', false, preTenant);
+  const conversationSearchEnabled = await flagClient.getBooleanValue(
+    'conversation_search',
+    false,
+    preTenant,
+  );
+  const mobileMoneyEnabled = await flagClient.getBooleanValue('mobile_money', false, preTenant);
+  const mbsEinvoicingEnabled = await flagClient.getBooleanValue(
+    'mbs_einvoicing',
+    false,
+    preTenant,
+  );
 
   // Before the app is built, so the first request is already traced.
   startTelemetry(configuration.KASUWA_OTEL_EXPORTER);
@@ -74,6 +87,11 @@ async function bootstrap(): Promise<void> {
       onboardingPersistence,
       inboxTemplatesEnabled,
       inboxRoutingEnabled,
+      paymentLinksEnabled,
+      conversationSearchEnabled,
+      vatMultitaxEnabled,
+      mobileMoneyEnabled,
+      mbsEinvoicingEnabled,
       ...(crmImport && configuration.REDIS_URL !== undefined ? { redisUrl: configuration.REDIS_URL } : {}),
       ...(crmImport && storageConfigured() ? { objectStore: new S3ObjectStore(storageEnv()) } : {}),
       // Outside development and test, refuse to start when kasuwa_test_admin

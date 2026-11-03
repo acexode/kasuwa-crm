@@ -52,6 +52,7 @@ describe('feature flags', () => {
       'crm_notifications',
       'crm_duplicates',
       'crm_inbox',
+      'conversation_search',
       'crm_tickets',
       'crm_calls',
       'crm_reports',

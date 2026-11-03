@@ -584,13 +584,15 @@ paths:
       x-kasuwa-screens: ['P01/4']
       description: |
         Self-serve verification (T-0016), behind `self_serve_signup`. When the
-        flag is off, answers `404 not_found`. SMS OTP is delivered through the
-        channel adapter (fake in development/test until B1 is resolved).
+        flag is off, answers `404 not_found`. Phone OTP is SMS and email OTP is
+        email, both through the channel adapter (fake in development/test;
+        production fails closed until B1).
 
         Codes last ten minutes and allow five attempts. `otp_expired` and
         `otp_invalid` are separate codes because the caller has already proved
         possession of the `verificationId`; neither reveals anything about
-        another account.
+        another account. Phone verification never sets `emailVerified`;
+        provisioning waits for both channels.
       security: []
       requestBody:
         required: true
@@ -608,9 +610,9 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/VerificationResult' }
               example:
-                emailVerified: true
+                emailVerified: false
                 phoneVerified: true
-                nextStep: onboarding
+                nextStep: verify_email
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/OtpRejected' }
         '404': { $ref: '#/components/responses/NotFound' }

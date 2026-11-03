@@ -15,6 +15,7 @@ import { AdminErrorFilter } from '../admin/common/admin-errors';
 import { KasuwaAuthGuard } from '../tenancy/kasuwa-auth.guard';
 import { TenantTransactionInterceptor } from '../tenancy/tenant-transaction.interceptor';
 import { currentTx } from '../tenancy/tenant-context';
+import { MobileMoneyEnabledGuard } from './commerce-flags';
 import {
   createMobilePaymentFor,
   getMobilePaymentFor,
@@ -22,7 +23,7 @@ import {
 } from './mobile-payment.service';
 
 @Controller('api/v1/invoices')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(MobileMoneyEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class MobilePaymentInvoiceController {
@@ -36,7 +37,7 @@ export class MobilePaymentInvoiceController {
 }
 
 @Controller('api/v1/mobile-payments')
-@UseGuards(KasuwaAuthGuard)
+@UseGuards(MobileMoneyEnabledGuard, KasuwaAuthGuard)
 @UseInterceptors(TenantTransactionInterceptor)
 @UseFilters(AdminErrorFilter)
 export class MobilePaymentController {

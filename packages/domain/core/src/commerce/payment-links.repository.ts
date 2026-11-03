@@ -233,9 +233,7 @@ export async function markQuotePaidFromLink(
   if (quote === null) return null;
   if (quote.status === 'accepted') return quote;
   if (quote.status !== 'sent' && quote.status !== 'draft') return quote;
-  try {
-    return await setQuoteStatus(tx, quoteId, { status: 'accepted' });
-  } catch {
-    return quote;
-  }
+  // No catch: a failed update inside a transaction leaves it aborted, so
+  // swallowing the error would only hide it and fail the commit later (T-0169).
+  return setQuoteStatus(tx, quoteId, { status: 'accepted' });
 }
